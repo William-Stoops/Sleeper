@@ -364,9 +364,49 @@ journalctl --user -u sleeper.service -n 50
 ```
 
 ```bash
-launchctl load ~/Library/LaunchAgents/fr.sleeper.collecte.plist
+launchctl bootstrap gui/$(id -u) ~/Library/LaunchAgents/fr.sleeper.collecte.plist
+launchctl enable gui/$(id -u)/fr.sleeper.collecte
 launchctl list | grep sleeper
 ```
+
+`launchctl load` fonctionne encore mais est obsolète : `bootstrap` rattache
+explicitement l'agent à votre session graphique, celle dont le navigateur a
+besoin.
+
+#### Si la machine dort la nuit
+
+Deux pièges se referment l'un sur l'autre, et aucun ne se signale :
+
+1. **Un Mac endormi n'exécute rien.** `StartCalendarInterval` ne rattrape
+   l'exécution manquée qu'au réveil — la fenêtre du navigateur surgirait donc
+   à l'ouverture du capot, en pleine journée.
+2. **Un Mac réveillé par minuterie se rendort** après quelques minutes
+   d'inactivité. La collecte, qui dure une trentaine de minutes au premier
+   run, serait coupée en plein vol chaque nuit.
+
+D'où la paire, et elle est indissociable :
+
+```bash
+sudo pmset repeat wakeorpoweron MTWRFSU 04:25:00
+```
+
+```xml
+<key>ProgramArguments</key>
+<array>
+  <string>/usr/bin/caffeinate</string><string>-i</string>
+  <string>/opt/homebrew/bin/uv</string>
+  <string>run</string><string>sleeper</string><string>collecter</string>
+  <string>-c</string><string>config/local.toml</string>
+</array>
+```
+
+`pmset` réveille la machine cinq minutes avant l'heure ; `caffeinate -i`
+interdit la veille d'inactivité tant que le processus vit, et lève le verrou
+en mourant — y compris si la collecte échoue.
+
+> ⚠️ **Sur un portable, laissez l'alimentation branchée.** macOS ignore les
+> réveils programmés sur batterie. Le capot peut rester fermé : la session
+> graphique reste active, et c'est tout ce dont le navigateur a besoin.
 </details>
 
 <details>

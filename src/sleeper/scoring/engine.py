@@ -1,5 +1,11 @@
 """The scoring engine.
 
+**The score is a number of euros, not a ratio.** A ratio ranks the cheap
+vehicle first — it is easy to make 80 % of a 3 000 € quote and hard to make
+80 % of a 30 000 € one — and the day's best lots all came out looking the
+same. What the operator has to spend is an afternoon, and what it must buy
+back is euros.
+
 **This is a sort, not a valuation.** It is coarse, fast, entirely
 deterministic, explainable line by line, and above all conservative: better to
 surface a mediocre lot than to bury a good one. It decides no purchase — only
@@ -67,12 +73,19 @@ class ScoreResult:
     quote_eur: float | None
     acquisition_cost_eur: float
     repairs_eur: float
-    margin_eur: float | None
+    #: The margin **at the starting price**, in euros. Not an expected margin:
+    #: the hammer price is unknown and will be higher. It is the best case,
+    #: and it is the only one this sort is allowed to compute.
+    margin_at_start_eur: float | None
     score: float | None
     beyond_economic_repair: bool
     #: A prohibitive allowance fired — a leased traction battery, a dead
     #: engine, chassis corrosion. No price rescues those.
     prohibitive_fault: bool = False
+    #: The margin does not clear the floor. A hard gate: the lot leaves the
+    #: ranking entirely rather than being pushed down by a coefficient that
+    #: another coefficient could cancel out.
+    below_margin_floor: bool = False
     explanation: list[ScoreRule] = field(default_factory=list)
 
 
@@ -118,7 +131,7 @@ class ScoringEngine:
                 quote_eur=None,
                 acquisition_cost_eur=acquisition,
                 repairs_eur=repairs,
-                margin_eur=None,
+                margin_at_start_eur=None,
                 score=None,
                 beyond_economic_repair=beyond_repair,
                 prohibitive_fault=prohibitive,
@@ -126,18 +139,46 @@ class ScoringEngine:
             )
 
         margin = quote - acquisition - repairs
-        base = margin / quote
+        floor = self._margin_floor(quote)
+        below_floor = margin < floor
+        if below_floor:
+            rules.append(
+                ScoreRule(
+                    regle="marge_sous_le_plancher",
+                    cout_eur=round(floor - margin, 2),
+                    extrait_declencheur=(
+                        f"marge {margin:,.0f}\u00a0€ au prix de départ, plancher "
+                        f"{floor:,.0f}\u00a0€"
+                    ).replace(",", "\u00a0"),
+                )
+            )
         coefficient = self._coefficients(lot, beyond_repair, severities, rules)
         rules.sort(key=lambda r: (r.coefficient is None, r.coefficient or 0.0, r.regle))
         return ScoreResult(
             quote_eur=quote,
             acquisition_cost_eur=acquisition,
             repairs_eur=repairs,
-            margin_eur=margin,
-            score=base * coefficient,
+            margin_at_start_eur=margin,
+            # Euros, not a ratio. A ratio ranks the cheap car first: a Kangoo
+            # with 2 900 € on a 3 800 € quote beat a van with 8 000 € on
+            # 20 000 €, and the day's twenty-five best all looked alike.
+            score=margin * coefficient,
             beyond_economic_repair=beyond_repair,
             prohibitive_fault=prohibitive,
+            below_margin_floor=below_floor,
             explanation=rules,
+        )
+
+    def _margin_floor(self, quote: float) -> float:
+        """The margin below which a lot is not worth anyone's afternoon.
+
+        Two terms, the higher one wins: a flat sum, because the trip, the
+        paperwork and the money tied up cost the same on any vehicle; and a
+        share of the quote, because 3 500 € on a 40 000 € car is noise.
+        """
+        return max(
+            self._settings.minimum_margin_eur,
+            self._settings.minimum_margin_ratio * quote,
         )
 
     def _repair_budget(

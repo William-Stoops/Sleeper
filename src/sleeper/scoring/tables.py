@@ -132,6 +132,68 @@ class QuoteTable:
         return None if row is None else row.at(mileage)
 
 
+#: Below this many literal characters, an alternative is short enough to hide
+#: inside an ordinary word and must say so with a word boundary.
+_MIN_UNANCHORED = 5
+
+
+def _top_level_alternatives(pattern: str) -> list[str]:
+    """Split on the `|` that separate whole alternatives, not those in groups."""
+    parts: list[str] = []
+    depth, in_class, current, escaped = 0, False, "", False
+    for char in pattern:
+        if escaped:
+            current += char
+            escaped = False
+            continue
+        if char == "\\":
+            current += char
+            escaped = True
+            continue
+        if char == "[":
+            in_class = True
+        elif char == "]":
+            in_class = False
+        elif char == "(" and not in_class:
+            depth += 1
+        elif char == ")" and not in_class:
+            depth -= 1
+        if char == "|" and depth == 0 and not in_class:
+            parts.append(current)
+            current = ""
+        else:
+            current += char
+    parts.append(current)
+    return parts
+
+
+def _literal_length(alternative: str) -> int:
+    """How much ordinary text an alternative really requires.
+
+    Quantifiers and character classes are collapsed, so `[ée]` counts as the
+    single letter it matches and `.{0,15}` counts as nothing.
+    """
+    without_quantifiers = re.sub(r"\.\{[\d,]+\}|[?*+]", "", alternative)
+    without_classes = re.sub(r"\[[^\]]*\]", "x", without_quantifiers)
+    return len(re.sub(r"[()\\]", "", without_classes).strip())
+
+
+def _refuse_short_unanchored(pattern: str, path: Path, code: str) -> None:
+    """A short alternative without `\\b` matches inside ordinary words.
+
+    `RTI` cost this project 87 false positives: it hides in « ce*rti*ficat »,
+    a word present in almost every listing, and each match charged 2 500 € of
+    imaginary repairs. Refused at startup, where it is cheap to see.
+    """
+    for alternative in _top_level_alternatives(pattern):
+        if _literal_length(alternative) < _MIN_UNANCHORED and "\\b" not in alternative:
+            raise ConfigurationError(
+                f"motif trop court et non ancré dans {path}, ligne « {code} » : "
+                f"« {alternative.strip()} » peut se cacher à l'intérieur d'un mot "
+                "ordinaire. L'encadrer de \\b, ou l'écrire en toutes lettres."
+            )
+
+
 @dataclass(frozen=True, slots=True)
 class RepairMatch:
     """A repair allowance that a description triggered, with its evidence."""
@@ -176,6 +238,7 @@ class RepairTable:
                 raise ConfigurationError(
                     f"motif de reparation invalide dans {path}, ligne « {row['motif']} » : {exc}"
                 ) from exc
+            _refuse_short_unanchored(row["pattern"], path, row["motif"])
             severity = _severity(row["gravite"], path, row["motif"])
             rows.append(
                 RepairRow(

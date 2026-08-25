@@ -18,12 +18,8 @@ from typing import Any, Final
 
 import jsonschema
 
-from sleeper.domain.models import OutputDocument
+from sleeper.domain.models import SCHEMA_VERSION, OutputDocument
 from sleeper.errors import OutputError
-
-#: Version of the output contract. Any change is documented in docs/api.md and
-#: gives rise to a new schema file.
-SCHEMA_VERSION: Final = "2.0"
 
 SCHEMA_DIRECTORY: Final = Path("schemas")
 SCHEMA_NAME: Final = f"sortie-{SCHEMA_VERSION}.json"

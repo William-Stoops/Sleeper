@@ -10,7 +10,7 @@ Only the local-file destination is implemented today.
 from __future__ import annotations
 
 import re
-from datetime import datetime
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Final, Protocol
 
@@ -126,9 +126,17 @@ def _refuse_to_forge_a_cloud_folder(directory: Path) -> None:
 
 
 def timestamped_name(prefix: str, instant: datetime, extension: str) -> str:
-    """Build a portable file name: `sleeper-2026-08-25-1441.json`.
+    """Build a portable file name: `sleeper-20260825T144107Z.json`.
 
-    Minute precision, no offset, no separators a filesystem dislikes. The tool
-    runs once a day; anything finer only makes the name unreadable.
+    ISO 8601 basic format, in UTC. Three properties, and the tool needs all
+    three:
+
+    * **Unambiguous.** A local-time name says nothing about its offset. On the
+      night the clocks go back, two runs an hour apart would claim the same
+      name, and the second would overwrite the first.
+    * **Sortable.** Lexicographic order is chronological order, so a listing
+      is a history without anyone having to parse it.
+    * **Portable.** No colon: Windows refuses them in file names, which rules
+      out the extended format ISO 8601 would otherwise prefer.
     """
-    return f"{prefix}-{instant:%Y-%m-%d-%H%M}.{extension}"
+    return f"{prefix}-{instant.astimezone(UTC):%Y%m%dT%H%M%SZ}.{extension}"

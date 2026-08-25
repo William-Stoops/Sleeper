@@ -16,14 +16,15 @@ import pytest
 import structlog
 
 from sleeper.api import mapping, operations
-from sleeper.config import Configuration, LoggingConfig, load_configuration
-from sleeper.domain.models import OutputDocument
+from sleeper.config import Configuration, LoggingConfig, ScoringConfig, load_configuration
+from sleeper.domain.models import Lot, OutputDocument
 from sleeper.errors import AntiBotChallengeError, UpstreamSchemaError
 from sleeper.logging_setup import configure as configure_logging
 from sleeper.output import document
-from sleeper.pipeline import Collector, _fingerprint
+from sleeper.pipeline import Collector, _fingerprint, _worth_quoting
+from sleeper.scoring.engine import ScoreResult
 from sleeper.state.store import SleeperState
-from tests.conftest import load
+from tests.conftest import load, minimal_lot
 
 T0 = datetime(2026, 8, 25, 4, 30, tzinfo=UTC)
 
@@ -360,3 +361,67 @@ class TestBuyerFees:
         # 14,4 % TTC : surestimer ne coûte qu'un lot manqué, sous-estimer coûte
         # une enchère perdue.
         assert config.buyer_fees.default_pct >= 14.0
+
+
+class TestSleeperEscapeHatch:
+    """L'échappatoire « sans cote » retenait 101 lots d'un seul run.
+
+    Une file prioritaire de cette longueur n'est plus une priorité. Pas cher et
+    inconnu reste le profil recherché — mais passé un certain âge et un certain
+    kilométrage, pas cher et inconnu est pas cher pour une raison.
+    """
+
+    SETTINGS = ScoringConfig()
+
+    def _lot(self, **overrides: Any) -> Lot:
+        return minimal_lot(**overrides)
+
+    def _result(self, **overrides: object) -> ScoreResult:
+        base: dict[str, object] = {
+            "quote_eur": None,
+            "acquisition_cost_eur": 500.0,
+            "repairs_eur": 0.0,
+            "margin_at_start_eur": None,
+            "score": None,
+            "beyond_economic_repair": False,
+        }
+        base.update(overrides)
+        return ScoreResult(**base)  # type: ignore[arg-type]
+
+    def test_a_recent_low_mileage_unknown_is_surfaced(self) -> None:
+        lot = self._lot(first_registration="2020-01-01", mileage=40000, starting_price=800.0)
+        assert _worth_quoting(lot, self._result(), set(), self.SETTINGS, 2026) is True
+
+    def test_an_old_vehicle_is_not(self) -> None:
+        lot = self._lot(first_registration="2004-01-01", mileage=40000, starting_price=800.0)
+        assert _worth_quoting(lot, self._result(), set(), self.SETTINGS, 2026) is False
+
+    def test_a_worn_out_vehicle_is_not(self) -> None:
+        lot = self._lot(first_registration="2020-01-01", mileage=320000, starting_price=800.0)
+        assert _worth_quoting(lot, self._result(), set(), self.SETTINGS, 2026) is False
+
+    def test_an_unreadable_age_is_not_a_promising_unknown(self) -> None:
+        """C'est une annonce illisible, et la file se travaille à la main."""
+        lot = self._lot(first_registration="", mileage=40000, starting_price=800.0)
+        assert _worth_quoting(lot, self._result(), set(), self.SETTINGS, 2026) is False
+
+    def test_an_unreadable_mileage_is_not_either(self) -> None:
+        lot = self._lot(first_registration="2020-01-01", mileage=None, starting_price=800.0)
+        assert _worth_quoting(lot, self._result(), set(), self.SETTINGS, 2026) is False
+
+    def test_the_prohibitive_fault_still_shuts_the_door(self) -> None:
+        """Le piège de la Zoé : récent, peu cher, et sans issue."""
+        lot = self._lot(first_registration="2020-01-01", mileage=40000, starting_price=800.0)
+        result = self._result(prohibitive_fault=True)
+        assert _worth_quoting(lot, result, set(), self.SETTINGS, 2026) is False
+
+    def test_the_ranking_door_ignores_plausibility(self) -> None:
+        """Un lot classé entre par la grande porte, quel que soit son âge."""
+        lot = self._lot(first_registration="1998-01-01", mileage=850000)
+        assert _worth_quoting(lot, self._result(), {lot.id}, self.SETTINGS, 2026) is True
+
+    def test_the_age_is_measured_from_the_run_not_from_today(self) -> None:
+        """Rejouer un run doit redonner le même classement, dans dix ans aussi."""
+        lot = self._lot(first_registration="2020-01-01", mileage=40000, starting_price=800.0)
+        assert _worth_quoting(lot, self._result(), set(), self.SETTINGS, 2026) is True
+        assert _worth_quoting(lot, self._result(), set(), self.SETTINGS, 2050) is False

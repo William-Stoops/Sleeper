@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import os
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta, timezone
 from pathlib import Path
 
 import pytest
@@ -66,16 +66,35 @@ class TestLatestLink:
 
 
 class TestTimestampedName:
-    def test_produces_a_readable_portable_name(self) -> None:
-        name = timestamped_name("sleeper", datetime(2026, 8, 25, 4, 30, tzinfo=UTC), "json")
-        assert name == "sleeper-2026-08-25-0430.json"
-        assert ":" not in name
+    def test_produces_an_iso_8601_name_in_utc(self) -> None:
+        name = timestamped_name("sleeper", datetime(2026, 8, 25, 4, 30, 17, tzinfo=UTC), "json")
+        assert name == "sleeper-20260825T043017Z.json"
 
-    def test_precision_stops_at_the_minute(self) -> None:
-        # L'outil tourne une fois par jour : plus fin ne fait qu'illisible.
-        first = timestamped_name("sleeper", datetime(2026, 8, 25, 12, 40, 2), "json")
-        second = timestamped_name("sleeper", datetime(2026, 8, 25, 12, 40, 59), "json")
-        assert first == second == "sleeper-2026-08-25-1240.json"
+    def test_it_carries_no_colon(self) -> None:
+        """Windows les refuse : le format étendu d'ISO 8601 est hors jeu."""
+        assert ":" not in timestamped_name(
+            "sleeper", datetime(2026, 8, 25, 4, 30, tzinfo=UTC), "md"
+        )
+
+    def test_a_local_instant_is_normalised_to_utc(self) -> None:
+        paris = timezone(timedelta(hours=2))
+        assert (
+            timestamped_name("sleeper", datetime(2026, 8, 25, 18, 40, 23, tzinfo=paris), "json")
+            == "sleeper-20260825T164023Z.json"
+        )
+
+    def test_lexicographic_order_is_chronological_order(self) -> None:
+        """Un listing devient une histoire, sans que personne n'analyse le nom."""
+        paris_ete = timezone(timedelta(hours=2))
+        paris_hiver = timezone(timedelta(hours=1))
+        avant = timestamped_name("sleeper", datetime(2026, 10, 25, 2, 30, tzinfo=paris_ete), "json")
+        # La nuit du changement d'heure rejoue 2h30 : en heure locale les deux
+        # runs portaient le même nom, et le second écrasait le premier.
+        apres = timestamped_name(
+            "sleeper", datetime(2026, 10, 25, 2, 30, tzinfo=paris_hiver), "json"
+        )
+        assert avant != apres
+        assert sorted([apres, avant]) == [avant, apres]
 
 
 class TestCloudFolderGuard:

@@ -9,7 +9,7 @@ injection,"injecteurs?.{0,15}HS|d[ée]faut injection|probl[èe]me.{0,10}injectio
 embrayage,"embrayage.{0,10}(HS|dur|à pr[ée]voir)|pr[ée]voir kit embrayage|volant moteur",1200,moyen
 distribution,"distribution à pr[ée]voir|kit de distribution|chaine de distribution bruyante|cha[iî]ne de distribution",1000,moyen
 adblue,"probl[èe]me circuit AdBlue|voyant urea|t[ée]moin adblue",600,moyen
-vitrage_non_receptionne,"vitrages? non conformes?|vitrage n'est pas r[ée]ceptionn[ée]|r[ée]ception à titre isol[ée]|RTI",2500,lourd
+vitrage_non_receptionne,"vitrages? non conformes?|vitrage n'est pas r[ée]ceptionn[ée]|r[ée]ception à titre isol[ée]|vitrage non r[ée]ceptionn[ée]|\bRTI\b",2500,lourd
 serigraphie_perforations,"toit perc[ée]|hayon perc[ée]|trous sur le (pavillon|tableau de bord)|montants perc[ée]s|enl[èe]vement de la s[ée]rigraphie|d[ée]s[ée]quip[ée] des [ée]l[ée]ments (Gendarmerie|Police)",900,moyen
 pare_brise,"pare[- ]brise.{0,20}(HS|fissur|f[êe]l[ée]|impact)|impact pare[- ]brise",400,leger
 pneus,"pneus?.{0,10}HS|4 pneus|remplacement des pneumatiques|pneumatiques HS",500,leger

@@ -8,59 +8,16 @@ from __future__ import annotations
 import json
 from datetime import UTC, datetime
 from pathlib import Path
-from typing import Any
 
 import pytest
 from typer.testing import CliRunner
 
 from sleeper import cli
-from sleeper.domain.inspection import Inspection
-from sleeper.domain.models import Lot, OutputDocument, Run, RunError
+from sleeper.domain.models import SCHEMA_VERSION, Lot, OutputDocument, Run, RunError
 from sleeper.errors import AntiBotChallengeError
+from tests.conftest import minimal_lot
 
 runner = CliRunner()
-
-
-def minimal_lot(**overrides: Any) -> Lot:
-    base: dict[str, Any] = {
-        "id": "1",
-        "url": "https://exemple/lot/1",
-        "sale_id": "467",
-        "number": "1",
-        "title": "DACIA DUSTER",
-        "category": "Véhicules",
-        "trade_only": True,
-        "make": "DACIA",
-        "model": "DUSTER",
-        "variant": "",
-        "first_registration": "2015-12-23",
-        "mileage": 110430,
-        "fuel": "Gazole",
-        "gearbox": "Boîte manuelle",
-        "tax_horsepower": 6,
-        "vin": "",
-        "crit_air": "",
-        "inspection": Inspection(),
-        "registration_certificate": True,
-        "keys": True,
-        "declared_condition": "",
-        "starting_price": 1500.0,
-        "current_bid": None,
-        "bidder_count": None,
-        "collection_place": "LILLE",
-        "postcode": "59000",
-        "department": "59",
-        "viewing_dates": "",
-        "buyer_fee_pct": None,
-        "vat_reclaimable": None,
-        "full_description": "",
-        "scope": "dans",
-        "new_since_last_run": True,
-        "bid_moved": False,
-        "missing_fields": [],
-    }
-    base.update(overrides)
-    return Lot(**base)
 
 
 def make_document(lots: list[Lot], errors: list[RunError] | None = None) -> OutputDocument:
@@ -151,7 +108,7 @@ class TestSchema:
         monkeypatch.chdir(tmp_path)
         result = runner.invoke(cli.app, ["schema"])
         assert result.exit_code == 0
-        assert (tmp_path / "schemas" / "sortie-2.0.json").is_file()
+        assert (tmp_path / "schemas" / f"sortie-{SCHEMA_VERSION}.json").is_file()
 
 
 class TestCollect:

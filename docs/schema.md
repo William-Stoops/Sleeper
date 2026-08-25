@@ -8,7 +8,8 @@ publié divergent, le run échoue plutôt que de livrer.
 | Version | Date | État | Schéma |
 |---|---|---|---|
 | `1.0` | 2026-08-25 | **gelée** — ne plus produire | [`schemas/sortie-1.0.json`](../schemas/sortie-1.0.json) |
-| `2.0` | 2026-08-25 | **courante** | [`schemas/sortie-2.0.json`](../schemas/sortie-2.0.json) |
+| `2.0` | 2026-08-25 | **gelée** — ne plus produire | [`schemas/sortie-2.0.json`](../schemas/sortie-2.0.json) |
+| `3.0` | 2026-08-25 | **courante** | [`schemas/sortie-3.0.json`](../schemas/sortie-3.0.json) |
 
 ---
 
@@ -35,6 +36,28 @@ document = read_document(Path("latest.json"))  # lève OutputError si la version
 **Aucune rétrocompatibilité de code n'est assurée.** La 1.0 est gelée : son
 schéma reste publié pour que d'anciens fichiers restent interprétables, mais
 plus rien ne la produit et rien ne la relit.
+
+---
+
+## Migration 2.0 → 3.0
+
+Un seul champ change de nom, et il change de sens en même temps — d'où la
+version majeure plutôt qu'une mineure.
+
+### Au niveau du lot
+
+| 2.0 | 3.0 | Pourquoi |
+|---|---|---|
+| `marge_theorique` | **`marge_au_prix_de_depart`** | le nom laissait croire à une marge attendue. C'est la marge **si le lot part au prix de départ** : le meilleur cas, jamais le cas probable, puisque le prix au marteau sera plus haut |
+| — | **`marge_sous_le_plancher`** | vrai quand la marge ne franchit pas le plancher. Le lot reste dans le document, avec son motif dans `score_explication`, mais il n'a pas de rang |
+
+### Ce que `score` veut dire désormais
+
+**Des euros, plus un ratio.** La 2.0 calculait `marge / cote`, ce qui classait
+la voiture bon marché en tête : réaliser 80 % d'une cote de 3 000 € est facile,
+80 % d'une cote de 30 000 € ne l'est pas. Un consommateur qui comparait des
+scores 2.0 et 3.0 comparerait des grandeurs sans rapport — c'est précisément ce
+que le refus de lecture dégradée empêche.
 
 ---
 

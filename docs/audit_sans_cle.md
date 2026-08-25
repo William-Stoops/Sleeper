@@ -17,7 +17,6 @@ prédicat corrigé le range désormais en `hors_categorie_vehicule`.
 |---|---|---|---|---|
 | [298559](https://encheres-domaine.gouv.fr/lot/fiat-scudo-doo-5.html) | FIAT SCUDO | `vl` | *(attribut)* | — |
 | [298569](https://encheres-domaine.gouv.fr/lot/fiat-ducato-doo-10.html) | FIAT DUCATO | `vu` | *(attribut)* | — |
-| [298585](https://encheres-domaine.gouv.fr/lot/peugeot-308-doo-61.html) | peugeot 308 | `vl` | *(attribut)* | — |
 | [134374](https://encheres-domaine.gouv.fr/lot/68e164415a04c.html) | LAND ROVER | `vl` | `absence de cle` | …rie SALLJGMF8HA480195, 1 ère mis en circulation 13/03/1991, 10 cv, 07 places. km inconnu .Absence de clé . Visites sur place uniquement le vendredi 31/07/2026 de 09h00 à 10h30 Enlèvement sur pla… |
 | [204445](https://encheres-domaine.gouv.fr/lot/fiat-500-av-893-se-1.html) | FIAT 500 | `vl` | `pas de cle` | …e ZFA31200000098945, 1 ère mise en circulation le 28/11/2008, 06 cv, 04 places . Fermé et pas de clé. Enlèvement sur plateau obligatoire à la charge exclusive de l'acquéreur et sur rendez vo… |
 | [273148](https://encheres-domaine.gouv.fr/lot/69fb1d574f627.html) | PEUGEOT 208 | `vl` | *(attribut)* | — |
@@ -37,18 +36,19 @@ prédicat corrigé le range désormais en `hors_categorie_vehicule`.
 | [296221](https://encheres-domaine.gouv.fr/lot/6a285953bcffd.html) | VOLVO XC 60 | `vl` | `absence de cle` | …rie YV1DZA8CDH2122878, 1ère mise en circulation 29/09/2017, km inconnu, véhicule fermé et absence de clé, absence de certificat d'immatriculation. Les visites se feront uniquement le vendredi 21… |
 | [334132](https://encheres-domaine.gouv.fr/lot/6a749a33726a7.html) | VOLKSWAGEN GOLF | `vl` | *(attribut)* | — |
 | [339354](https://encheres-domaine.gouv.fr/lot/6a80ff95e3587.html) | NISSAN QASHQAI | `vl` | `absence de cle` | …J11U2778552, 1ère mise en circulation 30/09/2020, 08cv , 05 places, véhicule fermé à clé, absence de clé, km inconnu, vitre arrière cassée, pare brise fêlé, nombreuses rayures et chocs divers de… |
-| [336633](https://encheres-domaine.gouv.fr/lot/broyeurduratech-1.html) | Broyeur DURATECH | `engin` ⚠️ | *(attribut)* | — |
-| [336636](https://encheres-domaine.gouv.fr/lot/broyeur-1-doo-3.html) | Broyeur | `engin` ⚠️ | *(attribut)* | — |
-| [336641](https://encheres-domaine.gouv.fr/lot/cribleurrotatifmenarttr1535-1.html) | Cribleur Rotatif Ménart TR1535 | `engin` ⚠️ | *(attribut)* | — |
-| [336650](https://encheres-domaine.gouv.fr/lot/chargeurtelescopique-1.html) | Chargeur telescopique | `engin` ⚠️ | *(attribut)* | — |
 | [288940](https://encheres-domaine.gouv.fr/lot/renaultfurgon963pvl75-1.html) | RENAULT Kangoo | `vu` | *(attribut)* | — |
 | [332335](https://encheres-domaine.gouv.fr/lot/bmwx63-0d285ch-1.html) | BMW X6 | `vl` | *(attribut)* | — |
 | [327797](https://encheres-domaine.gouv.fr/lot/autocarmercedesintouro-1-doo-11.html) | Car MERCEDES-BENZ Intouro ME | `pl` | `sans cle` | …GT, type MBU ME 926, n° de série WEB63325213255051, 498095 km non garantis au 10/04/2025. Sans clé. Climatisation intégrale. Élévateur UFR. Carte grise 64 places, 59 places assises, 23 pla… |
 | [316238](https://encheres-domaine.gouv.fr/lot/alfa-romeo-147.html) | ALFA ROMEO 147 | `vl` | *(attribut)* | — |
+| [326053](https://encheres-domaine.gouv.fr/lot/ford-focus-doo-18.html) | FORD Focus | `vl` | *(attribut)* | — |
+| [326032](https://encheres-domaine.gouv.fr/lot/b-m-w-330d.html) | BMW 330D | `vl` | *(attribut)* | — |
+| [325564](https://encheres-domaine.gouv.fr/lot/renault-clio-doo-205.html) | RENAULT Clio | `vl` | *(attribut)* | — |
+| [338522](https://encheres-domaine.gouv.fr/lot/skoda-superb-doo-2.html) | SKODA Superb | `vl` | *(attribut)* | — |
+| [337777](https://encheres-domaine.gouv.fr/lot/renault-megane-scenic-doo-5.html) | RENAULT Mégane Scénic | `vl` | *(attribut)* | — |
 
 ## Bilan
 
-- **4 lot(s) mal attribué(s)** sur les 30 audités :
+- **0 lot(s) mal attribué(s)** sur les 30 audités :
   ce sont des engins non immatriculables, désormais rangés en
   `hors_categorie_vehicule`.
 - **16 lot(s)** ont déclenché sur un **attribut structuré** de la

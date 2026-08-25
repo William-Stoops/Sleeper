@@ -19,7 +19,7 @@ Non-negotiable convention on null values:
 from __future__ import annotations
 
 from datetime import datetime
-from typing import Annotated, Literal
+from typing import Annotated, Final, Literal
 
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -164,12 +164,18 @@ class Lot(SleeperModel):
     # --- l'analyse coûteuse. Voir `scoring/engine.py`.
     quote_eur: float | None = Field(alias="cote_reference", default=None)
     repairs_eur: float = Field(alias="remise_en_etat_estimee", default=0.0, ge=0)
-    margin_eur: float | None = Field(alias="marge_theorique", default=None)
+    #: Marge **au prix de départ**, en euros. Ce n'est pas une marge attendue :
+    #: le prix au marteau est inconnu et sera plus haut. C'est le meilleur cas,
+    #: et c'est le seul que ce tri ait le droit de calculer.
+    margin_at_start_eur: float | None = Field(alias="marge_au_prix_de_depart", default=None)
     score: float | None = Field(alias="score", default=None)
     rank: int | None = Field(alias="rang", default=None, ge=1)
     score_explanation: list[ScoreRule] = Field(alias="score_explication", default_factory=list)
     beyond_economic_repair: bool = Field(alias="non_reparable_economiquement", default=False)
     to_quote: bool = Field(alias="a_coter", default=False)
+    #: Écarté du classement parce que sa marge ne franchit pas le plancher.
+    #: Il reste dans le JSON, avec son motif dans `score_explication`.
+    below_margin_floor: bool = Field(alias="marge_sous_le_plancher", default=False)
 
     @property
     def scope_unknown(self) -> bool:
@@ -191,10 +197,18 @@ class RejectedLot(SleeperModel):
     reason: str = Field(alias="motif")
 
 
+#: Version du contrat de sortie. Déclarée ici, et **seulement ici** : la
+#: déclarer aussi dans le module de sérialisation avait laissé les deux
+#: dériver, et un document se disait 2.0 pendant que le validateur exigeait
+#: 3.0. Toute évolution est documentée dans docs/schema.md et donne lieu à un
+#: nouveau fichier de schéma.
+SCHEMA_VERSION: Final[Literal["3.0"]] = "3.0"
+
+
 class OutputDocument(SleeperModel):
     """The document produced by each execution."""
 
-    schema_version: Literal["2.0"] = "2.0"
+    schema_version: Literal["3.0"] = SCHEMA_VERSION
     run: Run
     sales: list[Sale] = Field(alias="ventes")
     lots: list[Lot]

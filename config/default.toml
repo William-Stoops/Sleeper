@@ -160,6 +160,22 @@ seuil_sans_cote_eur = 2000.0
 # marque non reparable economiquement.
 plafond_reparations_ratio = 0.6
 
+# Plancher de marge. Un lot qui ne le franchit pas n'est pas classé : c'est
+# une porte fermée, pas un coefficient qu'un autre viendrait rattraper. Le
+# plus haut des deux termes l'emporte — la somme fixe parce que le
+# déplacement, la paperasse et l'argent immobilisé coûtent pareil sur
+# n'importe quel véhicule ; la part de la cote parce que 3 500 € sur une
+# cote de 40 000 €, c'est du bruit.
+marge_minimale_eur = 3500.0
+marge_minimale_ratio = 0.20
+
+# Plausibilité de l'échappatoire « sans cote ». Un modèle que la table ignore,
+# vendu 500 €, est le profil recherché — mais passé cet âge et ce
+# kilométrage, pas cher et inconnu est pas cher pour une raison.
+sans_cote_age_max_ans = 15
+sans_cote_km_max = 180000
+
+
 # Coefficients. Aucun n'est en dur dans le code.
 #
 # Le 1,20 des lots professionnels traduit un fait de marche : la moitie des

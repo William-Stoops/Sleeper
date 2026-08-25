@@ -24,7 +24,7 @@ from sleeper import __version__
 from sleeper.api.client import DomaineClient
 from sleeper.api.transport import BrowserTransport
 from sleeper.config import Configuration, load_configuration
-from sleeper.domain.models import OutputDocument, RunError
+from sleeper.domain.models import SCHEMA_VERSION, OutputDocument, RunError
 from sleeper.errors import AntiBotChallengeError, SleeperError
 from sleeper.logging_setup import configure
 from sleeper.output import document as output_document
@@ -251,7 +251,7 @@ def authorise_drive(config_path: ConfigPath = DEFAULT_CONFIG) -> None:
 def schema() -> None:
     """(Re)publie le JSON Schema du document de sortie."""
     path = output_document.publish_schema()
-    console.print(f"Schéma {output_document.SCHEMA_VERSION} publié : [bold]{path}[/]")
+    console.print(f"Schéma {SCHEMA_VERSION} publié : [bold]{path}[/]")
 
 
 if __name__ == "__main__":  # pragma: no cover

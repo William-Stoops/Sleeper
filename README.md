@@ -487,6 +487,47 @@ ce run — ils ont été relevés sur le terrain, pas inventés.
 Tous les coefficients vivent dans `[score]` de `config/default.toml`, aucun
 n'est en dur.
 
+#### Le score compte des euros
+
+```
+coût_acquisition   = mise_à_prix × (1 + frais_%/100)
+marge_au_prix_de_départ = cote − coût_acquisition − remise_en_état
+score              = marge_au_prix_de_départ × produit(coefficients)
+```
+
+**Des euros, pas un ratio.** La version précédente divisait la marge par la
+cote, et cela classait la voiture bon marché en tête : réaliser 80 % d'une cote
+de 3 000 € est facile, 80 % d'une cote de 30 000 € ne l'est pas. Sur le run du
+25 août, un Kangoo à 2 919 € de marge se plaçait devant des utilitaires bien
+plus rentables. Ce que l'opérateur dépense est un après-midi, et ce que cet
+après-midi doit racheter, ce sont des euros.
+
+**`marge_au_prix_de_depart` n'est pas une marge attendue.** C'est la marge *si
+le lot part au prix de départ* : le meilleur cas, jamais le cas probable,
+puisque le prix au marteau sera plus haut. Le nom le dit, pour que personne
+n'ait à le deviner.
+
+#### Le plancher de marge est une porte, pas un coefficient
+
+```toml
+[score]
+marge_minimale_eur = 3500.0
+marge_minimale_ratio = 0.20
+```
+
+Un lot dont la marge ne franchit pas `max(3 500 €, 20 % de la cote)` **quitte
+le classement**. Il n'y descend pas : un coefficient se rattrape par un autre,
+une porte fermée ne se rattrape pas. Le lot reste dans le JSON avec
+`marge_sous_le_plancher: true` et son motif chiffré dans `score_explication`.
+
+Les deux termes, et pourquoi il en faut deux : la somme fixe, parce que le
+déplacement, la paperasse et l'argent immobilisé coûtent pareil sur n'importe
+quel véhicule ; la part de la cote, parce que 3 500 € sur une cote de 40 000 €,
+c'est du bruit. Le plus haut des deux l'emporte.
+
+Sur le run du 25 août, **99 des 195 lots cotés tombent sous ce plancher** — le
+Kangoo du rang 25 le premier, avec 2 919 € de marge.
+
 ### Enrichir les règles sans toucher au code
 
 Quand vous croisez une formulation non couverte :

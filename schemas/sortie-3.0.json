@@ -1,0 +1,810 @@
+{
+  "$defs": {
+    "Inspection": {
+      "additionalProperties": false,
+      "description": "What a listing says about the vehicle's roadworthiness test.",
+      "properties": {
+        "mentionne": {
+          "default": false,
+          "title": "Mentionne",
+          "type": "boolean"
+        },
+        "date": {
+          "anyOf": [
+            {
+              "format": "date",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Date"
+        },
+        "resultat": {
+          "default": "inconnu",
+          "enum": [
+            "favorable",
+            "favorable_defaillances_mineures",
+            "defavorable_contre_visite",
+            "inconnu"
+          ],
+          "title": "Resultat",
+          "type": "string"
+        },
+        "valide_a_la_date_du_run": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Valide A La Date Du Run"
+        }
+      },
+      "title": "Inspection",
+      "type": "object"
+    },
+    "Lot": {
+      "additionalProperties": false,
+      "description": "A vehicle lot, in the exact shape of the output contract.",
+      "properties": {
+        "id": {
+          "title": "Id",
+          "type": "string"
+        },
+        "url": {
+          "title": "Url",
+          "type": "string"
+        },
+        "vente_id": {
+          "title": "Vente Id",
+          "type": "string"
+        },
+        "numero": {
+          "title": "Numero",
+          "type": "string"
+        },
+        "titre": {
+          "title": "Titre",
+          "type": "string"
+        },
+        "categorie": {
+          "title": "Categorie",
+          "type": "string"
+        },
+        "segment": {
+          "default": "vl",
+          "enum": [
+            "vl",
+            "vu",
+            "pl",
+            "engin"
+          ],
+          "title": "Segment",
+          "type": "string"
+        },
+        "reserve_aux_professionnels": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Reserve Aux Professionnels"
+        },
+        "marque": {
+          "title": "Marque",
+          "type": "string"
+        },
+        "modele": {
+          "title": "Modele",
+          "type": "string"
+        },
+        "version": {
+          "title": "Version",
+          "type": "string"
+        },
+        "premiere_mise_en_circulation": {
+          "title": "Premiere Mise En Circulation",
+          "type": "string"
+        },
+        "kilometrage": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Kilometrage"
+        },
+        "km_par_an": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Km Par An"
+        },
+        "energie": {
+          "title": "Energie",
+          "type": "string"
+        },
+        "boite": {
+          "title": "Boite",
+          "type": "string"
+        },
+        "puissance_fiscale": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Puissance Fiscale"
+        },
+        "vin": {
+          "title": "Vin",
+          "type": "string"
+        },
+        "crit_air": {
+          "title": "Crit Air",
+          "type": "string"
+        },
+        "controle_technique": {
+          "$ref": "#/$defs/Inspection"
+        },
+        "carte_grise": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Carte Grise"
+        },
+        "cles": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Cles"
+        },
+        "etat_declare": {
+          "title": "Etat Declare",
+          "type": "string"
+        },
+        "dommages_carrosserie": {
+          "default": "aucun",
+          "enum": [
+            "aucun",
+            "usage",
+            "cosmetique",
+            "structurel"
+          ],
+          "title": "Dommages Carrosserie",
+          "type": "string"
+        },
+        "mise_a_prix": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Mise A Prix"
+        },
+        "enchere_en_cours": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Enchere En Cours"
+        },
+        "nb_encherisseurs": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Nb Encherisseurs"
+        },
+        "lieu_retrait": {
+          "title": "Lieu Retrait",
+          "type": "string"
+        },
+        "code_postal": {
+          "maxLength": 10,
+          "title": "Code Postal",
+          "type": "string"
+        },
+        "departement": {
+          "maxLength": 3,
+          "title": "Departement",
+          "type": "string"
+        },
+        "dates_visite": {
+          "title": "Dates Visite",
+          "type": "string"
+        },
+        "date_cloture": {
+          "anyOf": [
+            {
+              "format": "date-time",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Date Cloture"
+        },
+        "frais_acheteur_pct": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Frais Acheteur Pct"
+        },
+        "frais_acheteur_source": {
+          "default": "absent",
+          "enum": [
+            "vente",
+            "lot",
+            "config",
+            "absent"
+          ],
+          "title": "Frais Acheteur Source",
+          "type": "string"
+        },
+        "frais_hypothetiques": {
+          "default": false,
+          "title": "Frais Hypothetiques",
+          "type": "boolean"
+        },
+        "tva_recuperable": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Tva Recuperable"
+        },
+        "description_integrale": {
+          "title": "Description Integrale",
+          "type": "string"
+        },
+        "perimetre": {
+          "enum": [
+            "dans",
+            "hors",
+            "inconnu"
+          ],
+          "title": "Perimetre",
+          "type": "string"
+        },
+        "perimetre_herite": {
+          "default": false,
+          "title": "Perimetre Herite",
+          "type": "boolean"
+        },
+        "nouveau_depuis_dernier_run": {
+          "title": "Nouveau Depuis Dernier Run",
+          "type": "boolean"
+        },
+        "enchere_a_bouge": {
+          "title": "Enchere A Bouge",
+          "type": "boolean"
+        },
+        "champs_manquants": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Champs Manquants",
+          "type": "array"
+        },
+        "cote_reference": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Cote Reference"
+        },
+        "remise_en_etat_estimee": {
+          "default": 0.0,
+          "minimum": 0,
+          "title": "Remise En Etat Estimee",
+          "type": "number"
+        },
+        "marge_au_prix_de_depart": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Marge Au Prix De Depart"
+        },
+        "score": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Score"
+        },
+        "rang": {
+          "anyOf": [
+            {
+              "minimum": 1,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Rang"
+        },
+        "score_explication": {
+          "items": {
+            "$ref": "#/$defs/ScoreRule"
+          },
+          "title": "Score Explication",
+          "type": "array"
+        },
+        "non_reparable_economiquement": {
+          "default": false,
+          "title": "Non Reparable Economiquement",
+          "type": "boolean"
+        },
+        "a_coter": {
+          "default": false,
+          "title": "A Coter",
+          "type": "boolean"
+        },
+        "marge_sous_le_plancher": {
+          "default": false,
+          "title": "Marge Sous Le Plancher",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "id",
+        "url",
+        "vente_id",
+        "numero",
+        "titre",
+        "categorie",
+        "reserve_aux_professionnels",
+        "marque",
+        "modele",
+        "version",
+        "premiere_mise_en_circulation",
+        "energie",
+        "boite",
+        "vin",
+        "crit_air",
+        "carte_grise",
+        "cles",
+        "etat_declare",
+        "lieu_retrait",
+        "code_postal",
+        "departement",
+        "dates_visite",
+        "tva_recuperable",
+        "description_integrale",
+        "perimetre",
+        "nouveau_depuis_dernier_run",
+        "enchere_a_bouge"
+      ],
+      "title": "Lot",
+      "type": "object"
+    },
+    "RejectedLot": {
+      "additionalProperties": false,
+      "description": "A lot dropped by a business rule, with its reason.",
+      "properties": {
+        "id": {
+          "title": "Id",
+          "type": "string"
+        },
+        "url": {
+          "title": "Url",
+          "type": "string"
+        },
+        "titre": {
+          "title": "Titre",
+          "type": "string"
+        },
+        "motif": {
+          "title": "Motif",
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "url",
+        "titre",
+        "motif"
+      ],
+      "title": "RejectedLot",
+      "type": "object"
+    },
+    "Run": {
+      "additionalProperties": false,
+      "description": "Numeric summary of the execution.",
+      "properties": {
+        "horodatage": {
+          "format": "date-time",
+          "title": "Horodatage",
+          "type": "string"
+        },
+        "duree_secondes": {
+          "minimum": 0,
+          "title": "Duree Secondes",
+          "type": "number"
+        },
+        "ventes_scannees": {
+          "minimum": 0,
+          "title": "Ventes Scannees",
+          "type": "integer"
+        },
+        "lots_vus": {
+          "minimum": 0,
+          "title": "Lots Vus",
+          "type": "integer"
+        },
+        "lots_retenus": {
+          "minimum": 0,
+          "title": "Lots Retenus",
+          "type": "integer"
+        },
+        "lots_ecartes": {
+          "minimum": 0,
+          "title": "Lots Ecartes",
+          "type": "integer"
+        },
+        "lots_perimetre_inconnu": {
+          "default": 0,
+          "minimum": 0,
+          "title": "Lots Perimetre Inconnu",
+          "type": "integer"
+        },
+        "lots_sans_cote": {
+          "default": 0,
+          "minimum": 0,
+          "title": "Lots Sans Cote",
+          "type": "integer"
+        },
+        "ventes_sans_frais_publies": {
+          "default": 0,
+          "minimum": 0,
+          "title": "Ventes Sans Frais Publies",
+          "type": "integer"
+        },
+        "anomalies_integrite": {
+          "default": 0,
+          "minimum": 0,
+          "title": "Anomalies Integrite",
+          "type": "integer"
+        },
+        "erreurs": {
+          "items": {
+            "$ref": "#/$defs/RunError"
+          },
+          "title": "Erreurs",
+          "type": "array"
+        }
+      },
+      "required": [
+        "horodatage",
+        "duree_secondes",
+        "ventes_scannees",
+        "lots_vus",
+        "lots_retenus",
+        "lots_ecartes"
+      ],
+      "title": "Run",
+      "type": "object"
+    },
+    "RunError": {
+      "additionalProperties": false,
+      "description": "An anomaly met during the run. Never swallowed.",
+      "properties": {
+        "etape": {
+          "title": "Etape",
+          "type": "string"
+        },
+        "cible": {
+          "title": "Cible",
+          "type": "string"
+        },
+        "type": {
+          "title": "Type",
+          "type": "string"
+        },
+        "message": {
+          "title": "Message",
+          "type": "string"
+        }
+      },
+      "required": [
+        "etape",
+        "cible",
+        "type",
+        "message"
+      ],
+      "title": "RunError",
+      "type": "object"
+    },
+    "Sale": {
+      "additionalProperties": false,
+      "description": "A Domaine sale.",
+      "properties": {
+        "id": {
+          "title": "Id",
+          "type": "string"
+        },
+        "url": {
+          "title": "Url",
+          "type": "string"
+        },
+        "intitule": {
+          "title": "Intitule",
+          "type": "string"
+        },
+        "dnid": {
+          "title": "Dnid",
+          "type": "string"
+        },
+        "date_ouverture": {
+          "anyOf": [
+            {
+              "format": "date-time",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Date Ouverture"
+        },
+        "date_cloture": {
+          "anyOf": [
+            {
+              "format": "date-time",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Date Cloture"
+        },
+        "lieu_retrait": {
+          "title": "Lieu Retrait",
+          "type": "string"
+        },
+        "code_postal": {
+          "maxLength": 10,
+          "title": "Code Postal",
+          "type": "string"
+        },
+        "departement": {
+          "maxLength": 3,
+          "title": "Departement",
+          "type": "string"
+        },
+        "perimetre": {
+          "enum": [
+            "dans",
+            "hors",
+            "inconnu"
+          ],
+          "title": "Perimetre",
+          "type": "string"
+        },
+        "nb_lots": {
+          "minimum": 0,
+          "title": "Nb Lots",
+          "type": "integer"
+        },
+        "frais_acheteur_pct": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Frais Acheteur Pct"
+        },
+        "frais_acheteur_source": {
+          "default": "absent",
+          "enum": [
+            "vente",
+            "lot",
+            "config",
+            "absent"
+          ],
+          "title": "Frais Acheteur Source",
+          "type": "string"
+        },
+        "conditions_vente_texte": {
+          "default": "",
+          "title": "Conditions Vente Texte",
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "url",
+        "intitule",
+        "dnid",
+        "date_ouverture",
+        "date_cloture",
+        "lieu_retrait",
+        "code_postal",
+        "departement",
+        "perimetre",
+        "nb_lots"
+      ],
+      "title": "Sale",
+      "type": "object"
+    },
+    "ScoreRule": {
+      "additionalProperties": false,
+      "description": "One rule that moved a lot's score, and the evidence that fired it.",
+      "properties": {
+        "regle": {
+          "title": "Regle",
+          "type": "string"
+        },
+        "coefficient": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Coefficient"
+        },
+        "cout_eur": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Cout Eur"
+        },
+        "extrait_declencheur": {
+          "default": "",
+          "title": "Extrait Declencheur",
+          "type": "string"
+        }
+      },
+      "required": [
+        "regle"
+      ],
+      "title": "ScoreRule",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "description": "The document produced by each execution.",
+  "properties": {
+    "schema_version": {
+      "const": "3.0",
+      "default": "3.0",
+      "title": "Schema Version",
+      "type": "string"
+    },
+    "run": {
+      "$ref": "#/$defs/Run"
+    },
+    "ventes": {
+      "items": {
+        "$ref": "#/$defs/Sale"
+      },
+      "title": "Ventes",
+      "type": "array"
+    },
+    "lots": {
+      "items": {
+        "$ref": "#/$defs/Lot"
+      },
+      "title": "Lots",
+      "type": "array"
+    },
+    "ecartes": {
+      "items": {
+        "$ref": "#/$defs/RejectedLot"
+      },
+      "title": "Ecartes",
+      "type": "array"
+    }
+  },
+  "required": [
+    "run",
+    "ventes",
+    "lots",
+    "ecartes"
+  ],
+  "title": "OutputDocument",
+  "type": "object",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/William-Stoops/Sleeper/schemas/sortie-3.0.json"
+}

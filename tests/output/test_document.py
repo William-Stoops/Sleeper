@@ -34,7 +34,7 @@ class TestSerialisation:
     def test_produces_readable_utf8_json(self) -> None:
         raw = document.serialize(empty_document())
         payload = json.loads(raw)
-        assert payload["schema_version"] == "2.0"
+        assert payload["schema_version"] == "3.0"
         assert payload["run"]["ventes_scannees"] == 1
 
     def test_the_wire_format_keeps_the_french_contract(self) -> None:
@@ -113,7 +113,7 @@ class TestReadingBack:
         path.write_bytes(document.serialize(empty_document()))
         assert document.read_document(path).run.lots_kept == 1
 
-    @pytest.mark.parametrize("version", ["1.0", "3.0", "", None])
+    @pytest.mark.parametrize("version", ["1.0", "2.0", "4.0", "", None])
     def test_an_unknown_version_is_refused(self, tmp_path: Path, version: str | None) -> None:
         path = tmp_path / "run.json"
         payload = json.loads(document.serialize(empty_document()))

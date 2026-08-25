@@ -76,7 +76,7 @@ class TestTheFormula:
         assert result.quote_eur is not None
         # 800 € majorés de 14,4 % de frais.
         assert result.acquisition_cost_eur == pytest.approx(800 * 1.144)
-        assert result.margin_eur == pytest.approx(
+        assert result.margin_at_start_eur == pytest.approx(
             result.quote_eur - result.acquisition_cost_eur - result.repairs_eur
         )
 
@@ -147,9 +147,12 @@ class TestRepairAllowances:
                 )
             )
         )
+        baseline = engine.score(candidate()).score
         assert result.repairs_eur == 0
-        assert result.score is not None
-        assert result.score < 0.4
+        assert result.score is not None and baseline is not None
+        # Le score est en euros : ce qui compte est l'effondrement relatif au
+        # même lot sans le piège, pas un seuil absolu qui dépendrait de la cote.
+        assert result.score < baseline * 0.4
 
     def test_repairs_are_capped_at_a_share_of_the_quote(self, engine: ScoringEngine) -> None:
         ruined = engine.score(
@@ -224,3 +227,93 @@ class TestProhibitiveFaults:
         assert result.quote_eur is None
         assert result.score is None
         assert result.prohibitive_fault is True
+
+
+class TestScoreIsInEuros:
+    """Le score compte des euros, plus une part de la cote.
+
+    Un ratio classait la voiture bon marché en tête : réaliser 80 % d'une cote
+    de 3 000 € est facile, 80 % d'une cote de 30 000 € ne l'est pas. Le run du
+    25 août plaçait au rang 25 un Kangoo à 2 919 € de marge devant des
+    utilitaires bien plus rentables.
+    """
+
+    def test_the_score_is_the_margin_times_the_coefficients(self, engine: ScoringEngine) -> None:
+        result = engine.score(candidate())
+        assert result.margin_at_start_eur is not None and result.score is not None
+        coefficient = 1.0
+        for rule in result.explanation:
+            if rule.coefficient is not None:
+                coefficient *= rule.coefficient
+        assert result.score == pytest.approx(result.margin_at_start_eur * coefficient)
+
+    def test_a_big_margin_outranks_a_high_percentage(self, engine: ScoringEngine) -> None:
+        """Le défaut exact du classement précédent, en un test."""
+        settings = ScoringConfig(minimum_margin_eur=0, minimum_margin_ratio=0)
+        engine = ScoringEngine(
+            quotes=QuoteTable.load(Path("config/cotes.csv")),
+            repairs=RepairTable.load(Path("config/reparations.csv")),
+            settings=settings,
+            active_segments=frozenset({"vl", "vu"}),
+        )
+        gros = engine.score(candidate(description="Utilitaire."))
+        petit = engine.score(
+            candidate(
+                lot_id="kangoo",
+                make="RENAULT",
+                model="KANGOO",
+                year=2015,
+                mileage=150000,
+                mileage_per_year=15000,
+                description="Utilitaire.",
+            )
+        )
+        assert gros.score is not None and petit.score is not None
+        assert gros.margin_at_start_eur is not None and petit.margin_at_start_eur is not None
+        assert gros.margin_at_start_eur > petit.margin_at_start_eur
+        assert gros.score > petit.score
+
+
+class TestMarginFloor:
+    """Le plancher est une porte, pas un coefficient."""
+
+    def _engine(self, **overrides: float) -> ScoringEngine:
+        return ScoringEngine(
+            quotes=QuoteTable.load(Path("config/cotes.csv")),
+            repairs=RepairTable.load(Path("config/reparations.csv")),
+            settings=ScoringConfig(**overrides),
+            active_segments=frozenset({"vl", "vu"}),
+        )
+
+    def test_a_comfortable_margin_clears_it(self, engine: ScoringEngine) -> None:
+        assert engine.score(candidate()).below_margin_floor is False
+
+    def test_a_thin_margin_is_gated(self) -> None:
+        """Le Kangoo du rang 25 : 2 919 € de marge, sous les 3 500 € du plancher."""
+        engine = self._engine(minimum_margin_eur=3500.0, minimum_margin_ratio=0.20)
+        result = engine.score(candidate(starting_price=19000.0))
+        assert result.below_margin_floor is True
+
+    def test_the_gate_says_why_and_by_how_much(self) -> None:
+        engine = self._engine(minimum_margin_eur=3500.0, minimum_margin_ratio=0.20)
+        result = engine.score(candidate(starting_price=19000.0))
+        motif = next(r for r in result.explanation if r.regle == "marge_sous_le_plancher")
+        assert motif.cout_eur is not None and motif.cout_eur > 0
+        assert "plancher" in motif.extrait_declencheur
+
+    def test_the_higher_of_the_two_terms_wins(self) -> None:
+        """Sur une cote élevée, c'est la part qui mord, pas la somme fixe."""
+        souple = self._engine(minimum_margin_eur=3500.0, minimum_margin_ratio=0.0)
+        stricte = self._engine(minimum_margin_eur=3500.0, minimum_margin_ratio=0.40)
+        # Cote 21 932 € : 40 % font 8 773 €, bien au-dessus des 3 500 € fixes.
+        lot = candidate(starting_price=12000.0)
+        assert souple.score(lot).below_margin_floor is False
+        assert stricte.score(lot).below_margin_floor is True
+
+    def test_a_gated_lot_keeps_its_figures(self) -> None:
+        """Il quitte le classement, il ne disparaît pas : le motif est lisible."""
+        engine = self._engine(minimum_margin_eur=3500.0, minimum_margin_ratio=0.20)
+        result = engine.score(candidate(starting_price=19000.0))
+        assert result.quote_eur is not None
+        assert result.margin_at_start_eur is not None
+        assert result.score is not None

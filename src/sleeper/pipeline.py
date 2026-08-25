@@ -28,7 +28,7 @@ import structlog
 
 from sleeper.api import mapping, operations
 from sleeper.api.mapping import LotSource, SaleSource, VehicleAttributes
-from sleeper.config import Configuration
+from sleeper.config import Configuration, ScoringConfig
 from sleeper.domain import text
 from sleeper.domain.damage import classify_damage
 from sleeper.domain.exclusions import ExclusionEngine, LotSignals
@@ -115,7 +115,10 @@ class Collector:
         # A single source of time: injectable, so the run is reproducible in
         # tests without freezing the process clock. Local time with its offset,
         # as the output contract shows: the operator reads these timestamps.
-        self._clock = clock or (lambda: datetime.now().astimezone())
+        # Une seule horloge, en UTC. En heure locale, le passage à l'heure
+        # d'hiver rejoue une heure : deux runs porteraient le même nom de
+        # fichier, ou reculeraient dans l'ordre lexicographique.
+        self._clock = clock or (lambda: datetime.now(dt.UTC))
         self._started_at = self._clock()
         self._perimeter: Perimeter = config.perimeter()
         self._exclusions: ExclusionEngine = config.exclusion_engine()
@@ -460,25 +463,34 @@ class Collector:
         scored = [(lot, self._scoring.score(_score_input(lot))) for lot in lots]
         self._counters.without_quote = sum(1 for _, r in scored if r.quote_eur is None)
 
+        # Le plancher de marge est une porte, pas un coefficient : un lot qui
+        # ne le franchit pas quitte le classement, il n'y descend pas. Un
+        # coefficient se rattrape ; ici il n'y a rien à rattraper.
         ranked = sorted(
-            (pair for pair in scored if pair[1].score is not None),
+            (
+                pair
+                for pair in scored
+                if pair[1].score is not None and not pair[1].below_margin_floor
+            ),
             key=lambda pair: (-(pair[1].score or 0.0), pair[0].id),
         )
         ranks = {lot.id: position for position, (lot, _) in enumerate(ranked, 1)}
         top = {lot.id for lot, _ in ranked[: self._config.scoring.to_quote_count]}
 
-        threshold = self._config.scoring.unknown_model_price_threshold
         return [
             lot.model_copy(
                 update={
                     "quote_eur": result.quote_eur,
                     "repairs_eur": result.repairs_eur,
-                    "margin_eur": result.margin_eur,
+                    "margin_at_start_eur": result.margin_at_start_eur,
                     "score": result.score,
                     "rank": ranks.get(lot.id),
                     "score_explanation": result.explanation,
                     "beyond_economic_repair": result.beyond_economic_repair,
-                    "to_quote": _worth_quoting(lot, result, top, threshold),
+                    "to_quote": _worth_quoting(
+                        lot, result, top, self._config.scoring, self._started_at.year
+                    ),
+                    "below_margin_floor": result.below_margin_floor,
                 }
             )
             for lot, result in scored
@@ -790,7 +802,9 @@ def _score_input(lot: Lot) -> ScoreInput:
     )
 
 
-def _worth_quoting(lot: Lot, result: ScoreResult, top: set[str], price_threshold: float) -> bool:
+def _worth_quoting(
+    lot: Lot, result: ScoreResult, top: set[str], settings: ScoringConfig, run_year: int
+) -> bool:
     """Whether this lot earns the expensive analysis.
 
     Two ways in. The first is the ranking. The second is not a detail: a lot
@@ -798,10 +812,11 @@ def _worth_quoting(lot: Lot, result: ScoreResult, top: set[str], price_threshold
     rare, mis-catalogued, under-priced. It must not fall through for want of a
     quote.
 
-    That second door is shut to lots carrying a prohibitive fault. A Renault
-    Zoé whose traction battery stays leased from DIAC is cheap and unknown to
-    the table, and it is a trap, not a find: surfacing it would spend the
-    expensive analysis on a lot no price can rescue.
+    That second door is narrow, and deliberately. Cheap and unknown described
+    a hundred and one lots of a single run — a priority queue that long is no
+    longer a priority. It is shut to a prohibitive fault, and now also to
+    vehicles that could not plausibly be worth quoting at all: past a certain
+    age and a certain odometer, cheap and unknown is cheap for a reason.
     """
     if lot.id in top:
         return True
@@ -809,7 +824,25 @@ def _worth_quoting(lot: Lot, result: ScoreResult, top: set[str], price_threshold
         return False
     if result.beyond_economic_repair or result.prohibitive_fault:
         return False
-    return lot.starting_price is not None and lot.starting_price < price_threshold
+    if lot.starting_price is None or lot.starting_price >= settings.unknown_model_price_threshold:
+        return False
+    return _plausibly_worth_quoting(lot, settings, run_year)
+
+
+def _plausibly_worth_quoting(lot: Lot, settings: ScoringConfig, run_year: int) -> bool:
+    """Could this vehicle carry a quote worth the trip, on age and mileage?
+
+    Both must be known. An unreadable age on an unknown model is not a
+    promising unknown, it is an unreadable listing — and the queue it feeds
+    is the one an operator works through by hand.
+    """
+    year = _registration_year(lot.first_registration)
+    if year is None or lot.mileage is None:
+        return False
+    age = run_year - year
+    return age <= settings.unknown_model_max_age_years and (
+        lot.mileage <= settings.unknown_model_max_mileage
+    )
 
 
 def _registration_year(first_registration: str) -> int | None:

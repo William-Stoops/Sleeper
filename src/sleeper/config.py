@@ -222,6 +222,30 @@ class ScoringConfig(_Section):
         alias="plafond_reparations_ratio", default=0.6
     )
 
+    # --- Plancher de marge. Un lot qui ne le franchit pas n'est pas classé :
+    # --- c'est une porte fermée, pas un coefficient qu'un autre rattraperait.
+    #: In euros. A margin below this does not pay for the trip, the paperwork
+    #: and the money tied up, whatever the quote says.
+    minimum_margin_eur: Annotated[float, Field(ge=0)] = Field(
+        alias="marge_minimale_eur", default=3500.0
+    )
+    #: As a share of the quote. Guards the expensive vehicles, where 3 500 €
+    #: on a 40 000 € quote is noise rather than a margin.
+    minimum_margin_ratio: Annotated[float, Field(ge=0, le=1)] = Field(
+        alias="marge_minimale_ratio", default=0.20
+    )
+
+    # --- Plausibilité de l'échappatoire « sans cote ». Un lot que la table
+    # --- ignore n'est une pépite que s'il peut valoir la peine d'être coté.
+    #: Beyond this age, an unknown vehicle bought cheap is cheap for a reason.
+    unknown_model_max_age_years: Annotated[int, Field(ge=0)] = Field(
+        alias="sans_cote_age_max_ans", default=15
+    )
+    #: Same idea on the odometer.
+    unknown_model_max_mileage: Annotated[int, Field(ge=0)] = Field(
+        alias="sans_cote_km_max", default=180000
+    )
+
     trade_only: float = Field(alias="reserve_aux_professionnels", default=1.20)
     recent_favourable_inspection: float = Field(alias="ct_favorable_recent", default=1.10)
     low_yearly_mileage: float = Field(alias="faible_km_par_an", default=1.15)

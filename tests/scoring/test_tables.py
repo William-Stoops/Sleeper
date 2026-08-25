@@ -163,3 +163,69 @@ class TestRepairTable:
         assert [f.code for f in table.match(description)] == [
             f.code for f in table.match(description)
         ]
+
+
+class TestOrdinaryWordsTriggerNothing:
+    """Le faux positif le plus coûteux du projet, et sa clôture.
+
+    « RTI » n'était pas ancré : il se cachait dans « ce*rti*ficat », mot
+    présent dans presque chaque annonce. 92 lots du run du 25 août étaient
+    facturés 2 500 € de vitrage imaginaire et classés « lourd » ; cinq
+    seulement l'étaient à raison.
+    """
+
+    @pytest.fixture
+    def table(self) -> RepairTable:
+        return RepairTable.load(REPAIRS)
+
+    @pytest.mark.parametrize(
+        "description",
+        [
+            "Véhicule roulant, avec clé, avec certificat d'immatriculation.",
+            "Enlèvement avec certificat d'assurance en cours de validité.",
+            "Certificat de cession fourni. Carte grise disponible.",
+            "certificat d'immatriculation manquant",
+        ],
+    )
+    def test_a_certificate_triggers_no_rule(self, table: RepairTable, description: str) -> None:
+        assert table.match(description) == []
+
+    def test_the_real_wording_still_fires(self, table: RepairTable) -> None:
+        """Les cinq lots légitimes du run doivent rester détectés."""
+        for wording in (
+            "Le vitrage n'est pas réceptionné, retrait obligatoire",
+            "Vitrages non conformes à remplacer intégralement",
+            "faire obligatoirement une réception à titre isolé (RTI) à votre charge",
+        ):
+            assert [f.code for f in table.match(wording)] == ["vitrage_non_receptionne"], wording
+
+    def test_rti_as_a_word_still_fires(self, table: RepairTable) -> None:
+        assert [f.code for f in table.match("Passage en RTI obligatoire.")] == [
+            "vitrage_non_receptionne"
+        ]
+
+
+class TestPatternAnchoring:
+    """Un motif court non ancré est refusé au démarrage, pas découvert après."""
+
+    def _table(self, tmp_path: Path, pattern: str) -> RepairTable:
+        csv = tmp_path / "reparations.csv"
+        csv.write_text(
+            f'motif,pattern,cout_eur,gravite\nessai,"{pattern}",100,leger\n', encoding="utf-8"
+        )
+        return RepairTable.load(csv)
+
+    @pytest.mark.parametrize("pattern", ["RTI", "moteur HS|BV", "ABS", "a|batterie HS"])
+    def test_a_short_unanchored_alternative_is_refused(self, tmp_path: Path, pattern: str) -> None:
+        with pytest.raises(ConfigurationError, match="trop court et non ancré"):
+            self._table(tmp_path, pattern)
+
+    @pytest.mark.parametrize(
+        "pattern", [r"\bRTI\b", "moteur HS", r"embrayage.{0,10}HS|\bBV\b", "vitrages? non conforme"]
+    )
+    def test_an_anchored_or_long_alternative_passes(self, tmp_path: Path, pattern: str) -> None:
+        assert len(self._table(tmp_path, pattern)) == 1
+
+    def test_the_shipped_table_obeys_the_rule(self) -> None:
+        """La règle vaut pour le fichier livré, pas seulement pour les fixtures."""
+        assert len(RepairTable.load(REPAIRS)) == 20

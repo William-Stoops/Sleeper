@@ -152,19 +152,22 @@ def _to_quote(lots: Sequence[Lot]) -> list[str]:
     if not shortlist:
         return [*lines, "_aucun lot ne franchit le seuil_", ""]
     lines += [
-        "| Rang | Score | Lot | Cote | Mise à prix | Remise en état | Marge | Accès "
+        "| Rang | Score | Lot | Cote | Mise à prix | Remise en état "
+        "| Marge au prix de départ | Accès "
         "| Lieu | Clôture | Ce qui pèse le plus |",
         "|---|---|---|---|---|---|---|---|---|---|---|",
     ]
     for lot in shortlist:
         rank = str(lot.rank) if lot.rank else "—"
-        score = f"{lot.score:.2f}" if lot.score is not None else "—"
+        # Le score est en euros : deux décimales laisseraient croire à une
+        # précision que ce tri n'a pas.
+        score = _euros_or_dash(lot.score)
         closing = f"{lot.closes_at:%d/%m}" if lot.closes_at else "—"
         place = f"{lot.department or '??'} {lot.collection_place}".strip()
         lines.append(
             f"| {rank} | **{score}** | [{lot.title or lot.id}]({lot.url}) "
             f"| {_euros_or_dash(lot.quote_eur)} | {_euros(lot.starting_price)} "
-            f"| {_euros(lot.repairs_eur)} | {_euros_or_dash(lot.margin_eur)} "
+            f"| {_euros(lot.repairs_eur)} | {_euros_or_dash(lot.margin_at_start_eur)} "
             f"| {_access(lot)} | {place} | {closing} | {_heaviest_rule(lot)} |"
         )
     return [*lines, ""]

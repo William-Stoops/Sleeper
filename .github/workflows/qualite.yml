@@ -1,0 +1,58 @@
+name: Qualité
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+# Les tests ne touchent jamais le réseau : rien à mettre en cache côté site cible.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  controles:
+    name: ${{ matrix.os }} · Python ${{ matrix.python }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+        python: ["3.12", "3.13"]
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Installer uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+          cache-dependency-glob: uv.lock
+
+      - name: Installer les dépendances
+        run: uv sync --locked --all-extras
+
+      - name: Lint (ruff)
+        run: uv run ruff check src tests tools
+
+      - name: Format (ruff)
+        run: uv run ruff format --check src tests tools
+
+      - name: Typage strict (mypy)
+        run: uv run mypy
+
+      - name: Tests + couverture
+        run: uv run pytest --cov --cov-report=term-missing
+
+      - name: Aucune donnée personnelle dans les fixtures
+        run: uv run python tools/verifier_fixtures.py
+
+      - name: Le schéma publié suit les modèles
+        run: uv run sleeper schema && git diff --exit-code schemas/
+
+      - name: La configuration livrée est valide
+        run: uv run sleeper valider-config
+
+      - name: La doc des règles métier suit le code
+        run: uv run python tools/generer_doc_regles.py > docs/regles-metier.md && git diff --exit-code docs/

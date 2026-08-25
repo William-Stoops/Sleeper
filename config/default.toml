@@ -1,0 +1,118 @@
+# Configuration de reference de Sleeper.
+#
+# Tout ce qui est metier vit ici : rien n'est en dur dans le code.
+# Le fichier est valide au demarrage ; une erreur arrete l'outil avec un
+# message explicite, plutot que de produire un scan silencieusement vide.
+#
+# Copier ce fichier et le passer a la CLI :  sleeper collecter -c mon.toml
+
+# ---------------------------------------------------------------------------
+[reseau]
+# ---------------------------------------------------------------------------
+base_url = "https://encheres-domaine.gouv.fr"
+
+# Le robot doit etre identifiable : une adresse de contact ou une URL est
+# EXIGEE. Remplacer par une adresse reellement relevee.
+user_agent = "SleeperBot/0.1 (+mailto:contact@exemple.fr)"
+
+# Politesse. Le site est un service public protege par un WAF : une seule
+# execution par jour, une concurrence faible, un delai entre les requetes.
+# Plafonds imposes par le code : concurrence <= 3, delai >= 0.5 s.
+concurrence_max = 2
+delai_entre_requetes_s = 1.5
+
+# Transport.
+timeout_s = 30.0
+tentatives_max = 4
+backoff_initial_s = 1.0
+backoff_facteur = 2.0
+backoff_max_s = 30.0
+
+# Duree de validite d'une session navigateur avant renouvellement.
+session_ttl_minutes = 45
+
+# Le navigateur s'ouvre VISIBLEMENT, une fois par execution, le temps d'obtenir
+# la session (quelques secondes). Ce n'est pas un confort de debogage : en mode
+# headless, Chromium annonce « HeadlessChrome » dans son User-Agent, et le
+# pare-feu du site sert alors un CAPTCHA. Masquer ce jeton serait un
+# deguisement ; on ouvre donc un vrai navigateur.
+# Sur un serveur sans affichage, passer par xvfb (voir README).
+navigateur_headless = false
+
+# ---------------------------------------------------------------------------
+[perimetre]
+# ---------------------------------------------------------------------------
+# Ce qui compte est le LIEU DE RETRAIT du lot, jamais le siege de la vente.
+# Un lot hors perimetre n'est pas supprime : il est marque `hors_perimetre`
+# et conserve dans la sortie.
+#
+# Departements a 5 h de route de Lille.
+departements = [
+  "02", "08", "10", "14", "18", "21", "25", "27", "28", "35",
+  "36", "37", "41", "45", "49", "50", "51", "52", "53", "54",
+  "55", "57", "58", "59", "60", "61", "62", "67", "68", "70",
+  "72", "75", "76", "77", "78", "80", "86", "88", "89", "90",
+  "91", "92", "93", "94", "95",
+]
+
+# La source ne publie pas de code pays : l'etranger est detecte sur le libelle
+# du lieu de retrait (« BRUXELLES (BELGIQUE) »). Codes ISO-3166 alpha-2.
+pays_etrangers = ["BE", "LU"]
+
+# ---------------------------------------------------------------------------
+[exclusions]
+# ---------------------------------------------------------------------------
+# Liste vide = toutes les regles sont actives. Restreindre ici pour un
+# diagnostic, en sachant que les lots concernes remonteront alors dans la
+# sortie principale.
+#
+# Regles disponibles :
+#   genre_hors_cible, collection_avant_1990, sans_cle,
+#   sans_certificat_immatriculation, epave_ou_pieces, non_roulant,
+#   moteur_hors_service, choc_ou_accident, gage_ou_opposition,
+#   kilometrage_inconnu
+regles_actives = []
+
+# Enrichissement des formulations reconnues. Ajouter ici toute tournure
+# rencontree sur le terrain et non couverte ; voir docs/regles-metier.md.
+# Une cle inconnue fait echouer le demarrage : pas de regle morte silencieuse.
+[exclusions.formulations_supplementaires]
+# moteur_hors_service = ["bloc moteur fendu", "turbo a remplacer"]
+# choc_ou_accident = ["pare-chocs arrache"]
+
+# ---------------------------------------------------------------------------
+[filtres]
+# ---------------------------------------------------------------------------
+# Categorie de vente balayee, telle qu'elle est libellee par la source.
+categorie_vehicules = "Véhicules"
+
+# Statuts de vente retenus : 2 = a venir, 3 = en cours.
+statuts_vente = [2, 3]
+
+# Taille de page demandee a l'API. La valeur employee par l'application du
+# site est 8 ; s'en ecarter fait sortir la requete du gabarit accepte par le
+# pare-feu applicatif. Ne pas augmenter sans avoir rejoue la decouverte.
+lots_par_page = 8
+
+# ---------------------------------------------------------------------------
+[sortie]
+# ---------------------------------------------------------------------------
+repertoire = "var/sorties"
+nom_lien_courant = "latest.json"
+digest = true
+nom_digest = "latest.md"
+
+# ---------------------------------------------------------------------------
+[etat]
+# ---------------------------------------------------------------------------
+# Base SQLite : detection des nouveautes, historique des encheres, cache.
+base = "var/etat/sleeper.sqlite3"
+conserver_historique_encheres = true
+
+# ---------------------------------------------------------------------------
+[journalisation]
+# ---------------------------------------------------------------------------
+# niveau : DEBUG, INFO, WARNING, ERROR, CRITICAL
+# format : "json" pour la tache planifiee, "console" pour le confort humain
+niveau = "INFO"
+format = "json"

@@ -1,0 +1,32 @@
+{
+  "getAuctions": {
+    "query": "query getAuctions($currentPage:Int$filter:AuctionFiltersInput$pageSize:Int$sort:AuctionSortsInput){auctionsList(currentPage:$currentPage filter:$filter pageSize:$pageSize sort:$sort){items{auction_auto_status auction_documents{pdf_specifications{label url_path type size __typename}__typename}auction_number_of_lots categories{name __typename}description dnid_auction_id end_date image_path location name offers_submission_deadline professional_only sales_inspector_label start_date status_text type type_text __typename}page_info{total_pages __typename}total_count __typename}}",
+    "variables": "{\"currentPage\":1,\"pageSize\":8,\"sort\":{\"end_date\":\"ASC\"},\"filter\":{\"auction_auto_status\":{\"in\":[\"2\",\"3\"]}}}",
+    "operationName": "getAuctions",
+    "autres_params": {}
+  },
+  "getAuctionHeaderInfos": {
+    "query": "query getAuctionHeaderInfos($id:Int!){auction(id:$id){auction_additional_status auction_auto_status auction_documents{conditions_of_sale{label url_path type size __typename}pdf_specifications{label url_path type size __typename}sales_catalog{label url_path type size __typename}__typename}auction_urls{first_auction_partnersite_url{label url_path __typename}second_auction_partnersite_url{label url_path __typename}physical_register_url{label url_path __typename}__typename}description dnid_auction_id end_date live_end_date image_path location name offers_submission_deadline sales_inspector_label start_date status_text type type_text __typename}}",
+    "variables": "{\"id\":\"467\"}",
+    "operationName": "getAuctionHeaderInfos",
+    "autres_params": {}
+  },
+  "getAuctionLots": {
+    "query": "query getAuctionLots($currentPage:Int$filter:ProductAttributeFilterInput$pageSize:Int$sort:ProductAttributeSortInput){products(currentPage:$currentPage filter:$filter pageSize:$pageSize sort:$sort){...ProductsFragment __typename}}fragment ProductsFragment on Products{items{__typename auction auction_auto_status auction_type bid_winner_amount description{html __typename}dropoff_location_id dropoff_location{city postcode __typename}end_auction_lot_at end_date has_lost has_won id last_bid lot_number location lot_status lot_status_label luxury luxury_label name offers_submission_deadline price_auction professional_only reserve_price sku sales_inspector_data{cav_name __typename}short_description{html __typename}small_image{url __typename}start_auction_lot_at start_date uid url_key}page_info{total_pages __typename}total_count __typename}",
+    "variables": "{\"currentPage\":1,\"pageSize\":8,\"sort\":{\"lot_number\":\"ASC\"},\"filter\":{\"auction\":{\"eq\":\"467\"}}}",
+    "operationName": "getAuctionLots",
+    "autres_params": {}
+  },
+  "getProductPageMain": {
+    "query": "query getProductPageMain($urlKey:String!){products(filter:{url_key:{eq:$urlKey}}){items{uid __typename auction_type categories{uid breadcrumbs{category_uid category_name category_url_path category_level __typename}image name url_key url_path __typename}custom_attributes{attribute_metadata{uid code label attribute_labels{store_code label __typename}data_type is_system entity_type ...on ProductAttributeMetadata{used_in_components __typename}__typename}entered_attribute_value{value __typename}selected_attribute_options{attribute_option{uid label is_default __typename}__typename}__typename}description{html __typename}dropoff_location_id dropoff_location_fo{address address_complement address_complement_bis city dnid_dropoff_location_id name postcode published __typename}dropoff_location{city postcode __typename}contact_dropoff_location{dnid_contact_dropoff_location_id email function mobile_phone name physical_schedule status tel_schedule telephone __typename}id lot_number media_gallery_entries{uid label position disabled file __typename}name product_documents{url_path label __typename}professional_only sales_inspector_data{cav_name __typename}short_description{html __typename}small_image{url __typename}sku tax_info{label percent __typename}state_property_tax url_key}__typename}}",
+    "variables": "{\"urlKey\":\"daciadustersecteurest-1\"}",
+    "operationName": "getProductPageMain",
+    "autres_params": {}
+  },
+  "getProductPageSide": {
+    "query": "query getProductPageSide($urlKey:String!){products(filter:{url_key:{eq:$urlKey}}){items{ape_authorization ape_restriction not_conforme auction auction_documents{pdf_specifications{label url_path type size __typename}__typename}auction_auto_status auction_name auction_type auction_type_label auction_steps auction_urls{first_auction_partnersite_url{label url_path __typename}second_auction_partnersite_url{label url_path __typename}physical_register_url{label url_path __typename}__typename}bid_winner_amount end_auction_lot_at end_date has_lost has_won id last_bid lot_number location lot_status lot_status_label name price_auction professional_only reserve_price sales_inspector_data{cav_name __typename}start_auction_lot_at start_date uid url_key __typename}__typename}}",
+    "variables": "{\"urlKey\":\"daciadustersecteurest-1\"}",
+    "operationName": "getProductPageSide",
+    "autres_params": {}
+  }
+}

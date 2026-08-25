@@ -1,0 +1,1810 @@
+{
+  "data": {
+    "products": {
+      "items": [
+        {
+          "uid": "MjY3ODA0",
+          "__typename": "VirtualProduct",
+          "auction_type": "1",
+          "categories": [
+            {
+              "uid": "Mw==",
+              "breadcrumbs": null,
+              "image": null,
+              "name": "Catégorie de produit (ne pas cocher)",
+              "url_key": "categorie-de-produit",
+              "url_path": "categorie-de-produit",
+              "__typename": "CategoryTree"
+            },
+            {
+              "uid": "NA==",
+              "breadcrumbs": [
+                {
+                  "category_uid": "Mw==",
+                  "category_name": "Catégorie de produit (ne pas cocher)",
+                  "category_url_path": "categorie-de-produit",
+                  "category_level": 2,
+                  "__typename": "Breadcrumb"
+                }
+              ],
+              "image": "https://encheres-domaine.gouv.fr/admin/media/catalog/category/Vehicules_Accueil_VF.jpg",
+              "name": "Véhicules",
+              "url_key": "vehicules",
+              "url_path": "categorie-de-produit/vehicules",
+              "__typename": "CategoryTree"
+            },
+            {
+              "uid": "NQ==",
+              "breadcrumbs": [
+                {
+                  "category_uid": "Mw==",
+                  "category_name": "Catégorie de produit (ne pas cocher)",
+                  "category_url_path": "categorie-de-produit",
+                  "category_level": 2,
+                  "__typename": "Breadcrumb"
+                },
+                {
+                  "category_uid": "NA==",
+                  "category_name": "Véhicules",
+                  "category_url_path": "categorie-de-produit/vehicules",
+                  "category_level": 3,
+                  "__typename": "Breadcrumb"
+                }
+              ],
+              "image": "https://encheres-domaine.gouv.fr/admin/media/catalog/category/VTourisme-min.jpg",
+              "name": "Véhicules de tourisme",
+              "url_key": "vehicules-de-tourisme",
+              "url_path": "categorie-de-produit/vehicules/vehicules-de-tourisme",
+              "__typename": "CategoryTree"
+            }
+          ],
+          "custom_attributes": [
+            {
+              "attribute_metadata": {
+                "uid": "Y2F0YWxvZ19wcm9kdWN0L2J2YQ==",
+                "code": "bva",
+                "label": "BVA",
+                "attribute_labels": [],
+                "data_type": "INT",
+                "is_system": false,
+                "entity_type": "CATALOG_PRODUCT",
+                "used_in_components": [
+                  "PRODUCTS_LISTING"
+                ],
+                "__typename": "ProductAttributeMetadata"
+              },
+              "entered_attribute_value": {
+                "value": null,
+                "__typename": "EnteredAttributeValue"
+              },
+              "selected_attribute_options": {
+                "attribute_option": [
+                  {
+                    "uid": "Y2F0YWxvZ19wcm9kdWN0L2J2YS8w",
+                    "label": "Non",
+                    "is_default": false,
+                    "__typename": "AttributeOption"
+                  }
+                ],
+                "__typename": "SelectedAttributeOption"
+              },
+              "__typename": "CustomAttribute"
+            },
+            {
+              "attribute_metadata": {
+                "uid": "Y2F0YWxvZ19wcm9kdWN0L2Nhdl9pZA==",
+                "code": "cav_id",
+                "label": "CAV source",
+                "attribute_labels": [],
+                "data_type": "INT",
+                "is_system": false,
+                "entity_type": "CATALOG_PRODUCT",
+                "used_in_components": [
+                  "PRODUCTS_LISTING",
+                  "PRODUCT_FILTER",
+                  "PRODUCT_SEARCH_RESULTS_FILTER",
+                  "ADVANCED_CATALOG_SEARCH"
+                ],
+                "__typename": "ProductAttributeMetadata"
+              },
+              "entered_attribute_value": {
+                "value": null,
+                "__typename": "EnteredAttributeValue"
+              },
+              "selected_attribute_options": {
+                "attribute_option": [
+                  {
+                    "uid": "Y2F0YWxvZ19wcm9kdWN0L2Nhdl9pZC8xNg==",
+                    "label": "LA REUNION",
+                    "is_default": false,
+                    "__typename": "AttributeOption"
+                  }
+                ],
+                "__typename": "SelectedAttributeOption"
+              },
+              "__typename": "CustomAttribute"
+            },
+            {
+              "attribute_metadata": {
+                "uid": "Y2F0YWxvZ19wcm9kdWN0L3JlZ2lzdHJhdGlvbl9jZXJ0aWZpY2F0ZQ==",
+                "code": "registration_certificate",
+                "label": "Certificat d'immatriculation",
+                "attribute_labels": [],
+                "data_type": "INT",
+                "is_system": false,
+                "entity_type": "CATALOG_PRODUCT",
+                "used_in_components": [
+                  "PRODUCTS_LISTING"
+                ],
+                "__typename": "ProductAttributeMetadata"
+              },
+              "entered_attribute_value": {
+                "value": null,
+                "__typename": "EnteredAttributeValue"
+              },
+              "selected_attribute_options": {
+                "attribute_option": [
+                  {
+                    "uid": "Y2F0YWxvZ19wcm9kdWN0L3JlZ2lzdHJhdGlvbl9jZXJ0aWZpY2F0ZS8x",
+                    "label": "Oui",
+                    "is_default": false,
+                    "__typename": "AttributeOption"
+                  }
+                ],
+                "__typename": "SelectedAttributeOption"
+              },
+              "__typename": "CustomAttribute"
+            },
+            {
+              "attribute_metadata": {
+                "uid": "Y2F0YWxvZ19wcm9kdWN0L2NlcnRpZmljYXRlX29mX2NvbmZvcm1pdHk=",
+                "code": "certificate_of_conformity",
+                "label": "Certificat de conformité",
+                "attribute_labels": [],
+                "data_type": "INT",
+                "is_system": false,
+                "entity_type": "CATALOG_PRODUCT",
+                "used_in_components": [
+                  "PRODUCTS_LISTING"
+                ],
+                "__typename": "ProductAttributeMetadata"
+              },
+              "entered_attribute_value": {
+                "value": null,
+                "__typename": "EnteredAttributeValue"
+              },
+              "selected_attribute_options": {
+                "attribute_option": [
+                  {
+                    "uid": "Y2F0YWxvZ19wcm9kdWN0L2NlcnRpZmljYXRlX29mX2NvbmZvcm1pdHkvMg==",
+                    "label": "N/A",
+                    "is_default": true,
+                    "__typename": "AttributeOption"
+                  }
+                ],
+                "__typename": "SelectedAttributeOption"
+              },
+              "__typename": "CustomAttribute"
+            },
+            {
+              "attribute_metadata": {
+                "uid": "Y2F0YWxvZ19wcm9kdWN0L2ltcHV0YXRpb25fY29kZQ==",
+                "code": "imputation_code",
+                "label": "Code d'imputation",
+                "attribute_labels": [],
+                "data_type": "STRING",
+                "is_system": false,
+                "entity_type": "CATALOG_PRODUCT",
+                "used_in_components": [
+                  "PRODUCTS_LISTING"
+                ],
+                "__typename": "ProductAttributeMetadata"
+              },
+              "entered_attribute_value": {
+                "value": null,
+                "__typename": "EnteredAttributeValue"
+              },
+              "selected_attribute_options": {
+                "attribute_option": [
+                  {
+                    "uid": "Y2F0YWxvZ19wcm9kdWN0L2ltcHV0YXRpb25fY29kZS9CaWVucyByZW1pcyBwYXIgbGVzIG9yZ2FuaXNtZXMgYXV0b25vbWVz",
+                    "label": "Biens remis par les organismes autonomes",
+                    "is_default": false,
+                    "__typename": "AttributeOption"
+                  }
+                ],
+                "__typename": "SelectedAttributeOption"
+              },
+              "__typename": "CustomAttribute"
+            },
+            {
+              "attribute_metadata": {
+                "uid": "Y2F0YWxvZ19wcm9kdWN0L2NvdW50ZXJfY2hhbmdl",
+                "code": "counter_change",
+                "label": "Compteur modifié",
+                "attribute_labels": [],
+                "data_type": "INT",
+                "is_system": false,
+                "entity_type": "CATALOG_PRODUCT",
+                "used_in_components": [
+                  "PRODUCTS_LISTING"
+                ],
+                "__typename": "ProductAttributeMetadata"
+              },
+              "entered_attribute_value": {
+                "value": null,
+                "__typename": "EnteredAttributeValue"
+              },
+              "selected_attribute_options": {
+                "attribute_option": [
+                  {
+                    "uid": "Y2F0YWxvZ19wcm9kdWN0L2NvdW50ZXJfY2hhbmdlLzA=",
+                    "label": "Non",
+                    "is_default": false,
+                    "__typename": "AttributeOption"
+                  }
+                ],
+                "__typename": "SelectedAttributeOption"
+              },
+              "__typename": "CustomAttribute"
+            },
+            {
+              "attribute_metadata": {
+                "uid": "Y2F0YWxvZ19wcm9kdWN0L2NvbmZvcm1lX3JlY2VwdGlvbg==",
+                "code": "conforme_reception",
+                "label": "Conforme à la réception",
+                "attribute_labels": [],
+                "data_type": "INT",
+                "is_system": false,
+                "entity_type": "CATALOG_PRODUCT",
+                "used_in_components": [
+                  "PRODUCTS_LISTING"
+                ],
+                "__typename": "ProductAttributeMetadata"
+              },
+              "entered_attribute_value": {
+                "value": null,
+                "__typename": "EnteredAttributeValue"
+              },
+              "selected_attribute_options": {
+                "attribute_option": [
+                  {
+                    "uid": "Y2F0YWxvZ19wcm9kdWN0L2NvbmZvcm1lX3JlY2VwdGlvbi8x",
+                    "label": "Oui",
+                    "is_default": false,
+                    "__typename": "AttributeOption"
+                  }
+                ],
+                "__typename": "SelectedAttributeOption"
+              },
+              "__typename": "CustomAttribute"
+            },
+            {
+              "attribute_metadata": {
+                "uid": "Y2F0YWxvZ19wcm9kdWN0L3RlY2huaWNhbF9jb250cm9s",
+                "code": "technical_control",
+                "label": "Contrôle technique",
+                "attribute_labels": [],
+                "data_type": "INT",
+                "is_system": false,
+                "entity_type": "CATALOG_PRODUCT",
+                "used_in_components": [
+                  "PRODUCTS_LISTING"
+                ],
+                "__typename": "ProductAttributeMetadata"
+              },
+              "entered_attribute_value": {
+                "value": null,
+                "__typename": "EnteredAttributeValue"
+              },
+              "selected_attribute_options": {
+                "attribute_option": [
+                  {
+                    "uid": "Y2F0YWxvZ19wcm9kdWN0L3RlY2huaWNhbF9jb250cm9sLzA=",
+                    "label": "Non",
+                    "is_default": false,
+                    "__typename": "AttributeOption"
+                  }
+                ],
+                "__typename": "SelectedAttributeOption"
+              },
+              "__typename": "CustomAttribute"
+            },
+            {
+              "attribute_metadata": {
+                "uid": "Y2F0YWxvZ19wcm9kdWN0L2RhdGVfZmlyc3RfcmVnaXN0cmF0aW9u",
+                "code": "date_first_registration",
+                "label": "Date de 1ère mise en circulation",
+                "attribute_labels": [],
+                "data_type": "STRING",
+                "is_system": false,
+                "entity_type": "CATALOG_PRODUCT",
+                "used_in_components": [
+                  "PRODUCTS_LISTING"
+                ],
+                "__typename": "ProductAttributeMetadata"
+              },
+              "entered_attribute_value": {
+                "value": "2015-12-23T00:00:00+00:00",
+                "__typename": "EnteredAttributeValue"
+              },
+              "selected_attribute_options": {
+                "attribute_option": null,
+                "__typename": "SelectedAttributeOption"
+              },
+              "__typename": "CustomAttribute"
+            },
+            {
+              "attribute_metadata": {
+                "uid": "Y2F0YWxvZ19wcm9kdWN0L3JlbWl0dGFuY2VfZGVzY3JpcHRpb24=",
+                "code": "remittance_description",
+                "label": "Description du remettant",
+                "attribute_labels": [],
+                "data_type": "STRING",
+                "is_system": false,
+                "entity_type": "CATALOG_PRODUCT",
+                "used_in_components": [
+                  "PRODUCTS_LISTING",
+                  "PRODUCT_FILTER"
+                ],
+                "__typename": "ProductAttributeMetadata"
+              },
+              "entered_attribute_value": {
+                "value": "Dacia Duster 2015",
+                "__typename": "EnteredAttributeValue"
+              },
+              "selected_attribute_options": {
+                "attribute_option": null,
+                "__typename": "SelectedAttributeOption"
+              },
+              "__typename": "CustomAttribute"
+            },
+            {
+              "attribute_metadata": {
+                "uid": "Y2F0YWxvZ19wcm9kdWN0L3ZlaGljbGVfZW5lcmd5X3R5cGU=",
+                "code": "vehicle_energy_type",
+                "label": "Energie / carburant",
+                "attribute_labels": [],
+                "data_type": "INT",
+                "is_system": false,
+                "entity_type": "CATALOG_PRODUCT",
+                "used_in_components": [
+                  "PRODUCTS_LISTING"
+                ],
+                "__typename": "ProductAttributeMetadata"
+              },
+              "entered_attribute_value": {
+                "value": null,
+                "__typename": "EnteredAttributeValue"
+              },
+              "selected_attribute_options": {
+                "attribute_option": [
+                  {
+                    "uid": "Y2F0YWxvZ19wcm9kdWN0L3ZlaGljbGVfZW5lcmd5X3R5cGUvMTc=",
+                    "label": "Gazole",
+                    "is_default": false,
+                    "__typename": "AttributeOption"
+                  }
+                ],
+                "__typename": "SelectedAttributeOption"
+              },
+              "__typename": "CustomAttribute"
+            },
+            {
+              "attribute_metadata": {
+                "uid": "Y2F0YWxvZ19wcm9kdWN0L2lkX3JlbWl0dGluZ19lbnRpdHk=",
+                "code": "id_remitting_entity",
+                "label": "Entité remettante",
+                "attribute_labels": [],
+                "data_type": "INT",
+                "is_system": false,
+                "entity_type": "CATALOG_PRODUCT",
+                "used_in_components": [
+                  "PRODUCTS_LISTING"
+                ],
+                "__typename": "ProductAttributeMetadata"
+              },
+              "entered_attribute_value": {
+                "value": null,
+                "__typename": "EnteredAttributeValue"
+              },
+              "selected_attribute_options": {
+                "attribute_option": [],
+                "__typename": "SelectedAttributeOption"
+              },
+              "__typename": "CustomAttribute"
+            },
+            {
+              "attribute_metadata": {
+                "uid": "Y2F0YWxvZ19wcm9kdWN0L3JlbWl0dGFuY2Vfc3RlcA==",
+                "code": "remittance_step",
+                "label": "Etape d'enregistrement du bien remettant",
+                "attribute_labels": [],
+                "data_type": "INT",
+                "is_system": false,
+                "entity_type": "CATALOG_PRODUCT",
+                "used_in_components": [
+                  "PRODUCTS_LISTING"
+                ],
+                "__typename": "ProductAttributeMetadata"
+              },
+              "entered_attribute_value": {
+                "value": null,
+                "__typename": "EnteredAttributeValue"
+              },
+              "selected_attribute_options": {
+                "attribute_option": [
+                  {
+                    "uid": "Y2F0YWxvZ19wcm9kdWN0L3JlbWl0dGFuY2Vfc3RlcC8y",
+                    "label": "2",
+                    "is_default": false,
+                    "__typename": "AttributeOption"
+                  }
+                ],
+                "__typename": "SelectedAttributeOption"
+              },
+              "__typename": "CustomAttribute"
+            },
+            {
+              "attribute_metadata": {
+                "uid": "Y2F0YWxvZ19wcm9kdWN0L2FkbWluaXN0cmF0aXZlX3BvdW5k",
+                "code": "administrative_pound",
+                "label": "Fourrière administrative",
+                "attribute_labels": [],
+                "data_type": "INT",
+                "is_system": false,
+                "entity_type": "CATALOG_PRODUCT",
+                "used_in_components": [
+                  "PRODUCTS_LISTING"
+                ],
+                "__typename": "ProductAttributeMetadata"
+              },
+              "entered_attribute_value": {
+                "value": null,
+                "__typename": "EnteredAttributeValue"
+              },
+              "selected_attribute_options": {
+                "attribute_option": [
+                  {
+                    "uid": "Y2F0YWxvZ19wcm9kdWN0L2FkbWluaXN0cmF0aXZlX3BvdW5kLzA=",
+                    "label": "Non",
+                    "is_default": false,
+                    "__typename": "AttributeOption"
+                  }
+                ],
+                "__typename": "SelectedAttributeOption"
+              },
+              "__typename": "CustomAttribute"
+            },
+            {
+              "attribute_metadata": {
+                "uid": "Y2F0YWxvZ19wcm9kdWN0L2tpbmQ=",
+                "code": "kind",
+                "label": "Genre",
+                "attribute_labels": [],
+                "data_type": "STRING",
+                "is_system": false,
+                "entity_type": "CATALOG_PRODUCT",
+                "used_in_components": [
+                  "PRODUCTS_LISTING"
+                ],
+                "__typename": "ProductAttributeMetadata"
+              },
+              "entered_attribute_value": {
+                "value": "VP",
+                "__typename": "EnteredAttributeValue"
+              },
+              "selected_attribute_options": {
+                "attribute_option": null,
+                "__typename": "SelectedAttributeOption"
+              },
+              "__typename": "CustomAttribute"
+            },
+            {
+              "attribute_metadata": {
+                "uid": "Y2F0YWxvZ19wcm9kdWN0L3JlZ2lzdHJhYmxlX2FnYWlu",
+                "code": "registrable_again",
+                "label": "Immatriculable à nouveau",
+                "attribute_labels": [],
+                "data_type": "INT",
+                "is_system": false,
+                "entity_type": "CATALOG_PRODUCT",
+                "used_in_components": [
+                  "PRODUCTS_LISTING"
+                ],
+                "__typename": "ProductAttributeMetadata"
+              },
+              "entered_attribute_value": {
+                "value": null,
+                "__typename": "EnteredAttributeValue"
+              },
+              "selected_attribute_options": {
+                "attribute_option": [
+                  {
+                    "uid": "Y2F0YWxvZ19wcm9kdWN0L3JlZ2lzdHJhYmxlX2FnYWluLzE=",
+                    "label": "Oui",
+                    "is_default": false,
+                    "__typename": "AttributeOption"
+                  }
+                ],
+                "__typename": "SelectedAttributeOption"
+              },
+              "__typename": "CustomAttribute"
+            },
+            {
+              "attribute_metadata": {
+                "uid": "Y2F0YWxvZ19wcm9kdWN0L3ZlaGljbGVfbWlsZWFnZQ==",
+                "code": "vehicle_mileage",
+                "label": "Kilométrage",
+                "attribute_labels": [],
+                "data_type": "FLOAT",
+                "is_system": false,
+                "entity_type": "CATALOG_PRODUCT",
+                "used_in_components": [
+                  "PRODUCTS_LISTING",
+                  "PRODUCT_FILTER",
+                  "PRODUCT_SEARCH_RESULTS_FILTER",
+                  "ADVANCED_CATALOG_SEARCH"
+                ],
+                "__typename": "ProductAttributeMetadata"
+              },
+              "entered_attribute_value": {
+                "value": "110430.000000",
+                "__typename": "EnteredAttributeValue"
+              },
+              "selected_attribute_options": {
+                "attribute_option": null,
+                "__typename": "SelectedAttributeOption"
+              },
+              "__typename": "CustomAttribute"
+            },
+            {
+              "attribute_metadata": {
+                "uid": "Y2F0YWxvZ19wcm9kdWN0L2Ryb3BvZmZfbG9jYXRpb25faWQ=",
+                "code": "dropoff_location_id",
+                "label": "Lieu de dépôt",
+                "attribute_labels": [],
+                "data_type": "INT",
+                "is_system": false,
+                "entity_type": "CATALOG_PRODUCT",
+                "used_in_components": [
+                  "PRODUCTS_LISTING"
+                ],
+                "__typename": "ProductAttributeMetadata"
+              },
+              "entered_attribute_value": {
+                "value": null,
+                "__typename": "EnteredAttributeValue"
+              },
+              "selected_attribute_options": {
+                "attribute_option": [],
+                "__typename": "SelectedAttributeOption"
+              },
+              "__typename": "CustomAttribute"
+            },
+            {
+              "attribute_metadata": {
+                "uid": "Y2F0YWxvZ19wcm9kdWN0L2x1eHVyeQ==",
+                "code": "luxury",
+                "label": "Luxe",
+                "attribute_labels": [],
+                "data_type": "INT",
+                "is_system": false,
+                "entity_type": "CATALOG_PRODUCT",
+                "used_in_components": [
+                  "PRODUCTS_LISTING",
+                  "PRODUCT_FILTER",
+                  "PRODUCT_SEARCH_RESULTS_FILTER",
+                  "ADVANCED_CATALOG_SEARCH"
+                ],
+                "__typename": "ProductAttributeMetadata"
+              },
+              "entered_attribute_value": {
+                "value": null,
+                "__typename": "EnteredAttributeValue"
+              },
+              "selected_attribute_options": {
+                "attribute_option": [
+                  {
+                    "uid": "Y2F0YWxvZ19wcm9kdWN0L2x1eHVyeS8w",
+                    "label": "Non",
+                    "is_default": false,
+                    "__typename": "AttributeOption"
+                  }
+                ],
+                "__typename": "SelectedAttributeOption"
+              },
+              "__typename": "CustomAttribute"
+            },
+            {
+              "attribute_metadata": {
+                "uid": "Y2F0YWxvZ19wcm9kdWN0L3ZlaGljbGVfYnJhbmQ=",
+                "code": "vehicle_brand",
+                "label": "Marque Véhicule",
+                "attribute_labels": [],
+                "data_type": "INT",
+                "is_system": false,
+                "entity_type": "CATALOG_PRODUCT",
+                "used_in_components": [
+                  "PRODUCTS_LISTING"
+                ],
+                "__typename": "ProductAttributeMetadata"
+              },
+              "entered_attribute_value": {
+                "value": null,
+                "__typename": "EnteredAttributeValue"
+              },
+              "selected_attribute_options": {
+                "attribute_option": [
+                  {
+                    "uid": "Y2F0YWxvZ19wcm9kdWN0L3ZlaGljbGVfYnJhbmQvMzky",
+                    "label": "DACIA",
+                    "is_default": false,
+                    "__typename": "AttributeOption"
+                  }
+                ],
+                "__typename": "SelectedAttributeOption"
+              },
+              "__typename": "CustomAttribute"
+            },
+            {
+              "attribute_metadata": {
+                "uid": "Y2F0YWxvZ19wcm9kdWN0L3ByaWNlX2F1Y3Rpb24=",
+                "code": "price_auction",
+                "label": "Mise à prix",
+                "attribute_labels": [],
+                "data_type": "FLOAT",
+                "is_system": false,
+                "entity_type": "CATALOG_PRODUCT",
+                "used_in_components": [
+                  "PRODUCTS_LISTING",
+                  "PRODUCT_SORT",
+                  "PRODUCT_FILTER",
+                  "PRODUCT_SEARCH_RESULTS_FILTER",
+                  "ADVANCED_CATALOG_SEARCH"
+                ],
+                "__typename": "ProductAttributeMetadata"
+              },
+              "entered_attribute_value": {
+                "value": "1500.000000",
+                "__typename": "EnteredAttributeValue"
+              },
+              "selected_attribute_options": {
+                "attribute_option": null,
+                "__typename": "SelectedAttributeOption"
+              },
+              "__typename": "CustomAttribute"
+            },
+            {
+              "attribute_metadata": {
+                "uid": "Y2F0YWxvZ19wcm9kdWN0L3ZlaGljbGVfbW9kZWw=",
+                "code": "vehicle_model",
+                "label": "Modèle Véhicule",
+                "attribute_labels": [],
+                "data_type": "INT",
+                "is_system": false,
+                "entity_type": "CATALOG_PRODUCT",
+                "used_in_components": [
+                  "PRODUCTS_LISTING"
+                ],
+                "__typename": "ProductAttributeMetadata"
+              },
+              "entered_attribute_value": {
+                "value": null,
+                "__typename": "EnteredAttributeValue"
+              },
+              "selected_attribute_options": {
+                "attribute_option": [
+                  {
+                    "uid": "Y2F0YWxvZ19wcm9kdWN0L3ZlaGljbGVfbW9kZWwvNDY4Mw==",
+                    "label": "DUSTER",
+                    "is_default": false,
+                    "__typename": "AttributeOption"
+                  }
+                ],
+                "__typename": "SelectedAttributeOption"
+              },
+              "__typename": "CustomAttribute"
+            },
+            {
+              "attribute_metadata": {
+                "uid": "Y2F0YWxvZ19wcm9kdWN0L3ZlaGljbGVfbnVtYmVyX29mX3NlYXRz",
+                "code": "vehicle_number_of_seats",
+                "label": "Nombre de places",
+                "attribute_labels": [],
+                "data_type": "INT",
+                "is_system": false,
+                "entity_type": "CATALOG_PRODUCT",
+                "used_in_components": [
+                  "PRODUCTS_LISTING"
+                ],
+                "__typename": "ProductAttributeMetadata"
+              },
+              "entered_attribute_value": {
+                "value": null,
+                "__typename": "EnteredAttributeValue"
+              },
+              "selected_attribute_options": {
+                "attribute_option": [
+                  {
+                    "uid": "Y2F0YWxvZ19wcm9kdWN0L3ZlaGljbGVfbnVtYmVyX29mX3NlYXRzLzU=",
+                    "label": "5",
+                    "is_default": false,
+                    "__typename": "AttributeOption"
+                  }
+                ],
+                "__typename": "SelectedAttributeOption"
+              },
+              "__typename": "CustomAttribute"
+            },
+            {
+              "attribute_metadata": {
+                "uid": "Y2F0YWxvZ19wcm9kdWN0L3ZlaGljbGVfbnVtYmVyX29mX2Rvb3Jz",
+                "code": "vehicle_number_of_doors",
+                "label": "Nombre de portes",
+                "attribute_labels": [],
+                "data_type": "INT",
+                "is_system": false,
+                "entity_type": "CATALOG_PRODUCT",
+                "used_in_components": [
+                  "PRODUCTS_LISTING"
+                ],
+                "__typename": "ProductAttributeMetadata"
+              },
+              "entered_attribute_value": {
+                "value": null,
+                "__typename": "EnteredAttributeValue"
+              },
+              "selected_attribute_options": {
+                "attribute_option": [
+                  {
+                    "uid": "Y2F0YWxvZ19wcm9kdWN0L3ZlaGljbGVfbnVtYmVyX29mX2Rvb3JzLzU=",
+                    "label": "5",
+                    "is_default": false,
+                    "__typename": "AttributeOption"
+                  }
+                ],
+                "__typename": "SelectedAttributeOption"
+              },
+              "__typename": "CustomAttribute"
+            },
+            {
+              "attribute_metadata": {
+                "uid": "Y2F0YWxvZ19wcm9kdWN0L3ZlaGljbGVfbnVtYmVycGxhdGU=",
+                "code": "vehicle_numberplate",
+                "label": "Numéro plaque d'immatriculation",
+                "attribute_labels": [],
+                "data_type": "STRING",
+                "is_system": false,
+                "entity_type": "CATALOG_PRODUCT",
+                "used_in_components": [
+                  "PRODUCTS_LISTING",
+                  "PRODUCT_FILTER",
+                  "PRODUCT_SEARCH_RESULTS_FILTER",
+                  "ADVANCED_CATALOG_SEARCH"
+                ],
+                "__typename": "ProductAttributeMetadata"
+              },
+              "entered_attribute_value": {
+                "value": "DY-868-KA",
+                "__typename": "EnteredAttributeValue"
+              },
+              "selected_attribute_options": {
+                "attribute_option": null,
+                "__typename": "SelectedAttributeOption"
+              },
+              "__typename": "CustomAttribute"
+            },
+            {
+              "attribute_metadata": {
+                "uid": "Y2F0YWxvZ19wcm9kdWN0L3ZlaGljbGVfbnVtYmVycGxhdGVfZm9yZWlnbg==",
+                "code": "vehicle_numberplate_foreign",
+                "label": "Plaque d'immatriculation étrangère",
+                "attribute_labels": [],
+                "data_type": "INT",
+                "is_system": false,
+                "entity_type": "CATALOG_PRODUCT",
+                "used_in_components": [
+                  "PRODUCTS_LISTING"
+                ],
+                "__typename": "ProductAttributeMetadata"
+              },
+              "entered_attribute_value": {
+                "value": null,
+                "__typename": "EnteredAttributeValue"
+              },
+              "selected_attribute_options": {
+                "attribute_option": [
+                  {
+                    "uid": "Y2F0YWxvZ19wcm9kdWN0L3ZlaGljbGVfbnVtYmVycGxhdGVfZm9yZWlnbi8w",
+                    "label": "Non",
+                    "is_default": false,
+                    "__typename": "AttributeOption"
+                  }
+                ],
+                "__typename": "SelectedAttributeOption"
+              },
+              "__typename": "CustomAttribute"
+            },
+            {
+              "attribute_metadata": {
+                "uid": "Y2F0YWxvZ19wcm9kdWN0L3ZlaGljbGVfaGFzX2Ffa2V5",
+                "code": "vehicle_has_a_key",
+                "label": "Présence d'au moins une clé",
+                "attribute_labels": [],
+                "data_type": "INT",
+                "is_system": false,
+                "entity_type": "CATALOG_PRODUCT",
+                "used_in_components": [
+                  "PRODUCTS_LISTING"
+                ],
+                "__typename": "ProductAttributeMetadata"
+              },
+              "entered_attribute_value": {
+                "value": null,
+                "__typename": "EnteredAttributeValue"
+              },
+              "selected_attribute_options": {
+                "attribute_option": [
+                  {
+                    "uid": "Y2F0YWxvZ19wcm9kdWN0L3ZlaGljbGVfaGFzX2Ffa2V5LzE=",
+                    "label": "Oui",
+                    "is_default": false,
+                    "__typename": "AttributeOption"
+                  }
+                ],
+                "__typename": "SelectedAttributeOption"
+              },
+              "__typename": "CustomAttribute"
+            },
+            {
+              "attribute_metadata": {
+                "uid": "Y2F0YWxvZ19wcm9kdWN0L21hbmRhdG9yeV9yZW1pdHRhbmNl",
+                "code": "mandatory_remittance",
+                "label": "Remise Obligatoire",
+                "attribute_labels": [],
+                "data_type": "INT",
+                "is_system": false,
+                "entity_type": "CATALOG_PRODUCT",
+                "used_in_components": [
+                  "PRODUCTS_LISTING",
+                  "PRODUCT_SEARCH_RESULTS_FILTER"
+                ],
+                "__typename": "ProductAttributeMetadata"
+              },
+              "entered_attribute_value": {
+                "value": null,
+                "__typename": "EnteredAttributeValue"
+              },
+              "selected_attribute_options": {
+                "attribute_option": [
+                  {
+                    "uid": "Y2F0YWxvZ19wcm9kdWN0L21hbmRhdG9yeV9yZW1pdHRhbmNlLzE=",
+                    "label": "Obligatoire",
+                    "is_default": false,
+                    "__typename": "AttributeOption"
+                  }
+                ],
+                "__typename": "SelectedAttributeOption"
+              },
+              "__typename": "CustomAttribute"
+            },
+            {
+              "attribute_metadata": {
+                "uid": "Y2F0YWxvZ19wcm9kdWN0L3Byb2Zlc3Npb25hbF9vbmx5",
+                "code": "professional_only",
+                "label": "Réservé aux professionnels",
+                "attribute_labels": [],
+                "data_type": "INT",
+                "is_system": false,
+                "entity_type": "CATALOG_PRODUCT",
+                "used_in_components": [
+                  "PRODUCTS_LISTING",
+                  "PRODUCT_FILTER",
+                  "PRODUCT_SEARCH_RESULTS_FILTER",
+                  "ADVANCED_CATALOG_SEARCH"
+                ],
+                "__typename": "ProductAttributeMetadata"
+              },
+              "entered_attribute_value": {
+                "value": null,
+                "__typename": "EnteredAttributeValue"
+              },
+              "selected_attribute_options": {
+                "attribute_option": [
+                  {
+                    "uid": "Y2F0YWxvZ19wcm9kdWN0L3Byb2Zlc3Npb25hbF9vbmx5LzE=",
+                    "label": "Oui",
+                    "is_default": false,
+                    "__typename": "AttributeOption"
+                  }
+                ],
+                "__typename": "SelectedAttributeOption"
+              },
+              "__typename": "CustomAttribute"
+            },
+            {
+              "attribute_metadata": {
+                "uid": "Y2F0YWxvZ19wcm9kdWN0L3RheF9jbGFzc19pZA==",
+                "code": "tax_class_id",
+                "label": "TVA",
+                "attribute_labels": [],
+                "data_type": "INT",
+                "is_system": false,
+                "entity_type": "CATALOG_PRODUCT",
+                "used_in_components": [
+                  "PRODUCTS_LISTING"
+                ],
+                "__typename": "ProductAttributeMetadata"
+              },
+              "entered_attribute_value": {
+                "value": null,
+                "__typename": "EnteredAttributeValue"
+              },
+              "selected_attribute_options": {
+                "attribute_option": [
+                  {
+                    "uid": "Y2F0YWxvZ19wcm9kdWN0L3RheF9jbGFzc19pZC8w",
+                    "label": "Aucun",
+                    "is_default": true,
+                    "__typename": "AttributeOption"
+                  }
+                ],
+                "__typename": "SelectedAttributeOption"
+              },
+              "__typename": "CustomAttribute"
+            },
+            {
+              "attribute_metadata": {
+                "uid": "Y2F0YWxvZ19wcm9kdWN0L25vdGFibGVfdHJhbnNmb3JtYXRpb24=",
+                "code": "notable_transformation",
+                "label": "Transformation notable",
+                "attribute_labels": [],
+                "data_type": "INT",
+                "is_system": false,
+                "entity_type": "CATALOG_PRODUCT",
+                "used_in_components": [
+                  "PRODUCTS_LISTING"
+                ],
+                "__typename": "ProductAttributeMetadata"
+              },
+              "entered_attribute_value": {
+                "value": null,
+                "__typename": "EnteredAttributeValue"
+              },
+              "selected_attribute_options": {
+                "attribute_option": [
+                  {
+                    "uid": "Y2F0YWxvZ19wcm9kdWN0L25vdGFibGVfdHJhbnNmb3JtYXRpb24vMA==",
+                    "label": "Non",
+                    "is_default": false,
+                    "__typename": "AttributeOption"
+                  }
+                ],
+                "__typename": "SelectedAttributeOption"
+              },
+              "__typename": "CustomAttribute"
+            },
+            {
+              "attribute_metadata": {
+                "uid": "Y2F0YWxvZ19wcm9kdWN0L2dlYXJib3hfdHlwZQ==",
+                "code": "gearbox_type",
+                "label": "Type de boîte",
+                "attribute_labels": [],
+                "data_type": "INT",
+                "is_system": false,
+                "entity_type": "CATALOG_PRODUCT",
+                "used_in_components": [
+                  "PRODUCTS_LISTING"
+                ],
+                "__typename": "ProductAttributeMetadata"
+              },
+              "entered_attribute_value": {
+                "value": null,
+                "__typename": "EnteredAttributeValue"
+              },
+              "selected_attribute_options": {
+                "attribute_option": [
+                  {
+                    "uid": "Y2F0YWxvZ19wcm9kdWN0L2dlYXJib3hfdHlwZS8x",
+                    "label": "Boîte manuelle",
+                    "is_default": false,
+                    "__typename": "AttributeOption"
+                  }
+                ],
+                "__typename": "SelectedAttributeOption"
+              },
+              "__typename": "CustomAttribute"
+            },
+            {
+              "attribute_metadata": {
+                "uid": "Y2F0YWxvZ19wcm9kdWN0L2JvZHlfdHlwZQ==",
+                "code": "body_type",
+                "label": "Type de carrosserie",
+                "attribute_labels": [],
+                "data_type": "INT",
+                "is_system": false,
+                "entity_type": "CATALOG_PRODUCT",
+                "used_in_components": [
+                  "PRODUCTS_LISTING"
+                ],
+                "__typename": "ProductAttributeMetadata"
+              },
+              "entered_attribute_value": {
+                "value": null,
+                "__typename": "EnteredAttributeValue"
+              },
+              "selected_attribute_options": {
+                "attribute_option": [
+                  {
+                    "uid": "Y2F0YWxvZ19wcm9kdWN0L2JvZHlfdHlwZS8xOQ==",
+                    "label": "Autre",
+                    "is_default": false,
+                    "__typename": "AttributeOption"
+                  }
+                ],
+                "__typename": "SelectedAttributeOption"
+              },
+              "__typename": "CustomAttribute"
+            },
+            {
+              "attribute_metadata": {
+                "uid": "Y2F0YWxvZ19wcm9kdWN0L2V4cGVydGlzZQ==",
+                "code": "expertise",
+                "label": "Expertise",
+                "attribute_labels": [],
+                "data_type": "INT",
+                "is_system": false,
+                "entity_type": "CATALOG_PRODUCT",
+                "used_in_components": [
+                  "PRODUCTS_LISTING"
+                ],
+                "__typename": "ProductAttributeMetadata"
+              },
+              "entered_attribute_value": {
+                "value": null,
+                "__typename": "EnteredAttributeValue"
+              },
+              "selected_attribute_options": {
+                "attribute_option": [
+                  {
+                    "uid": "Y2F0YWxvZ19wcm9kdWN0L2V4cGVydGlzZS8x",
+                    "label": "Ne pas faire",
+                    "is_default": true,
+                    "__typename": "AttributeOption"
+                  }
+                ],
+                "__typename": "SelectedAttributeOption"
+              },
+              "__typename": "CustomAttribute"
+            },
+            {
+              "attribute_metadata": {
+                "uid": "Y2F0YWxvZ19wcm9kdWN0L2JpY2liYW4=",
+                "code": "biciban",
+                "label": "BIC/IBAN",
+                "attribute_labels": [],
+                "data_type": "STRING",
+                "is_system": false,
+                "entity_type": "CATALOG_PRODUCT",
+                "used_in_components": [
+                  "PRODUCTS_LISTING"
+                ],
+                "__typename": "ProductAttributeMetadata"
+              },
+              "entered_attribute_value": {
+                "value": "[EXPURGE]",
+                "__typename": "EnteredAttributeValue"
+              },
+              "selected_attribute_options": {
+                "attribute_option": [
+                  {
+                    "uid": "Y2F0YWxvZ19wcm9kdWN0L2JpY2liYW4vMjI5OA==",
+                    "label": "[EXPURGE]",
+                    "is_default": false,
+                    "__typename": "AttributeOption"
+                  }
+                ],
+                "__typename": "SelectedAttributeOption"
+              },
+              "__typename": "CustomAttribute"
+            },
+            {
+              "attribute_metadata": {
+                "uid": "Y2F0YWxvZ19wcm9kdWN0L2NvbnRhY3RfZHJvcG9mZl9sb2NhdGlvbl9pZA==",
+                "code": "contact_dropoff_location_id",
+                "label": "Contact Lieu de dépôt",
+                "attribute_labels": [],
+                "data_type": "INT",
+                "is_system": false,
+                "entity_type": "CATALOG_PRODUCT",
+                "used_in_components": [
+                  "PRODUCTS_LISTING"
+                ],
+                "__typename": "ProductAttributeMetadata"
+              },
+              "entered_attribute_value": {
+                "value": null,
+                "__typename": "EnteredAttributeValue"
+              },
+              "selected_attribute_options": {
+                "attribute_option": [
+                  {
+                    "uid": "Y2F0YWxvZ19wcm9kdWN0L2NvbnRhY3RfZHJvcG9mZl9sb2NhdGlvbl9pZC8zODY3Mw==",
+                    "label": "[EXPURGE]",
+                    "is_default": false,
+                    "__typename": "AttributeOption"
+                  }
+                ],
+                "__typename": "SelectedAttributeOption"
+              },
+              "__typename": "CustomAttribute"
+            },
+            {
+              "attribute_metadata": {
+                "uid": "Y2F0YWxvZ19wcm9kdWN0L2FwZV9yZXN0cmljdGlvbg==",
+                "code": "ape_restriction",
+                "label": "Restriction APE",
+                "attribute_labels": [],
+                "data_type": "INT",
+                "is_system": false,
+                "entity_type": "CATALOG_PRODUCT",
+                "used_in_components": [
+                  "PRODUCTS_LISTING"
+                ],
+                "__typename": "ProductAttributeMetadata"
+              },
+              "entered_attribute_value": {
+                "value": null,
+                "__typename": "EnteredAttributeValue"
+              },
+              "selected_attribute_options": {
+                "attribute_option": [
+                  {
+                    "uid": "Y2F0YWxvZ19wcm9kdWN0L2FwZV9yZXN0cmljdGlvbi8xMg==",
+                    "label": "Automobile",
+                    "is_default": false,
+                    "__typename": "AttributeOption"
+                  }
+                ],
+                "__typename": "SelectedAttributeOption"
+              },
+              "__typename": "CustomAttribute"
+            },
+            {
+              "attribute_metadata": {
+                "uid": "Y2F0YWxvZ19wcm9kdWN0L2dvb2RfbmF0dXJl",
+                "code": "good_nature",
+                "label": "Nature du bien",
+                "attribute_labels": [],
+                "data_type": "INT",
+                "is_system": false,
+                "entity_type": "CATALOG_PRODUCT",
+                "used_in_components": [
+                  "PRODUCTS_LISTING"
+                ],
+                "__typename": "ProductAttributeMetadata"
+              },
+              "entered_attribute_value": {
+                "value": null,
+                "__typename": "EnteredAttributeValue"
+              },
+              "selected_attribute_options": {
+                "attribute_option": [
+                  {
+                    "uid": "Y2F0YWxvZ19wcm9kdWN0L2dvb2RfbmF0dXJlLzE=",
+                    "label": "Biens propres",
+                    "is_default": false,
+                    "__typename": "AttributeOption"
+                  }
+                ],
+                "__typename": "SelectedAttributeOption"
+              },
+              "__typename": "CustomAttribute"
+            },
+            {
+              "attribute_metadata": {
+                "uid": "Y2F0YWxvZ19wcm9kdWN0L25vdF9jb25mb3JtZQ==",
+                "code": "not_conforme",
+                "label": "Non Conforme",
+                "attribute_labels": [],
+                "data_type": "INT",
+                "is_system": false,
+                "entity_type": "CATALOG_PRODUCT",
+                "used_in_components": [
+                  "PRODUCTS_LISTING"
+                ],
+                "__typename": "ProductAttributeMetadata"
+              },
+              "entered_attribute_value": {
+                "value": null,
+                "__typename": "EnteredAttributeValue"
+              },
+              "selected_attribute_options": {
+                "attribute_option": [
+                  {
+                    "uid": "Y2F0YWxvZ19wcm9kdWN0L25vdF9jb25mb3JtZS8w",
+                    "label": "Non",
+                    "is_default": false,
+                    "__typename": "AttributeOption"
+                  }
+                ],
+                "__typename": "SelectedAttributeOption"
+              },
+              "__typename": "CustomAttribute"
+            },
+            {
+              "attribute_metadata": {
+                "uid": "Y2F0YWxvZ19wcm9kdWN0L3BoeXNpY2FsX3RyYW5zZmVy",
+                "code": "physical_transfer",
+                "label": "Transfert physique",
+                "attribute_labels": [],
+                "data_type": "INT",
+                "is_system": false,
+                "entity_type": "CATALOG_PRODUCT",
+                "used_in_components": [
+                  "PRODUCTS_LISTING"
+                ],
+                "__typename": "ProductAttributeMetadata"
+              },
+              "entered_attribute_value": {
+                "value": null,
+                "__typename": "EnteredAttributeValue"
+              },
+              "selected_attribute_options": {
+                "attribute_option": [
+                  {
+                    "uid": "Y2F0YWxvZ19wcm9kdWN0L3BoeXNpY2FsX3RyYW5zZmVyLzA=",
+                    "label": "Non",
+                    "is_default": false,
+                    "__typename": "AttributeOption"
+                  }
+                ],
+                "__typename": "SelectedAttributeOption"
+              },
+              "__typename": "CustomAttribute"
+            },
+            {
+              "attribute_metadata": {
+                "uid": "Y2F0YWxvZ19wcm9kdWN0L2NvZGVfY2FuYWw=",
+                "code": "code_canal",
+                "label": "Nom du canal",
+                "attribute_labels": [],
+                "data_type": "INT",
+                "is_system": false,
+                "entity_type": "CATALOG_PRODUCT",
+                "used_in_components": [
+                  "PRODUCTS_LISTING"
+                ],
+                "__typename": "ProductAttributeMetadata"
+              },
+              "entered_attribute_value": {
+                "value": null,
+                "__typename": "EnteredAttributeValue"
+              },
+              "selected_attribute_options": {
+                "attribute_option": [
+                  {
+                    "uid": "Y2F0YWxvZ19wcm9kdWN0L2NvZGVfY2FuYWwvMw==",
+                    "label": "Espace remettant (BR)",
+                    "is_default": false,
+                    "__typename": "AttributeOption"
+                  }
+                ],
+                "__typename": "SelectedAttributeOption"
+              },
+              "__typename": "CustomAttribute"
+            },
+            {
+              "attribute_metadata": {
+                "uid": "Y2F0YWxvZ19wcm9kdWN0L2lzX2dvb2RfY2hlY2s=",
+                "code": "is_good_check",
+                "label": "Récolé",
+                "attribute_labels": [],
+                "data_type": "INT",
+                "is_system": false,
+                "entity_type": "CATALOG_PRODUCT",
+                "used_in_components": [
+                  "PRODUCTS_LISTING",
+                  "PRODUCT_SORT"
+                ],
+                "__typename": "ProductAttributeMetadata"
+              },
+              "entered_attribute_value": {
+                "value": null,
+                "__typename": "EnteredAttributeValue"
+              },
+              "selected_attribute_options": {
+                "attribute_option": [
+                  {
+                    "uid": "Y2F0YWxvZ19wcm9kdWN0L2lzX2dvb2RfY2hlY2svMA==",
+                    "label": "Non",
+                    "is_default": false,
+                    "__typename": "AttributeOption"
+                  }
+                ],
+                "__typename": "SelectedAttributeOption"
+              },
+              "__typename": "CustomAttribute"
+            },
+            {
+              "attribute_metadata": {
+                "uid": "Y2F0YWxvZ19wcm9kdWN0L2Ftb3VudF9kZXBvc2l0X3ZhbGlkYXRlZA==",
+                "code": "amount_deposit_validated",
+                "label": "Montant acompte rapproché",
+                "attribute_labels": [],
+                "data_type": "FLOAT",
+                "is_system": false,
+                "entity_type": "CATALOG_PRODUCT",
+                "used_in_components": [
+                  "PRODUCTS_LISTING"
+                ],
+                "__typename": "ProductAttributeMetadata"
+              },
+              "entered_attribute_value": {
+                "value": "0.000000",
+                "__typename": "EnteredAttributeValue"
+              },
+              "selected_attribute_options": {
+                "attribute_option": null,
+                "__typename": "SelectedAttributeOption"
+              },
+              "__typename": "CustomAttribute"
+            },
+            {
+              "attribute_metadata": {
+                "uid": "Y2F0YWxvZ19wcm9kdWN0L2Ftb3VudF9kZXBvc2l0X2NhcHR1cmVk",
+                "code": "amount_deposit_captured",
+                "label": "Montant d'acompte capturé",
+                "attribute_labels": [],
+                "data_type": "FLOAT",
+                "is_system": false,
+                "entity_type": "CATALOG_PRODUCT",
+                "used_in_components": [
+                  "PRODUCTS_LISTING"
+                ],
+                "__typename": "ProductAttributeMetadata"
+              },
+              "entered_attribute_value": {
+                "value": "0.000000",
+                "__typename": "EnteredAttributeValue"
+              },
+              "selected_attribute_options": {
+                "attribute_option": null,
+                "__typename": "SelectedAttributeOption"
+              },
+              "__typename": "CustomAttribute"
+            },
+            {
+              "attribute_metadata": {
+                "uid": "Y2F0YWxvZ19wcm9kdWN0L2Ftb3VudF9kZXBvc2l0X2R1ZQ==",
+                "code": "amount_deposit_due",
+                "label": "Montant d'acompte dû",
+                "attribute_labels": [],
+                "data_type": "FLOAT",
+                "is_system": false,
+                "entity_type": "CATALOG_PRODUCT",
+                "used_in_components": [
+                  "PRODUCTS_LISTING"
+                ],
+                "__typename": "ProductAttributeMetadata"
+              },
+              "entered_attribute_value": {
+                "value": "0.000000",
+                "__typename": "EnteredAttributeValue"
+              },
+              "selected_attribute_options": {
+                "attribute_option": null,
+                "__typename": "SelectedAttributeOption"
+              },
+              "__typename": "CustomAttribute"
+            },
+            {
+              "attribute_metadata": {
+                "uid": "Y2F0YWxvZ19wcm9kdWN0L2Ftb3VudF92YWxpZGF0ZWQ=",
+                "code": "amount_validated",
+                "label": "Montant total rapproché (hors acompte)",
+                "attribute_labels": [],
+                "data_type": "FLOAT",
+                "is_system": false,
+                "entity_type": "CATALOG_PRODUCT",
+                "used_in_components": [
+                  "PRODUCTS_LISTING"
+                ],
+                "__typename": "ProductAttributeMetadata"
+              },
+              "entered_attribute_value": {
+                "value": "0.000000",
+                "__typename": "EnteredAttributeValue"
+              },
+              "selected_attribute_options": {
+                "attribute_option": null,
+                "__typename": "SelectedAttributeOption"
+              },
+              "__typename": "CustomAttribute"
+            },
+            {
+              "attribute_metadata": {
+                "uid": "Y2F0YWxvZ19wcm9kdWN0L2Ftb3VudF9vdmVycGF5bWVudF92YWxpZGF0ZWQ=",
+                "code": "amount_overpayment_validated",
+                "label": "Montant trop perçus rapproché",
+                "attribute_labels": [],
+                "data_type": "FLOAT",
+                "is_system": false,
+                "entity_type": "CATALOG_PRODUCT",
+                "used_in_components": [
+                  "PRODUCTS_LISTING"
+                ],
+                "__typename": "ProductAttributeMetadata"
+              },
+              "entered_attribute_value": {
+                "value": "0.000000",
+                "__typename": "EnteredAttributeValue"
+              },
+              "selected_attribute_options": {
+                "attribute_option": null,
+                "__typename": "SelectedAttributeOption"
+              },
+              "__typename": "CustomAttribute"
+            },
+            {
+              "attribute_metadata": {
+                "uid": "Y2F0YWxvZ19wcm9kdWN0L2RhdGVfb2ZfcmVtaXR0YW5jZQ==",
+                "code": "date_of_remittance",
+                "label": "Date de remise",
+                "attribute_labels": [],
+                "data_type": "STRING",
+                "is_system": false,
+                "entity_type": "CATALOG_PRODUCT",
+                "used_in_components": [
+                  "PRODUCTS_LISTING"
+                ],
+                "__typename": "ProductAttributeMetadata"
+              },
+              "entered_attribute_value": {
+                "value": "2026-06-01T12:01:00+00:00",
+                "__typename": "EnteredAttributeValue"
+              },
+              "selected_attribute_options": {
+                "attribute_option": null,
+                "__typename": "SelectedAttributeOption"
+              },
+              "__typename": "CustomAttribute"
+            },
+            {
+              "attribute_metadata": {
+                "uid": "Y2F0YWxvZ19wcm9kdWN0L2dlbmVyYXRlX3NrdQ==",
+                "code": "generate_sku",
+                "label": "Générer le sku du bien",
+                "attribute_labels": [],
+                "data_type": "INT",
+                "is_system": false,
+                "entity_type": "CATALOG_PRODUCT",
+                "used_in_components": [
+                  "PRODUCTS_LISTING",
+                  "PRODUCT_SORT",
+                  "PRODUCT_FILTER"
+                ],
+                "__typename": "ProductAttributeMetadata"
+              },
+              "entered_attribute_value": {
+                "value": null,
+                "__typename": "EnteredAttributeValue"
+              },
+              "selected_attribute_options": {
+                "attribute_option": [
+                  {
+                    "uid": "Y2F0YWxvZ19wcm9kdWN0L2dlbmVyYXRlX3NrdS8x",
+                    "label": "Oui",
+                    "is_default": false,
+                    "__typename": "AttributeOption"
+                  }
+                ],
+                "__typename": "SelectedAttributeOption"
+              },
+              "__typename": "CustomAttribute"
+            },
+            {
+              "attribute_metadata": {
+                "uid": "Y2F0YWxvZ19wcm9kdWN0L2lzX2NhbmNlbGxlZF9hZGp1ZGljYXRpb24=",
+                "code": "is_cancelled_adjudication",
+                "label": "Adjudication annulée ?",
+                "attribute_labels": [],
+                "data_type": "INT",
+                "is_system": false,
+                "entity_type": "CATALOG_PRODUCT",
+                "used_in_components": [
+                  "PRODUCTS_LISTING"
+                ],
+                "__typename": "ProductAttributeMetadata"
+              },
+              "entered_attribute_value": {
+                "value": null,
+                "__typename": "EnteredAttributeValue"
+              },
+              "selected_attribute_options": {
+                "attribute_option": [
+                  {
+                    "uid": "Y2F0YWxvZ19wcm9kdWN0L2lzX2NhbmNlbGxlZF9hZGp1ZGljYXRpb24vMA==",
+                    "label": "Non",
+                    "is_default": false,
+                    "__typename": "AttributeOption"
+                  }
+                ],
+                "__typename": "SelectedAttributeOption"
+              },
+              "__typename": "CustomAttribute"
+            },
+            {
+              "attribute_metadata": {
+                "uid": "Y2F0YWxvZ19wcm9kdWN0L3ZodV9kZWNsYXJlZA==",
+                "code": "vhu_declared",
+                "label": "VHU déclaré",
+                "attribute_labels": [],
+                "data_type": "INT",
+                "is_system": false,
+                "entity_type": "CATALOG_PRODUCT",
+                "used_in_components": [
+                  "PRODUCTS_LISTING",
+                  "PRODUCT_FILTER",
+                  "PRODUCT_SEARCH_RESULTS_FILTER",
+                  "ADVANCED_CATALOG_SEARCH"
+                ],
+                "__typename": "ProductAttributeMetadata"
+              },
+              "entered_attribute_value": {
+                "value": null,
+                "__typename": "EnteredAttributeValue"
+              },
+              "selected_attribute_options": {
+                "attribute_option": [],
+                "__typename": "SelectedAttributeOption"
+              },
+              "__typename": "CustomAttribute"
+            },
+            {
+              "attribute_metadata": {
+                "uid": "Y2F0YWxvZ19wcm9kdWN0L2JpZF93aW5uZXJfdXNlcg==",
+                "code": "bid_winner_user",
+                "label": "Adjudicataire",
+                "attribute_labels": [],
+                "data_type": "STRING",
+                "is_system": false,
+                "entity_type": "CATALOG_PRODUCT",
+                "used_in_components": [
+                  "PRODUCTS_LISTING"
+                ],
+                "__typename": "ProductAttributeMetadata"
+              },
+              "entered_attribute_value": {
+                "value": "",
+                "__typename": "EnteredAttributeValue"
+              },
+              "selected_attribute_options": {
+                "attribute_option": null,
+                "__typename": "SelectedAttributeOption"
+              },
+              "__typename": "CustomAttribute"
+            },
+            {
+              "attribute_metadata": {
+                "uid": "Y2F0YWxvZ19wcm9kdWN0L2VuZF9hdWN0aW9uX2xvdF9hdA==",
+                "code": "end_auction_lot_at",
+                "label": "Date de clôture",
+                "attribute_labels": [],
+                "data_type": "STRING",
+                "is_system": false,
+                "entity_type": "CATALOG_PRODUCT",
+                "used_in_components": [
+                  "PRODUCTS_LISTING",
+                  "PRODUCT_SORT"
+                ],
+                "__typename": "ProductAttributeMetadata"
+              },
+              "entered_attribute_value": {
+                "value": "2026-08-27T08:00:00+00:00",
+                "__typename": "EnteredAttributeValue"
+              },
+              "selected_attribute_options": {
+                "attribute_option": null,
+                "__typename": "SelectedAttributeOption"
+              },
+              "__typename": "CustomAttribute"
+            },
+            {
+              "attribute_metadata": {
+                "uid": "Y2F0YWxvZ19wcm9kdWN0L3N0YXJ0X2F1Y3Rpb25fbG90X2F0",
+                "code": "start_auction_lot_at",
+                "label": "Date de Début",
+                "attribute_labels": [],
+                "data_type": "STRING",
+                "is_system": false,
+                "entity_type": "CATALOG_PRODUCT",
+                "used_in_components": [
+                  "PRODUCTS_LISTING",
+                  "PRODUCT_SORT"
+                ],
+                "__typename": "ProductAttributeMetadata"
+              },
+              "entered_attribute_value": {
+                "value": "2026-08-24T10:00:00+00:00",
+                "__typename": "EnteredAttributeValue"
+              },
+              "selected_attribute_options": {
+                "attribute_option": null,
+                "__typename": "SelectedAttributeOption"
+              },
+              "__typename": "CustomAttribute"
+            },
+            {
+              "attribute_metadata": {
+                "uid": "Y2F0YWxvZ19wcm9kdWN0L2xvdF9udW1iZXI=",
+                "code": "lot_number",
+                "label": "Numéro de lot",
+                "attribute_labels": [],
+                "data_type": "INT",
+                "is_system": false,
+                "entity_type": "CATALOG_PRODUCT",
+                "used_in_components": [
+                  "PRODUCTS_LISTING",
+                  "PRODUCT_SORT",
+                  "PRODUCT_FILTER"
+                ],
+                "__typename": "ProductAttributeMetadata"
+              },
+              "entered_attribute_value": {
+                "value": "1",
+                "__typename": "EnteredAttributeValue"
+              },
+              "selected_attribute_options": {
+                "attribute_option": null,
+                "__typename": "SelectedAttributeOption"
+              },
+              "__typename": "CustomAttribute"
+            },
+            {
+              "attribute_metadata": {
+                "uid": "Y2F0YWxvZ19wcm9kdWN0L2xvdF9zdGF0dXM=",
+                "code": "lot_status",
+                "label": "Statut du bien",
+                "attribute_labels": [],
+                "data_type": "INT",
+                "is_system": false,
+                "entity_type": "CATALOG_PRODUCT",
+                "used_in_components": [
+                  "PRODUCTS_LISTING",
+                  "PRODUCT_SORT",
+                  "PRODUCT_FILTER",
+                  "PRODUCT_SEARCH_RESULTS_FILTER",
+                  "ADVANCED_CATALOG_SEARCH"
+                ],
+                "__typename": "ProductAttributeMetadata"
+              },
+              "entered_attribute_value": {
+                "value": null,
+                "__typename": "EnteredAttributeValue"
+              },
+              "selected_attribute_options": {
+                "attribute_option": [
+                  {
+                    "uid": "Y2F0YWxvZ19wcm9kdWN0L2xvdF9zdGF0dXMvMTQ=",
+                    "label": "Vente en cours",
+                    "is_default": false,
+                    "__typename": "AttributeOption"
+                  }
+                ],
+                "__typename": "SelectedAttributeOption"
+              },
+              "__typename": "CustomAttribute"
+            }
+          ],
+          "description": {
+            "html": "",
+            "__typename": "ComplexTextValue"
+          },
+          "dropoff_location_id": 22207,
+          "dropoff_location_fo": {
+            "address": "18  RUE DES DALHIAS",
+            "address_complement": "BRAS-FUSIL",
+            "address_complement_bis": " ",
+            "city": "SAINT-BENOIT",
+            "dnid_dropoff_location_id": 22207,
+            "name": "ARS REUNION - 97470",
+            "postcode": "97470",
+            "published": null,
+            "__typename": "DropoffLocation"
+          },
+          "dropoff_location": {
+            "city": "SAINT-BENOIT",
+            "postcode": "97470",
+            "__typename": "DropoffLocation"
+          },
+          "contact_dropoff_location": {
+            "dnid_contact_dropoff_location_id": 38673,
+            "email": "[EXPURGE]",
+            "function": "Gestionnaire parc Véhicule",
+            "mobile_phone": null,
+            "name": "[EXPURGE]",
+            "physical_schedule": "7H-12H 13H-15H30",
+            "status": null,
+            "tel_schedule": "7H-19H",
+            "telephone": "[EXPURGE]",
+            "__typename": "ContactDropoffLocation"
+          },
+          "id": 267804,
+          "lot_number": 1,
+          "media_gallery_entries": [
+            {
+              "uid": "MTAwNjU2NA==",
+              "label": "DY-868-KA-1_1_1_1.jpg",
+              "position": 1,
+              "disabled": false,
+              "file": "/D/Y/DY-868-KA-1_1_1_1_1.jpg",
+              "__typename": "MediaGalleryEntry"
+            },
+            {
+              "uid": "MTAwNjU2Nw==",
+              "label": "DY-868-KA-2_1_1.jpg",
+              "position": 2,
+              "disabled": false,
+              "file": "/D/Y/DY-868-KA-2_1_1_1.jpg",
+              "__typename": "MediaGalleryEntry"
+            },
+            {
+              "uid": "MTAwNjU3MA==",
+              "label": "DY-868-KA-3_1_1_1.jpg",
+              "position": 3,
+              "disabled": false,
+              "file": "/D/Y/DY-868-KA-3_1_1_1_1.jpg",
+              "__typename": "MediaGalleryEntry"
+            },
+            {
+              "uid": "MTAwNjU3Mw==",
+              "label": "DY-868-KA-4_1_1.jpg",
+              "position": 4,
+              "disabled": false,
+              "file": "/D/Y/DY-868-KA-4_1_1_1.jpg",
+              "__typename": "MediaGalleryEntry"
+            },
+            {
+              "uid": "MTAwNjU3Ng==",
+              "label": "DY-868-KA-5_1_1_1.jpg",
+              "position": 5,
+              "disabled": false,
+              "file": "/D/Y/DY-868-KA-5_1_1_1_1.jpg",
+              "__typename": "MediaGalleryEntry"
+            },
+            {
+              "uid": "MTAwNjU3OQ==",
+              "label": "DY-868-KA-6_1_1_1.jpg",
+              "position": 6,
+              "disabled": false,
+              "file": "/D/Y/DY-868-KA-6_1_1_1_1.jpg",
+              "__typename": "MediaGalleryEntry"
+            }
+          ],
+          "name": "DACIA DUSTER  ",
+          "product_documents": [],
+          "professional_only": 1,
+          "sales_inspector_data": {
+            "cav_name": "LA REUNION",
+            "__typename": "Cav"
+          },
+          "short_description": {
+            "html": "<p><strong>Lot réservé aux professionnels du secteur automobile</strong></p>\r\n<p> </p>\r\n<p>DACIA DUSTER, Gazole, imm DY 868 KA, type M10DACVP0006984, n° série UU1HSDJ9G53808834, 1 ère mise en circulation 23/12/2015, 06 cv, 05 places.<a href=\"Visites sur place uniquement le Mercredi 29/07/2026 de 08h00 à 11h00 avec Mr DUPONT au [EXPURGE]\">Visites sur place uniquement le Mercredi 29/07/2026 de 08h00 à 11h00 avec Mr DUPONT au [EXPURGE]</a></p>\r\n<p>Enlèvement sur plateau à la charge de l'acquéreur.</p>",
+            "__typename": "ComplexTextValue"
+          },
+          "small_image": {
+            "url": "https://encheres-domaine.gouv.fr/admin/media/catalog/product/cache/4e6b796a8112d57a69244f76bc391cda/D/Y/DY-868-KA-1_1_1_1_1.jpg",
+            "__typename": "ProductImage"
+          },
+          "sku": "2604974BR267804",
+          "tax_info": [],
+          "state_property_tax": "11",
+          "url_key": "daciadustersecteurest-1"
+        }
+      ],
+      "__typename": "Products"
+    }
+  }
+}

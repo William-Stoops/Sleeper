@@ -1,0 +1,369 @@
+{
+  "data": {
+    "auctionsList": {
+      "items": [
+        {
+          "auction_auto_status": 3,
+          "auction_documents": {
+            "pdf_specifications": {
+              "label": "Cahier des charges",
+              "url_path": null,
+              "type": null,
+              "size": null,
+              "__typename": "AuctionDocument"
+            },
+            "__typename": "AuctionDocuments"
+          },
+          "auction_number_of_lots": 161,
+          "categories": [
+            {
+              "name": "Véhicules",
+              "__typename": "AuctionCategory"
+            },
+            {
+              "name": "Matériels professionnels",
+              "__typename": "AuctionCategory"
+            },
+            {
+              "name": "High tech",
+              "__typename": "AuctionCategory"
+            },
+            {
+              "name": "Matières, Matériaux et Autres",
+              "__typename": "AuctionCategory"
+            },
+            {
+              "name": "Sports et Loisirs",
+              "__typename": "AuctionCategory"
+            }
+          ],
+          "description": "Véhicules - bateau- matériel professionnels- véhicule de collection ",
+          "dnid_auction_id": 467,
+          "end_date": "2026-08-27T08:00:00+00:00",
+          "image_path": "CHEVROLET_CORVETTE_AX601WT_13.jpg",
+          "location": null,
+          "name": "Vente du 27 Août 2026 par les Enchères du domaine de La Réunion (974)",
+          "offers_submission_deadline": null,
+          "professional_only": "0",
+          "sales_inspector_label": "LA REUNION",
+          "start_date": "2026-08-24T10:00:00+00:00",
+          "status_text": "Vente en cours",
+          "type": 1,
+          "type_text": "Vente en ligne",
+          "__typename": "Auction"
+        },
+        {
+          "auction_auto_status": 3,
+          "auction_documents": {
+            "pdf_specifications": {
+              "label": "Cahier des charges",
+              "url_path": null,
+              "type": null,
+              "size": null,
+              "__typename": "AuctionDocument"
+            },
+            "__typename": "AuctionDocuments"
+          },
+          "auction_number_of_lots": 1,
+          "categories": [
+            {
+              "name": "Bijoux, Mode et art de vivre",
+              "__typename": "AuctionCategory"
+            }
+          ],
+          "description": "Licence IV",
+          "dnid_auction_id": 503,
+          "end_date": "2026-08-28T08:00:00+00:00",
+          "image_path": "LICENCE_IV_AUX_ENCHERES_1.jpg",
+          "location": null,
+          "name": "Vente du 28 août 2026 par les Enchères du Domaine de Lille",
+          "offers_submission_deadline": null,
+          "professional_only": "0",
+          "sales_inspector_label": "LILLE",
+          "start_date": "2026-08-24T08:00:00+00:00",
+          "status_text": "Vente en cours",
+          "type": 1,
+          "type_text": "Vente en ligne",
+          "__typename": "Auction"
+        },
+        {
+          "auction_auto_status": 2,
+          "auction_documents": {
+            "pdf_specifications": {
+              "label": "Cahier des charges",
+              "url_path": null,
+              "type": null,
+              "size": null,
+              "__typename": "AuctionDocument"
+            },
+            "__typename": "AuctionDocuments"
+          },
+          "auction_number_of_lots": 609,
+          "categories": [
+            {
+              "name": "Véhicules",
+              "__typename": "AuctionCategory"
+            },
+            {
+              "name": "Matériels professionnels",
+              "__typename": "AuctionCategory"
+            },
+            {
+              "name": "Bijoux, Mode et art de vivre",
+              "__typename": "AuctionCategory"
+            },
+            {
+              "name": "High tech",
+              "__typename": "AuctionCategory"
+            },
+            {
+              "name": "Mobilier et Objets d'art",
+              "__typename": "AuctionCategory"
+            },
+            {
+              "name": "Matières, Matériaux et Autres",
+              "__typename": "AuctionCategory"
+            },
+            {
+              "name": "Sports et Loisirs",
+              "__typename": "AuctionCategory"
+            }
+          ],
+          "description": "",
+          "dnid_auction_id": 478,
+          "end_date": "2026-09-01T08:00:00+00:00",
+          "image_path": "20260716-134750_1-COLLAGE_1.jpg",
+          "location": null,
+          "name": "Vente du 1er septembre 2026 par les Enchères du Domaine de St-Maurice",
+          "offers_submission_deadline": null,
+          "professional_only": "1",
+          "sales_inspector_label": "SAINT MAURICE ADMINISTRATIF",
+          "start_date": "2026-08-28T07:00:00+00:00",
+          "status_text": "Vente à venir",
+          "type": 1,
+          "type_text": "Vente en ligne",
+          "__typename": "Auction"
+        },
+        {
+          "auction_auto_status": 2,
+          "auction_documents": {
+            "pdf_specifications": {
+              "label": "Cahier des charges",
+              "url_path": null,
+              "type": null,
+              "size": null,
+              "__typename": "AuctionDocument"
+            },
+            "__typename": "AuctionDocuments"
+          },
+          "auction_number_of_lots": 3,
+          "categories": [
+            {
+              "name": "Bijoux, Mode et art de vivre",
+              "__typename": "AuctionCategory"
+            }
+          ],
+          "description": "Licences IV",
+          "dnid_auction_id": 484,
+          "end_date": "2026-09-01T10:00:00+00:00",
+          "image_path": "LICENCE_IV_AUX_ENCHERES.jpg",
+          "location": null,
+          "name": "Vente du 1er septembre 2026 par les Enchères du Domaine de Marseille",
+          "offers_submission_deadline": null,
+          "professional_only": "0",
+          "sales_inspector_label": "MARSEILLE",
+          "start_date": "2026-08-28T10:00:00+00:00",
+          "status_text": "Vente à venir",
+          "type": 1,
+          "type_text": "Vente en ligne",
+          "__typename": "Auction"
+        },
+        {
+          "auction_auto_status": 2,
+          "auction_documents": {
+            "pdf_specifications": {
+              "label": "Cahier des charges",
+              "url_path": null,
+              "type": null,
+              "size": null,
+              "__typename": "AuctionDocument"
+            },
+            "__typename": "AuctionDocuments"
+          },
+          "auction_number_of_lots": 389,
+          "categories": [
+            {
+              "name": "Véhicules",
+              "__typename": "AuctionCategory"
+            },
+            {
+              "name": "Matériels professionnels",
+              "__typename": "AuctionCategory"
+            },
+            {
+              "name": "Bijoux, Mode et art de vivre",
+              "__typename": "AuctionCategory"
+            },
+            {
+              "name": "High tech",
+              "__typename": "AuctionCategory"
+            },
+            {
+              "name": "Mobilier et Objets d'art",
+              "__typename": "AuctionCategory"
+            },
+            {
+              "name": "Matières, Matériaux et Autres",
+              "__typename": "AuctionCategory"
+            },
+            {
+              "name": "Sports et Loisirs",
+              "__typename": "AuctionCategory"
+            }
+          ],
+          "description": "Vente de voitures, utilitaires, deux roues, engins de chantier, matériels professionnels, objets de collection, parfums, alcools, ferraille, remorques, high tech, mobilier, etc.",
+          "dnid_auction_id": 474,
+          "end_date": "2026-09-03T08:00:00+00:00",
+          "image_path": "Photo_couverture_septembre_2026.jpg",
+          "location": null,
+          "name": "Vente du 03 septembre 2026 par les Enchères du Domaine de Lille",
+          "offers_submission_deadline": null,
+          "professional_only": "1",
+          "sales_inspector_label": "LILLE",
+          "start_date": "2026-08-31T07:00:00+00:00",
+          "status_text": "Vente à venir",
+          "type": 1,
+          "type_text": "Vente en ligne",
+          "__typename": "Auction"
+        },
+        {
+          "auction_auto_status": 3,
+          "auction_documents": {
+            "pdf_specifications": {
+              "label": "Cahier des charges",
+              "url_path": "/media/auctions/upload/2026-09-03_CCP_AO_AIA_Dechets-Ferreux_sign_.pdf",
+              "type": "application/pdf",
+              "size": "205341",
+              "__typename": "AuctionDocument"
+            },
+            "__typename": "AuctionDocuments"
+          },
+          "auction_number_of_lots": 4,
+          "categories": [],
+          "description": "Déchets métaux ferreux et alliages légers",
+          "dnid_auction_id": 569,
+          "end_date": null,
+          "image_path": "IMG_03092026_CAV63.jpg",
+          "location": null,
+          "name": "Marché d'enlèvement du 3 septembre 2026 par les Enchères du Domaine de Clermont-Ferrand",
+          "offers_submission_deadline": "2026-09-03T09:00:00+00:00",
+          "professional_only": "1",
+          "sales_inspector_label": "CLERMONT-FERRAND",
+          "start_date": "2026-08-12T08:00:00+00:00",
+          "status_text": "Vente en cours",
+          "type": 5,
+          "type_text": "Marché d'enlèvement",
+          "__typename": "Auction"
+        },
+        {
+          "auction_auto_status": 2,
+          "auction_documents": {
+            "pdf_specifications": {
+              "label": "Cahier des charges",
+              "url_path": null,
+              "type": null,
+              "size": null,
+              "__typename": "AuctionDocument"
+            },
+            "__typename": "AuctionDocuments"
+          },
+          "auction_number_of_lots": 184,
+          "categories": [
+            {
+              "name": "Véhicules",
+              "__typename": "AuctionCategory"
+            },
+            {
+              "name": "Matériels professionnels",
+              "__typename": "AuctionCategory"
+            },
+            {
+              "name": "Bijoux, Mode et art de vivre",
+              "__typename": "AuctionCategory"
+            },
+            {
+              "name": "High tech",
+              "__typename": "AuctionCategory"
+            },
+            {
+              "name": "Mobilier et Objets d'art",
+              "__typename": "AuctionCategory"
+            },
+            {
+              "name": "Matières, Matériaux et Autres",
+              "__typename": "AuctionCategory"
+            },
+            {
+              "name": "Sports et Loisirs",
+              "__typename": "AuctionCategory"
+            }
+          ],
+          "description": "Véhicules, Matériels Agricoles et Professionnels",
+          "dnid_auction_id": 517,
+          "end_date": "2026-09-08T08:00:00+00:00",
+          "image_path": "IMG_CAV63_08-septembre2.jpg",
+          "location": null,
+          "name": "Vente du 8 septembre 2026 par les Enchères du Domaine de Clermont-Ferrand",
+          "offers_submission_deadline": null,
+          "professional_only": "1",
+          "sales_inspector_label": "CLERMONT-FERRAND",
+          "start_date": "2026-09-04T07:00:00+00:00",
+          "status_text": "Vente à venir",
+          "type": 1,
+          "type_text": "Vente en ligne",
+          "__typename": "Auction"
+        },
+        {
+          "auction_auto_status": 2,
+          "auction_documents": {
+            "pdf_specifications": {
+              "label": "Cahier des charges",
+              "url_path": null,
+              "type": null,
+              "size": null,
+              "__typename": "AuctionDocument"
+            },
+            "__typename": "AuctionDocuments"
+          },
+          "auction_number_of_lots": 1,
+          "categories": [
+            {
+              "name": "Véhicules",
+              "__typename": "AuctionCategory"
+            }
+          ],
+          "description": "",
+          "dnid_auction_id": 567,
+          "end_date": "2026-09-08T10:00:00+00:00",
+          "image_path": "Morgan_ADS15_08092026_1.jpg",
+          "location": null,
+          "name": "Vente du 8 septembre 2026 par les Enchères du Domaine de Clermont-Ferrand : spéciale véhicule d'exception",
+          "offers_submission_deadline": null,
+          "professional_only": "0",
+          "sales_inspector_label": "CLERMONT-FERRAND",
+          "start_date": "2026-09-04T10:00:00+00:00",
+          "status_text": "Vente à venir",
+          "type": 1,
+          "type_text": "Vente en ligne",
+          "__typename": "Auction"
+        }
+      ],
+      "page_info": {
+        "total_pages": 2,
+        "__typename": "SearchResultPageInfo"
+      },
+      "total_count": 11,
+      "__typename": "AuctionsList"
+    }
+  }
+}

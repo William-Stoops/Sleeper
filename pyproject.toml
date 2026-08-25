@@ -1,0 +1,93 @@
+[project]
+name = "sleeper"
+version = "0.1.0"
+description = "Collecteur des ventes de vehicules d'encheres-domaine.gouv.fr"
+readme = "README.md"
+requires-python = ">=3.12"
+license = { text = "MIT" }
+dependencies = [
+    "httpx>=0.28",
+    "jsonschema>=4.23",
+    "pydantic>=2.9",
+    "rich>=13.9",
+    "structlog>=24.4",
+    "typer>=0.15",
+]
+
+[project.optional-dependencies]
+discovery = ["playwright>=1.49"]
+
+[project.scripts]
+sleeper = "sleeper.cli:app"
+
+[dependency-groups]
+dev = [
+    "mypy>=1.13",
+    "pre-commit>=4.0",
+    "pytest>=8.3",
+    "pytest-cov>=6.0",
+    "ruff>=0.8",
+    "types-jsonschema>=4.23",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/sleeper"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+src = ["src", "tests", "tools"]
+
+[tool.ruff.lint]
+select = [
+    "E", "F", "W",      # pycodestyle / pyflakes
+    "I",                # isort
+    "N",                # pep8-naming
+    "UP",               # pyupgrade
+    "B",                # bugbear
+    "C4",               # comprehensions
+    "SIM",              # simplify
+    "PTH",              # pathlib
+    "RET",              # returns
+    "ARG",              # unused arguments
+    "TID",              # tidy imports
+    "PL",               # pylint subset
+    "RUF",
+]
+ignore = ["PLR0913"]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/*" = ["PLR2004"]
+# Gabarit Markdown embarque : la largeur du tableau n'est pas negociable.
+"tools/generer_doc_regles.py" = ["E501"]
+
+[tool.mypy]
+python_version = "3.12"
+strict = true
+warn_unreachable = true
+disallow_any_unimported = true
+plugins = ["pydantic.mypy"]
+files = ["src", "tests", "tools"]
+
+[[tool.mypy.overrides]]
+module = "playwright.*"
+ignore_missing_imports = true
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-q --strict-markers --strict-config"
+markers = ["discovery: touche le reseau, exclu du run par defaut"]
+
+[tool.coverage.run]
+source = ["src/sleeper"]
+branch = true
+
+[tool.coverage.report]
+# Le plancher protege le domaine metier, la ou une regression est couteuse.
+fail_under = 90
+show_missing = true
+exclude_also = ["if TYPE_CHECKING:", "\\.\\.\\.$", "raise NotImplementedError"]

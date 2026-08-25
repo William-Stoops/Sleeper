@@ -1,0 +1,422 @@
+{
+  "data": {
+    "products": {
+      "items": [
+        {
+          "__typename": "VirtualProduct",
+          "auction": 467,
+          "auction_auto_status": 3,
+          "auction_type": "1",
+          "bid_winner_amount": null,
+          "description": {
+            "html": "",
+            "__typename": "ComplexTextValue"
+          },
+          "dropoff_location_id": 22207,
+          "dropoff_location": {
+            "city": "SAINT-BENOIT",
+            "postcode": "97470",
+            "__typename": "DropoffLocation"
+          },
+          "end_auction_lot_at": "2026-08-27T08:00:00+00:00",
+          "end_date": "2026-08-27T08:00:00+00:00",
+          "has_lost": false,
+          "has_won": false,
+          "id": 267804,
+          "last_bid": null,
+          "lot_number": 1,
+          "location": null,
+          "lot_status": 14,
+          "lot_status_label": "Vente en cours",
+          "luxury": 0,
+          "luxury_label": "Non",
+          "name": "DACIA DUSTER  ",
+          "offers_submission_deadline": null,
+          "price_auction": 1500,
+          "professional_only": 1,
+          "reserve_price": null,
+          "sku": "2604974BR267804",
+          "sales_inspector_data": {
+            "cav_name": "LA REUNION",
+            "__typename": "Cav"
+          },
+          "short_description": {
+            "html": "<p><strong>Lot réservé aux professionnels du secteur automobile</strong></p>\r\n<p> </p>\r\n<p>DACIA DUSTER, Gazole, imm DY 868 KA, type M10DACVP0006984, n° série UU1HSDJ9G53808834, 1 ère mise en circulation 23/12/2015, 06 cv, 05 places.<a href=\"Visites sur place uniquement le Mercredi 29/07/2026 de 08h00 à 11h00 avec Mr DUPONT au [EXPURGE]\">Visites sur place uniquement le Mercredi 29/07/2026 de 08h00 à 11h00 avec Mr DUPONT au [EXPURGE]</a></p>\r\n<p>Enlèvement sur plateau à la charge de l'acquéreur.</p>",
+            "__typename": "ComplexTextValue"
+          },
+          "small_image": {
+            "url": "https://encheres-domaine.gouv.fr/admin/media/catalog/product/cache/4e6b796a8112d57a69244f76bc391cda/D/Y/DY-868-KA-1_1_1_1_1.jpg",
+            "__typename": "ProductImage"
+          },
+          "start_auction_lot_at": "2026-08-24T10:00:00+00:00",
+          "start_date": "2026-08-24T10:00:00+00:00",
+          "uid": "MjY3ODA0",
+          "url_key": "daciadustersecteurest-1"
+        },
+        {
+          "__typename": "VirtualProduct",
+          "auction": 467,
+          "auction_auto_status": 3,
+          "auction_type": "1",
+          "bid_winner_amount": null,
+          "description": {
+            "html": "",
+            "__typename": "ComplexTextValue"
+          },
+          "dropoff_location_id": 22207,
+          "dropoff_location": {
+            "city": "SAINT-BENOIT",
+            "postcode": "97470",
+            "__typename": "DropoffLocation"
+          },
+          "end_auction_lot_at": "2026-08-27T08:00:00+00:00",
+          "end_date": "2026-08-27T08:00:00+00:00",
+          "has_lost": false,
+          "has_won": false,
+          "id": 267861,
+          "last_bid": null,
+          "lot_number": 2,
+          "location": null,
+          "lot_status": 14,
+          "lot_status_label": "Vente en cours",
+          "luxury": 0,
+          "luxury_label": "Non",
+          "name": "DACIA DUSTER  ",
+          "offers_submission_deadline": null,
+          "price_auction": 1500,
+          "professional_only": 1,
+          "reserve_price": null,
+          "sku": "2604974BR267861",
+          "sales_inspector_data": {
+            "cav_name": "LA REUNION",
+            "__typename": "Cav"
+          },
+          "short_description": {
+            "html": "<p><strong>Lot réservé aux porfessionnels du secteur automobiles</strong></p>\r\n<p>DACIA DUSTER , Gazole, imm DY 900 KA; type M10DACVP0006984, n° série UU1HSDJ9G53808826, 1ère mise en circulation 23/12/2015, 06 cv, 05 places.<a href=\"Visites sur place uniquement le Mercredi 29/07/2026 de 08h00 à 11h00 avec Mr DUPONT au [EXPURGE]\">Visites sur place uniquement le Mercredi 29/07/2026 de 08h00 à 11h00 avec Mr DUPONT au [EXPURGE]</a></p>\r\n<p>Enlèvement sur plateau obligatoire à la charge de l'acquéreur</p>",
+            "__typename": "ComplexTextValue"
+          },
+          "small_image": {
+            "url": "https://encheres-domaine.gouv.fr/admin/media/catalog/product/cache/4e6b796a8112d57a69244f76bc391cda/D/Y/DY-900-KA-5_1_1_1.jpg",
+            "__typename": "ProductImage"
+          },
+          "start_auction_lot_at": "2026-08-24T10:00:00+00:00",
+          "start_date": "2026-08-24T10:00:00+00:00",
+          "uid": "MjY3ODYx",
+          "url_key": "daciadustern-2secteurest-1"
+        },
+        {
+          "__typename": "VirtualProduct",
+          "auction": 467,
+          "auction_auto_status": 3,
+          "auction_type": "1",
+          "bid_winner_amount": null,
+          "description": {
+            "html": "",
+            "__typename": "ComplexTextValue"
+          },
+          "dropoff_location_id": 22207,
+          "dropoff_location": {
+            "city": "SAINT-BENOIT",
+            "postcode": "97470",
+            "__typename": "DropoffLocation"
+          },
+          "end_auction_lot_at": "2026-08-27T08:00:00+00:00",
+          "end_date": "2026-08-27T08:00:00+00:00",
+          "has_lost": false,
+          "has_won": false,
+          "id": 267873,
+          "last_bid": 2000,
+          "lot_number": 3,
+          "location": null,
+          "lot_status": 14,
+          "lot_status_label": "Vente en cours",
+          "luxury": 0,
+          "luxury_label": "Non",
+          "name": "DACIA DUSTER  ",
+          "offers_submission_deadline": null,
+          "price_auction": 1500,
+          "professional_only": 1,
+          "reserve_price": null,
+          "sku": "2604974BR267873",
+          "sales_inspector_data": {
+            "cav_name": "LA REUNION",
+            "__typename": "Cav"
+          },
+          "short_description": {
+            "html": "<p><strong>Lot réservé aux professionnels du secteur automobile</strong></p>\r\n<p>DACIA DUSTER, Gazole,imm DY 912 KA? type M10DACVP0006984, n° série UU1HSDJ9G53808827, 1 ère mise en circulation 23/12/2015, 06 cv, 05 places. <a href=\"Visites sur place uniquement le Mercredi 29/07/2026 de 08h00 à 11h00 avec Mr DUPONT au [EXPURGE]\">Visites sur place uniquement le Mercredi 29/07/2026 de 08h00 à 11h00 avec Mr DUPONT au [EXPURGE]</a></p>\r\n<p> </p>\r\n<p>Enlèvement sur plateau à la charge de l'acquéreur</p>",
+            "__typename": "ComplexTextValue"
+          },
+          "small_image": {
+            "url": "https://encheres-domaine.gouv.fr/admin/media/catalog/product/cache/4e6b796a8112d57a69244f76bc391cda/d/y/dy_912_ka_5.jpg",
+            "__typename": "ProductImage"
+          },
+          "start_auction_lot_at": "2026-08-24T10:00:00+00:00",
+          "start_date": "2026-08-24T10:00:00+00:00",
+          "uid": "MjY3ODcz",
+          "url_key": "daciadustern-3secteurest-1"
+        },
+        {
+          "__typename": "VirtualProduct",
+          "auction": 467,
+          "auction_auto_status": 3,
+          "auction_type": "1",
+          "bid_winner_amount": null,
+          "description": {
+            "html": "",
+            "__typename": "ComplexTextValue"
+          },
+          "dropoff_location_id": 11029,
+          "dropoff_location": {
+            "city": "SAINTE CLOTILDE",
+            "postcode": "97490",
+            "__typename": "DropoffLocation"
+          },
+          "end_auction_lot_at": "2026-08-27T08:00:00+00:00",
+          "end_date": "2026-08-27T08:00:00+00:00",
+          "has_lost": false,
+          "has_won": false,
+          "id": 267888,
+          "last_bid": null,
+          "lot_number": 4,
+          "location": null,
+          "lot_status": 14,
+          "lot_status_label": "Vente en cours",
+          "luxury": 0,
+          "luxury_label": "Non",
+          "name": "DACIA DUSTER  ",
+          "offers_submission_deadline": null,
+          "price_auction": 1500,
+          "professional_only": 1,
+          "reserve_price": null,
+          "sku": "2604974BR267888",
+          "sales_inspector_data": {
+            "cav_name": "LA REUNION",
+            "__typename": "Cav"
+          },
+          "short_description": {
+            "html": "<p><strong>Lot réservé aux professionnels du secteur automobile</strong></p>\r\n<p>DACIA DUSTER, Gazole, imm DY 923 KA, type M10DACVP0006984, n° série UU1HSDJ9G53808842, 1 ère mise en circulation 23/12/2015, 06 cv, 05 places. <a href=\"Visites sur place uniquement le Jeudi  30/07/2026 de 08h00 à 11h00 avec Mr DUPONT au [EXPURGE]\">Visites sur place uniquement le Jeudi 30/07/2026 de 08h00 à 11h00 avec Mr DUPONT au [EXPURGE]</a></p>\r\n<p>Enlèvement sur plateau à la charge de l'acquéreur</p>",
+            "__typename": "ComplexTextValue"
+          },
+          "small_image": {
+            "url": "https://encheres-domaine.gouv.fr/admin/media/catalog/product/cache/4e6b796a8112d57a69244f76bc391cda/D/Y/DY-923-KA-1_1_1.jpg",
+            "__typename": "ProductImage"
+          },
+          "start_auction_lot_at": "2026-08-24T10:00:00+00:00",
+          "start_date": "2026-08-24T10:00:00+00:00",
+          "uid": "MjY3ODg4",
+          "url_key": "daciadustern-4kerveguen-1"
+        },
+        {
+          "__typename": "VirtualProduct",
+          "auction": 467,
+          "auction_auto_status": 3,
+          "auction_type": "1",
+          "bid_winner_amount": null,
+          "description": {
+            "html": "",
+            "__typename": "ComplexTextValue"
+          },
+          "dropoff_location_id": 11029,
+          "dropoff_location": {
+            "city": "SAINTE CLOTILDE",
+            "postcode": "97490",
+            "__typename": "DropoffLocation"
+          },
+          "end_auction_lot_at": "2026-08-27T08:00:00+00:00",
+          "end_date": "2026-08-27T08:00:00+00:00",
+          "has_lost": false,
+          "has_won": false,
+          "id": 267893,
+          "last_bid": null,
+          "lot_number": 5,
+          "location": null,
+          "lot_status": 14,
+          "lot_status_label": "Vente en cours",
+          "luxury": 0,
+          "luxury_label": "Non",
+          "name": "DACIA DUSTER ",
+          "offers_submission_deadline": null,
+          "price_auction": 1500,
+          "professional_only": 1,
+          "reserve_price": null,
+          "sku": "2604974BR267893",
+          "sales_inspector_data": {
+            "cav_name": "LA REUNION",
+            "__typename": "Cav"
+          },
+          "short_description": {
+            "html": "<p><strong>Lot réservé aux professionnels du secteur automobile</strong></p>\r\n<p>DACIA DUSTER, gazole, imm DY 932 KA,  Type M10DACVP0006984, n° série UU1HSDJ9G53808838, 1 ère mise en circulation 23/12/2015, 06 cv, 05 places.<a href=\"Visites sur place uniquement le Jeudi  30/07/2026 de 08h00 à 11h00 avec Mr DUPONT au [EXPURGE]\">Visites sur place uniquement le Jeudi 30/07/2026 de 08h00 à 11h00 avec Mr DUPONT au [EXPURGE]</a></p>\r\n<p>Enlèvement sur plateau à la charge de l'acquéreur</p>",
+            "__typename": "ComplexTextValue"
+          },
+          "small_image": {
+            "url": "https://encheres-domaine.gouv.fr/admin/media/catalog/product/cache/4e6b796a8112d57a69244f76bc391cda/D/Y/DY-932-KA-1_1_1.jpg",
+            "__typename": "ProductImage"
+          },
+          "start_auction_lot_at": "2026-08-24T10:00:00+00:00",
+          "start_date": "2026-08-24T10:00:00+00:00",
+          "uid": "MjY3ODkz",
+          "url_key": "daciadustern-5kerveguen-1"
+        },
+        {
+          "__typename": "VirtualProduct",
+          "auction": 467,
+          "auction_auto_status": 3,
+          "auction_type": "1",
+          "bid_winner_amount": null,
+          "description": {
+            "html": "",
+            "__typename": "ComplexTextValue"
+          },
+          "dropoff_location_id": 11029,
+          "dropoff_location": {
+            "city": "SAINTE CLOTILDE",
+            "postcode": "97490",
+            "__typename": "DropoffLocation"
+          },
+          "end_auction_lot_at": "2026-08-27T08:00:00+00:00",
+          "end_date": "2026-08-27T08:00:00+00:00",
+          "has_lost": false,
+          "has_won": false,
+          "id": 267895,
+          "last_bid": null,
+          "lot_number": 6,
+          "location": null,
+          "lot_status": 14,
+          "lot_status_label": "Vente en cours",
+          "luxury": 0,
+          "luxury_label": "Non",
+          "name": "DACIA DUSTER  ",
+          "offers_submission_deadline": null,
+          "price_auction": 1500,
+          "professional_only": 1,
+          "reserve_price": null,
+          "sku": "2604974BR267895",
+          "sales_inspector_data": {
+            "cav_name": "LA REUNION",
+            "__typename": "Cav"
+          },
+          "short_description": {
+            "html": "<p><strong>Lot réservé aux professionnels du secteur automobile</strong></p>\r\n<p>DACIA DUSTER, gazole, imm DY 864 KA, type M10DACVP0006984, n° série UU1HSDJ9G53808829, 1ère mise en circulation 23/12/2015, 06 cv, 05 places. Réparations à prévoir.<a href=\"Visites sur place uniquement le Jeudi  30/07/2026 de 08h00 à 11h00 avec Mr DUPONT au [EXPURGE]\">Visites sur place uniquement le Jeudi 30/07/2026 de 08h00 à 11h00 avec Mr DUPONT au [EXPURGE]</a></p>\r\n<p>Enlèvement sur plateau à la charge de l'acquéreur</p>",
+            "__typename": "ComplexTextValue"
+          },
+          "small_image": {
+            "url": "https://encheres-domaine.gouv.fr/admin/media/catalog/product/cache/4e6b796a8112d57a69244f76bc391cda/D/Y/DY-864-KA-1_1_1.jpg",
+            "__typename": "ProductImage"
+          },
+          "start_auction_lot_at": "2026-08-24T10:00:00+00:00",
+          "start_date": "2026-08-24T10:00:00+00:00",
+          "uid": "MjY3ODk1",
+          "url_key": "daciadustern-6kerveguen-1"
+        },
+        {
+          "__typename": "VirtualProduct",
+          "auction": 467,
+          "auction_auto_status": 3,
+          "auction_type": "1",
+          "bid_winner_amount": null,
+          "description": {
+            "html": "",
+            "__typename": "ComplexTextValue"
+          },
+          "dropoff_location_id": 11026,
+          "dropoff_location": {
+            "city": "SAINTE CLOTILDE",
+            "postcode": "97490",
+            "__typename": "DropoffLocation"
+          },
+          "end_auction_lot_at": "2026-08-27T08:00:00+00:00",
+          "end_date": "2026-08-27T08:00:00+00:00",
+          "has_lost": false,
+          "has_won": false,
+          "id": 267903,
+          "last_bid": 900,
+          "lot_number": 7,
+          "location": null,
+          "lot_status": 14,
+          "lot_status_label": "Vente en cours",
+          "luxury": 0,
+          "luxury_label": "Non",
+          "name": "RENAULT KANGOO  ",
+          "offers_submission_deadline": null,
+          "price_auction": 900,
+          "professional_only": 1,
+          "reserve_price": null,
+          "sku": "2604974BR267903",
+          "sales_inspector_data": {
+            "cav_name": "LA REUNION",
+            "__typename": "Cav"
+          },
+          "short_description": {
+            "html": "<p><strong>Lot réservé aux professionnels du secteur automobile</strong></p>\r\n<p> </p>\r\n<p>Utilitaire RENAULT Kangoo,imm DA 617 PX, Gazole,imm DA-617-PX,  n° série VF1FC1EAF39868928, 1 ère mise en circulation 03/02/2009 , 06 cv, 02 places, 15500 km.<a href=\"Visites sur place uniquement le Jeudi  30/07/2026 de 08h00 à 11h00 avec Mr DUPONT au [EXPURGE]\"> Visites sur place uniquement le Jeudi 30/07/2026 de 08h00 à 11h00 avec Mr DUPONT au [EXPURGE]</a></p>\r\n<p> </p>\r\n<p>Enlèvement sur plateau à la charge de l'acquéreur.</p>",
+            "__typename": "ComplexTextValue"
+          },
+          "small_image": {
+            "url": "https://encheres-domaine.gouv.fr/admin/media/catalog/product/cache/4e6b796a8112d57a69244f76bc391cda/D/A/DA-617-PX-1_1_1_1.jpg",
+            "__typename": "ProductImage"
+          },
+          "start_auction_lot_at": "2026-08-24T10:00:00+00:00",
+          "start_date": "2026-08-24T10:00:00+00:00",
+          "uid": "MjY3OTAz",
+          "url_key": "renaultkangoon-7brassens-1"
+        },
+        {
+          "__typename": "VirtualProduct",
+          "auction": 467,
+          "auction_auto_status": 3,
+          "auction_type": "1",
+          "bid_winner_amount": null,
+          "description": {
+            "html": "",
+            "__typename": "ComplexTextValue"
+          },
+          "dropoff_location_id": 34429,
+          "dropoff_location": {
+            "city": "Saint Paul",
+            "postcode": "97460",
+            "__typename": "DropoffLocation"
+          },
+          "end_auction_lot_at": "2026-08-27T08:00:00+00:00",
+          "end_date": "2026-08-27T08:00:00+00:00",
+          "has_lost": false,
+          "has_won": false,
+          "id": 192050,
+          "last_bid": null,
+          "lot_number": 8,
+          "location": null,
+          "lot_status": 14,
+          "lot_status_label": "Vente en cours",
+          "luxury": 0,
+          "luxury_label": "Non",
+          "name": "Citroën JUMPY",
+          "offers_submission_deadline": null,
+          "price_auction": 1400,
+          "professional_only": 1,
+          "reserve_price": null,
+          "sku": "2512974BR192050",
+          "sales_inspector_data": {
+            "cav_name": "LA REUNION",
+            "__typename": "Cav"
+          },
+          "short_description": {
+            "html": "<p><strong>Lot réservé aux professionnels du secteur automobile</strong></p>\r\n<p> </p>\r\n<p>CITROEN JUMPY SPACE TOURER, imm FL-003-XH,Gazole, type M10 CTRVP072W237, n° série VF7VAYHVKKZ078446,1ère mise en circulation 28/11/2019, 06 cv, 09 places. Dernier CT en date du 03/12/2025</p>\r\n<p>Enlèvement sur plateau à la charge de l'acquéreur.<a href=\"Les visites se feront uniquement le jeudi 23 juillet\">Les visites se feront uniquement le jeudi 23 juillet</a></p>",
+            "__typename": "ComplexTextValue"
+          },
+          "small_image": {
+            "url": "https://encheres-domaine.gouv.fr/admin/media/catalog/product/cache/4e6b796a8112d57a69244f76bc391cda/1/1/11_5_15.jpg",
+            "__typename": "ProductImage"
+          },
+          "start_auction_lot_at": "2026-08-24T10:00:00+00:00",
+          "start_date": "2026-08-24T10:00:00+00:00",
+          "uid": "MTkyMDUw",
+          "url_key": "citroenjumpy-1-doo-4"
+        }
+      ],
+      "page_info": {
+        "total_pages": 21,
+        "__typename": "SearchResultPageInfo"
+      },
+      "total_count": 161,
+      "__typename": "Products"
+    }
+  }
+}

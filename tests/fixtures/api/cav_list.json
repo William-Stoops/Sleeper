@@ -1,0 +1,132 @@
+{
+  "data": {
+    "getCavList": [
+      {
+        "dnid_cav_id": 2,
+        "cav_name": "BORDEAUX",
+        "cav_status": 1,
+        "__typename": "Cav"
+      },
+      {
+        "dnid_cav_id": 3,
+        "cav_name": "CLERMONT-FERRAND",
+        "cav_status": 1,
+        "__typename": "Cav"
+      },
+      {
+        "dnid_cav_id": 5,
+        "cav_name": "DIJON",
+        "cav_status": 1,
+        "__typename": "Cav"
+      },
+      {
+        "dnid_cav_id": 8,
+        "cav_name": "LILLE",
+        "cav_status": 1,
+        "__typename": "Cav"
+      },
+      {
+        "dnid_cav_id": 9,
+        "cav_name": "LYON",
+        "cav_status": 1,
+        "__typename": "Cav"
+      },
+      {
+        "dnid_cav_id": 10,
+        "cav_name": "MARSEILLE",
+        "cav_status": 1,
+        "__typename": "Cav"
+      },
+      {
+        "dnid_cav_id": 13,
+        "cav_name": "NANCY TOUL",
+        "cav_status": 1,
+        "__typename": "Cav"
+      },
+      {
+        "dnid_cav_id": 14,
+        "cav_name": "POITIERS",
+        "cav_status": 1,
+        "__typename": "Cav"
+      },
+      {
+        "dnid_cav_id": 15,
+        "cav_name": "RENNES",
+        "cav_status": 1,
+        "__typename": "Cav"
+      },
+      {
+        "dnid_cav_id": 18,
+        "cav_name": "SAINT MAURICE ADMINISTRATIF",
+        "cav_status": 1,
+        "__typename": "Cav"
+      },
+      {
+        "dnid_cav_id": 21,
+        "cav_name": "SAINT-MAURICE DIVISION JURIDIQUE",
+        "cav_status": 1,
+        "__typename": "Cav"
+      },
+      {
+        "dnid_cav_id": 19,
+        "cav_name": "SAINT-MAURICE FOURRIERES",
+        "cav_status": 1,
+        "__typename": "Cav"
+      },
+      {
+        "dnid_cav_id": 20,
+        "cav_name": "SAINT-MAURICE JUSTICE",
+        "cav_status": 1,
+        "__typename": "Cav"
+      },
+      {
+        "dnid_cav_id": 4,
+        "cav_name": "TOULOUSE",
+        "cav_status": 1,
+        "__typename": "Cav"
+      },
+      {
+        "dnid_cav_id": 1,
+        "cav_name": "AJACCIO",
+        "cav_status": 1,
+        "__typename": "Cav"
+      },
+      {
+        "dnid_cav_id": 6,
+        "cav_name": "GUADELOUPE",
+        "cav_status": 1,
+        "__typename": "Cav"
+      },
+      {
+        "dnid_cav_id": 7,
+        "cav_name": "GUYANE",
+        "cav_status": 1,
+        "__typename": "Cav"
+      },
+      {
+        "dnid_cav_id": 16,
+        "cav_name": "LA REUNION",
+        "cav_status": 1,
+        "__typename": "Cav"
+      },
+      {
+        "dnid_cav_id": 11,
+        "cav_name": "MARTINIQUE",
+        "cav_status": 1,
+        "__typename": "Cav"
+      },
+      {
+        "dnid_cav_id": 12,
+        "cav_name": "MAYOTTE",
+        "cav_status": 1,
+        "__typename": "Cav"
+      },
+      {
+        "dnid_cav_id": 23,
+        "cav_name": "SAINT-PIERRE ET MIQUELON",
+        "cav_status": 0,
+        "__typename": "Cav"
+      }
+    ]
+  }
+}

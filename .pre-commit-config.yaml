@@ -1,0 +1,54 @@
+# Garde-fous locaux, identiques a ceux de la CI.
+#   uv run pre-commit install
+default_language_version:
+  python: python3.12
+
+repos:
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v5.0.0
+    hooks:
+      - id: check-added-large-files
+      - id: check-merge-conflict
+      - id: check-toml
+      - id: check-yaml
+      - id: end-of-file-fixer
+      - id: mixed-line-ending
+      - id: trailing-whitespace
+      - id: detect-private-key
+
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.16.4
+    hooks:
+      - id: ruff-check
+        args: [--fix]
+      - id: ruff-format
+
+  - repo: local
+    hooks:
+      - id: mypy
+        name: mypy --strict
+        entry: uv run mypy
+        language: system
+        pass_filenames: false
+        types: [python]
+
+      - id: pytest
+        name: pytest (hors reseau)
+        entry: uv run pytest -q
+        language: system
+        pass_filenames: false
+        types: [python]
+
+      - id: doc-regles-a-jour
+        name: docs/regles-metier.md suit le code
+        entry: bash -c 'uv run python tools/generer_doc_regles.py > docs/regles-metier.md'
+        language: system
+        pass_filenames: false
+        files: ^src/sleeper/domain/(exclusions|codes)\.py$
+
+      - id: pas-de-donnees-personnelles
+        name: aucune donnee personnelle dans les fixtures
+        entry: uv run python tools/verifier_fixtures.py
+        language: system
+        pass_filenames: false
+        files: ^tests/fixtures/

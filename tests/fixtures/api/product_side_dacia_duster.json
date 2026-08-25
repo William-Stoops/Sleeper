@@ -1,0 +1,72 @@
+{
+  "data": {
+    "products": {
+      "items": [
+        {
+          "ape_authorization": false,
+          "ape_restriction": 12,
+          "not_conforme": 0,
+          "auction": 467,
+          "auction_documents": {
+            "pdf_specifications": {
+              "label": "Cahier des charges",
+              "url_path": null,
+              "type": null,
+              "size": null,
+              "__typename": "AuctionDocumentForLot"
+            },
+            "__typename": "AuctionDocumentsForLots"
+          },
+          "auction_auto_status": 3,
+          "auction_name": "Vente du 27 Août 2026 par les Enchères du domaine de La Réunion (974)",
+          "auction_type": "1",
+          "auction_type_label": "Vente en ligne",
+          "auction_steps": "[{\"from_price\":\"1\",\"to_price\":\"10\",\"price\":\"1\"},{\"from_price\":\"10\",\"to_price\":\"20\",\"price\":\"2\"},{\"from_price\":\"20\",\"to_price\":\"50\",\"price\":\"5\"},{\"from_price\":\"50\",\"to_price\":\"200\",\"price\":\"5\"},{\"from_price\":\"200\",\"to_price\":\"1000\",\"price\":\"10\"},{\"from_price\":\"1000\",\"to_price\":\"5000\",\"price\":\"50\"},{\"from_price\":\"5000\",\"to_price\":\"999999999\",\"price\":\"100\"}]",
+          "auction_urls": {
+            "first_auction_partnersite_url": {
+              "label": "Drouot Digital",
+              "url_path": null,
+              "__typename": "AuctionUrl"
+            },
+            "second_auction_partnersite_url": {
+              "label": "Moniteur des ventes",
+              "url_path": null,
+              "__typename": "AuctionUrl"
+            },
+            "physical_register_url": {
+              "label": "S'inscrire en présentiel",
+              "url_path": null,
+              "__typename": "AuctionUrl"
+            },
+            "__typename": "AuctionUrls"
+          },
+          "bid_winner_amount": null,
+          "end_auction_lot_at": "2026-08-27T08:00:00+00:00",
+          "end_date": "2026-08-27T08:00:00+00:00",
+          "has_lost": false,
+          "has_won": false,
+          "id": 267804,
+          "last_bid": null,
+          "lot_number": 1,
+          "location": null,
+          "lot_status": 14,
+          "lot_status_label": "Vente en cours",
+          "name": "DACIA DUSTER  ",
+          "price_auction": 1500,
+          "professional_only": 1,
+          "reserve_price": null,
+          "sales_inspector_data": {
+            "cav_name": "LA REUNION",
+            "__typename": "Cav"
+          },
+          "start_auction_lot_at": "2026-08-24T10:00:00+00:00",
+          "start_date": "2026-08-24T10:00:00+00:00",
+          "uid": "MjY3ODA0",
+          "url_key": "daciadustersecteurest-1",
+          "__typename": "VirtualProduct"
+        }
+      ],
+      "__typename": "Products"
+    }
+  }
+}

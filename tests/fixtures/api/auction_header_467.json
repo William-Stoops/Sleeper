@@ -1,0 +1,64 @@
+{
+  "data": {
+    "auction": {
+      "auction_additional_status": "Reportée",
+      "auction_auto_status": 3,
+      "auction_documents": {
+        "conditions_of_sale": {
+          "label": "Conditions spécifiques de ventes",
+          "url_path": null,
+          "type": null,
+          "size": null,
+          "__typename": "AuctionDocument"
+        },
+        "pdf_specifications": {
+          "label": "Cahier des charges",
+          "url_path": null,
+          "type": null,
+          "size": null,
+          "__typename": "AuctionDocument"
+        },
+        "sales_catalog": {
+          "label": "Catalogue de vente",
+          "url_path": null,
+          "type": null,
+          "size": null,
+          "__typename": "AuctionDocument"
+        },
+        "__typename": "AuctionDocuments"
+      },
+      "auction_urls": {
+        "first_auction_partnersite_url": {
+          "label": "Drouot Digital",
+          "url_path": null,
+          "__typename": "AuctionUrl"
+        },
+        "second_auction_partnersite_url": {
+          "label": "Moniteur des ventes",
+          "url_path": null,
+          "__typename": "AuctionUrl"
+        },
+        "physical_register_url": {
+          "label": "S'inscrire en présentiel",
+          "url_path": null,
+          "__typename": "AuctionUrl"
+        },
+        "__typename": "AuctionUrls"
+      },
+      "description": "Véhicules - bateau- matériel professionnels- véhicule de collection ",
+      "dnid_auction_id": 467,
+      "end_date": "2026-08-27T08:00:00+00:00",
+      "live_end_date": "2026-08-27T08:00:00+00:00",
+      "image_path": "CHEVROLET_CORVETTE_AX601WT_13.jpg",
+      "location": null,
+      "name": "Vente du 27 Août 2026 par les Enchères du domaine de La Réunion (974)",
+      "offers_submission_deadline": null,
+      "sales_inspector_label": "LA REUNION",
+      "start_date": "2026-08-24T10:00:00+00:00",
+      "status_text": "Vente en cours",
+      "type": 1,
+      "type_text": "Vente en ligne",
+      "__typename": "Auction"
+    }
+  }
+}

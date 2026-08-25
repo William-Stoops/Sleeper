@@ -36,6 +36,15 @@ class Sink(Protocol):
         """Point a stable name at the most recent artefact."""
         ...
 
+    def sub(self, name: str) -> Sink:
+        """A destination nested one level down, created if it is missing.
+
+        The stable names stay at the top: a dated folder that also swallowed
+        `latest.json` would give it a new identity every night, and any link
+        an operator had kept would die with the previous day.
+        """
+        ...
+
 
 class FileSink:
     """Writes into a local directory, with a shortcut to the latest run."""
@@ -57,11 +66,18 @@ class FileSink:
         staging.replace(target)
         return str(target)
 
+    def sub(self, name: str) -> FileSink:
+        """A subdirectory of this one."""
+        return FileSink(self._directory / name)
+
     def point_at_latest(self, target_name: str, link_name: str) -> str:
         """Create `latest.json`: a symlink when possible, a copy otherwise.
 
         Windows refuses symlinks without a specific privilege; we then fall
         back to a copy, which renders the same service.
+
+        `target_name` may point into a subdirectory (`2026-08-25/run.json`):
+        the link stays at the top, the artefact it names does not have to.
         """
         link = self._directory / link_name
         target = self._directory / target_name

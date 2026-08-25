@@ -12,6 +12,7 @@ describes it in French. The keys are therefore pinned as aliases.
 
 from __future__ import annotations
 
+import datetime as dt
 import re
 import tomllib
 from pathlib import Path
@@ -261,10 +262,34 @@ class OutputConfig(_Section):
     """Destination of the produced document."""
 
     directory: Path = Field(alias="repertoire")
+    #: Group each run's artefacts in a folder named after its date. The stable
+    #: names stay at the top level whatever this says: a `latest.json` that
+    #: moved every night would break any link kept by a consumer.
+    date_folders: bool = Field(alias="dossier_par_date", default=True)
+    date_folder_format: str = Field(alias="format_dossier_date", default="%Y-%m-%d")
     current_link_name: str = Field(alias="nom_lien_courant", default="latest.json")
     digest: bool = True
     digest_name: str = Field(alias="nom_digest", default="latest.md")
     drive: DriveConfig = Field(alias="drive", default_factory=DriveConfig)
+
+    @field_validator("date_folder_format")
+    @classmethod
+    def _format_must_produce_a_name(cls, value: str) -> str:
+        """A format that renders to nothing, or to a path, is a trap.
+
+        `%Y/%m` would nest silently on disk and produce a folder literally
+        named `2026/08` on Drive, where the slash is an ordinary character.
+        Refused at startup rather than discovered a month later.
+        """
+        rendered = dt.datetime(2026, 1, 2, 3, 4, 5).strftime(value)
+        if not rendered.strip():
+            raise ValueError("sortie.format_dossier_date produit un nom vide")
+        if rendered != value and any(c in rendered for c in "/\\"):
+            raise ValueError(
+                f"sortie.format_dossier_date produit « {rendered} », qui contient un "
+                "séparateur de chemin : un seul niveau de dossier est accepté"
+            )
+        return value
 
     @model_validator(mode="after")
     def _drive_needs_a_folder(self) -> OutputConfig:

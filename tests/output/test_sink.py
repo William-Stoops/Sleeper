@@ -111,3 +111,29 @@ class TestCloudFolderGuard:
         """Une première exécution sur un dépôt neuf crée var/sorties toute seule."""
         sink = FileSink(tmp_path / "var" / "sorties")
         assert sink.directory.is_dir()
+
+
+class TestDatedSubdirectory:
+    """Les fichiers du run descendent d'un cran, les noms stables restent."""
+
+    def test_sub_creates_the_directory(self, tmp_path: Path) -> None:
+        assert FileSink(tmp_path).sub("2026-08-25").directory.is_dir()
+
+    def test_the_link_reaches_into_the_subdirectory(self, tmp_path: Path) -> None:
+        racine = FileSink(tmp_path)
+        racine.sub("2026-08-25").put("run.json", b'{"a": 1}')
+        lien = racine.point_at_latest("2026-08-25/run.json", "latest.json")
+        assert Path(lien).read_bytes() == b'{"a": 1}'
+
+    def test_the_link_stays_at_the_top(self, tmp_path: Path) -> None:
+        """Sinon le favori de l'opérateur meurt avec la journée."""
+        racine = FileSink(tmp_path)
+        racine.sub("2026-08-25").put("run.json", b"{}")
+        racine.point_at_latest("2026-08-25/run.json", "latest.json")
+        assert (tmp_path / "latest.json").exists()
+
+    def test_a_second_day_leaves_the_first_alone(self, tmp_path: Path) -> None:
+        racine = FileSink(tmp_path)
+        racine.sub("2026-08-25").put("run.json", b"hier")
+        racine.sub("2026-08-26").put("run.json", b"aujourd'hui")
+        assert (tmp_path / "2026-08-25" / "run.json").read_bytes() == b"hier"

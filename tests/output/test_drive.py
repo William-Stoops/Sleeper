@@ -18,7 +18,16 @@ class FakeDrive:
         self.files: dict[tuple[str, str], bytes] = {}
         self.mimes: dict[str, str] = {}
         self.uploads: list[str] = []
+        self.folders: dict[tuple[str, str], str] = {}
+        self.folders_created = 0
         self._fail_on = fail_on
+
+    def ensure_folder(self, parent_id: str, name: str) -> str:
+        """Idempotent, comme le vrai : deux appels, un seul dossier."""
+        if (parent_id, name) not in self.folders:
+            self.folders[(parent_id, name)] = f"dossier-{parent_id}-{name}"
+            self.folders_created += 1
+        return self.folders[(parent_id, name)]
 
     def find(self, folder_id: str, name: str) -> str | None:
         return f"id-{name}" if (folder_id, name) in self.files else None
@@ -124,3 +133,28 @@ class TestScope:
 
     def test_the_tool_never_asks_for_the_whole_drive(self) -> None:
         assert DRIVE_SCOPE.endswith("/auth/drive.file")
+
+
+class TestSubfolder:
+    """Un dossier par date, et un seul, même quand le run est rejoué."""
+
+    def test_it_descends_into_a_named_folder(self) -> None:
+        drive = FakeDrive()
+        archive = DriveSink(drive, "racine").sub("2026-08-25")
+        archive.put("run.json", b"{}")
+        assert ("dossier-racine-2026-08-25", "run.json") in drive.files
+
+    def test_a_second_run_the_same_day_reuses_the_folder(self) -> None:
+        drive = FakeDrive()
+        racine = DriveSink(drive, "racine")
+        racine.sub("2026-08-25").put("a.json", b"{}")
+        racine.sub("2026-08-25").put("b.json", b"{}")
+        assert drive.folders_created == 1
+
+    def test_the_root_stays_reachable_for_the_stable_names(self) -> None:
+        """latest.json ne déménage pas : son identifiant doit survivre au jour."""
+        drive = FakeDrive()
+        racine = DriveSink(drive, "racine")
+        racine.sub("2026-08-25").put("run.json", b"{}")
+        racine.put("latest.json", b"{}")
+        assert ("racine", "latest.json") in drive.files

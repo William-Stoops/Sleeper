@@ -186,6 +186,12 @@ segment_inactif = 0.0
 # Ecrire « C:/Users/... » avec des barres obliques, ou 'C:\Users\...' entre
 # apostrophes simples, qui n'echappent rien.
 repertoire = "var/sorties"
+# Ranger les fichiers de chaque run dans un dossier à sa date. Les noms
+# stables ci-dessous restent à la racine quoi qu'il arrive : un latest.json
+# qui déménagerait chaque nuit changerait d'identifiant sur Drive, et tout
+# lien mis en favori mourrait avec la journée.
+dossier_par_date = true
+format_dossier_date = "%Y-%m-%d"
 nom_lien_courant = "latest.json"
 digest = true
 nom_digest = "latest.md"

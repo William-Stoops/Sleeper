@@ -67,6 +67,10 @@ class DriveClient(Protocol):
         """Create or overwrite a file, returning its id."""
         ...
 
+    def ensure_folder(self, parent_id: str, name: str) -> str:
+        """Id of a subfolder of that name, created if it is not there yet."""
+        ...
+
 
 class DriveSink:
     """Deposits the run's artefacts in a Drive folder."""
@@ -87,6 +91,15 @@ class DriveSink:
         file_id = self._client.upload(self._folder_id, name, payload, mime, existing)
         _LOG.info("drive.uploaded", name=name, file_id=file_id, bytes=len(payload))
         return f"https://drive.google.com/file/d/{file_id}"
+
+    def sub(self, name: str) -> DriveSink:
+        """A subfolder of the destination, created on first use.
+
+        Idempotent: a second run on the same day finds the folder rather than
+        making a twin. Drive tolerates two folders of the same name in the
+        same parent, which is exactly how an archive becomes unreadable.
+        """
+        return DriveSink(self._client, self._client.ensure_folder(self._folder_id, name))
 
     def point_at_latest(self, target_name: str, link_name: str) -> str:
         """Drive has no symlinks, so the stable name is its own upload.
@@ -153,6 +166,38 @@ class _GoogleDrive:  # pragma: no cover
         )
         files = response.get("files") or []
         return str(files[0]["id"]) if files else None
+
+    def ensure_folder(self, parent_id: str, name: str) -> str:
+        escaped = name.replace("'", "\\'")
+        response: dict[str, Any] = (
+            self._service.files()
+            .list(
+                q=(
+                    f"name = '{escaped}' and '{parent_id}' in parents "
+                    "and mimeType = 'application/vnd.google-apps.folder' "
+                    "and trashed = false"
+                ),
+                fields="files(id)",
+                pageSize=1,
+            )
+            .execute()
+        )
+        found = response.get("files") or []
+        if found:
+            return str(found[0]["id"])
+        created = (
+            self._service.files()
+            .create(
+                body={
+                    "name": name,
+                    "parents": [parent_id],
+                    "mimeType": "application/vnd.google-apps.folder",
+                },
+                fields="id",
+            )
+            .execute()
+        )
+        return str(created["id"])
 
     def upload(
         self, folder_id: str, name: str, payload: bytes, mime_type: str, file_id: str | None

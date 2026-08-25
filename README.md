@@ -592,6 +592,39 @@ d'implémentation interne, jamais lu par l'opérateur.
 | [`FileSink`](src/sleeper/output/sink.py) | toujours, et en premier |
 | [`DriveSink`](src/sleeper/output/drive.py) | quand `[sortie.drive] actif = true` |
 
+#### Un dossier par jour, deux noms qui ne bougent pas
+
+Les fichiers d'un run sont rangés dans un dossier à sa date ; les deux noms
+stables restent au niveau du dessus.
+
+```
+Sleeper/
+├── 2026-08-25/
+│   ├── sleeper-2026-08-25-0430.json
+│   └── sleeper-2026-08-25-0430.md
+├── 2026-08-26/
+│   └── …
+├── latest.json      → pointe dans le dossier du jour
+└── latest.md
+```
+
+```toml
+[sortie]
+dossier_par_date = true
+format_dossier_date = "%Y-%m-%d"
+```
+
+**Pourquoi `latest.json` ne descend pas avec les autres.** Sur Drive, un
+fichier déplacé garde son identifiant, mais un fichier *recréé* ailleurs en
+reçoit un neuf. Si le nom stable déménageait chaque nuit, tout lien mis en
+favori — et tout consommateur qui le lit — mourrait avec la journée
+précédente. Vérifié : d'un dépôt à l'autre, `latest.json` conserve le même
+identifiant Drive.
+
+Un format qui produirait un nom vide, ou qui contiendrait un séparateur de
+chemin (`%Y/%m`), est refusé au démarrage : sur Drive la barre oblique est un
+caractère ordinaire, et le dossier s'appellerait littéralement `2026/08`.
+
 **Le fichier local est écrit d'abord, et il reste la source.** Un échec de
 dépôt sur Drive ne fait jamais échouer le run : l'erreur est repliée dans
 `run.erreurs`, le fichier local est réécrit pour la porter, et l'opérateur la

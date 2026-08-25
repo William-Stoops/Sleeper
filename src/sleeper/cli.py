@@ -144,17 +144,36 @@ def _publish(config: Configuration, result: OutputDocument) -> OutputDocument:
     return result
 
 
+def _dated(sink: Sink, config: Configuration, result: OutputDocument) -> tuple[Sink, str]:
+    """The destination of the run's own files, and the prefix naming it.
+
+    The prefix is what the stable link must traverse to reach them; it is
+    empty when the runs stay flat, so the caller has nothing to special-case.
+    """
+    if not config.output.date_folders:
+        return sink, ""
+    folder = result.run.timestamp.strftime(config.output.date_folder_format)
+    return sink.sub(folder), f"{folder}/"
+
+
 def _write(sink: Sink, config: Configuration, result: OutputDocument) -> None:
-    """Write the document and its digest to a destination."""
+    """Write the document and its digest to a destination.
+
+    The run's artefacts go in the dated folder, the stable names stay at the
+    top: a `latest.json` that moved every night would take a new identity
+    with it, and any link an operator had kept would die with the day.
+    """
+    archive, prefix = _dated(sink, config, result)
+
     name = timestamped_name("sleeper", result.run.timestamp, "json")
-    path = sink.put(name, output_document.serialize(result))
-    link = sink.point_at_latest(name, config.output.current_link_name)
+    path = archive.put(name, output_document.serialize(result))
+    link = sink.point_at_latest(f"{prefix}{name}", config.output.current_link_name)
     _LOG.info("output.written", file=path, link=link)
 
     if config.output.digest:
         digest_name = timestamped_name("sleeper", result.run.timestamp, "md")
-        sink.put(digest_name, render(result).encode("utf-8"))
-        sink.point_at_latest(digest_name, config.output.digest_name)
+        archive.put(digest_name, render(result).encode("utf-8"))
+        sink.point_at_latest(f"{prefix}{digest_name}", config.output.digest_name)
 
 
 def _upload_to_drive(config: Configuration, result: OutputDocument) -> None:
@@ -163,12 +182,13 @@ def _upload_to_drive(config: Configuration, result: OutputDocument) -> None:
     drive = DriveSink(
         build_client(settings.credentials_path, settings.token_path), settings.folder_id
     )
+    archive, _ = _dated(drive, config, result)
     payload = output_document.serialize(result)
-    drive.put(timestamped_name("sleeper", result.run.timestamp, "json"), payload)
+    archive.put(timestamped_name("sleeper", result.run.timestamp, "json"), payload)
     drive.put(config.output.current_link_name, payload)
     if config.output.digest:
         digest = render(result).encode("utf-8")
-        drive.put(timestamped_name("sleeper", result.run.timestamp, "md"), digest)
+        archive.put(timestamped_name("sleeper", result.run.timestamp, "md"), digest)
         drive.put(config.output.digest_name, digest)
 
 

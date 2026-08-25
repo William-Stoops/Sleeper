@@ -31,7 +31,7 @@ jobs:
           cache-dependency-glob: uv.lock
 
       - name: Installer les dépendances
-        run: uv sync --locked --all-extras
+        run: uv sync --locked
 
       - name: Lint (ruff)
         run: uv run ruff check src tests tools
@@ -68,7 +68,7 @@ jobs:
           cache-dependency-glob: uv.lock
 
       - name: Installer les dépendances
-        run: uv sync --locked --all-extras
+        run: uv sync --locked
 
       - name: Le schéma publié suit les modèles
         run: |

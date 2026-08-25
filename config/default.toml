@@ -16,9 +16,13 @@ base_url = "https://encheres-domaine.gouv.fr"
 user_agent = "SleeperBot/0.1 (+mailto:contact@exemple.fr)"
 
 # Politesse. Le site est un service public protege par un WAF : une seule
-# execution par jour, une concurrence faible, un delai entre les requetes.
-# Plafonds imposes par le code : concurrence <= 3, delai >= 0.5 s.
-concurrence_max = 2
+# execution par jour, et un delai entre chaque requete.
+#
+# Il n'y a pas de reglage de concurrence : les requetes partent en sequence.
+# Le transport est un navigateur, dont l'API synchrone est mono-thread, et une
+# limite de debit globale est de toute facon une garantie plus stricte qu'un
+# plafond de requetes simultanees.
+# Plancher impose par le code : delai >= 0.5 s.
 delai_entre_requetes_s = 1.5
 
 # Transport.

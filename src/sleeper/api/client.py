@@ -1,18 +1,18 @@
-"""Operating HTTP client.
+"""Operating client for the Domaine gateway.
 
-The daily run opens no browser: it calls the GraphQL gateway directly with
-the application's exact requests (see `operations`), replaying a session
-obtained once by a real browser.
+The client owns everything that is not transport: pacing, retries, refusal of
+the anti-bot challenge, and JSON parsing. The transport itself is pluggable,
+which is what makes the whole layer testable without a browser.
 
-Three guarantees carried by this layer:
+Three guarantees:
 
 1. **Pacing.** A shared rate limiter bounds the overall throughput whatever
    the concurrency upstream. The site is a public service: we do not shove it.
 2. **Retries.** Capped exponential backoff on transport failures and 5xx.
    Definitive 4xx are not retried: insisting will not cure them.
-3. **Refusal to circumvent.** If the site serves an anti-bot challenge, the
-   client stops DEAD, with no retry and no attempt at resolution. That is a
-   boundary of the project, not an incident to absorb.
+3. **Refusal to circumvent.** If the site serves a CAPTCHA, the client stops
+   DEAD, with no retry and no attempt at resolution. That is a boundary of the
+   project, not an incident to absorb.
 """
 
 from __future__ import annotations
@@ -22,14 +22,12 @@ import re
 import threading
 import time
 from collections.abc import Callable, Mapping
-from types import TracebackType
-from typing import Any, Final, Protocol, Self
+from typing import Any, Final
 
-import httpx
 import structlog
 
 from sleeper.api.operations import GRAPHQL_PATH, OPERATION_NAME
-from sleeper.api.session import Session
+from sleeper.api.transport import Response, Transport, payload_of
 from sleeper.config import Network
 from sleeper.errors import AntiBotChallengeError, NetworkError
 
@@ -55,58 +53,18 @@ _MIN_ERROR_STATUS: Final = 400
 _LOG = structlog.get_logger(__name__)
 
 
-class SessionProvider(Protocol):
-    """Source of the session the site accepts."""
-
-    def session(self) -> Session:
-        """Current session, possibly from a cache."""
-        ...
-
-    def renew(self) -> Session:
-        """Force a fresh session to be obtained."""
-        ...
-
-
-class StaticSession:
-    """A frozen session, useful in tests and when replaying a capture."""
-
-    def __init__(self, cookies: Mapping[str, str], user_agent: str = "") -> None:
-        self._session = Session(cookies=dict(cookies), user_agent=user_agent)
-
-    def session(self) -> Session:
-        return self._session
-
-    def renew(self) -> Session:
-        return self._session
-
-
-def build_user_agent(browser_agent: str, identification: str) -> str:
-    """Compose the operating User-Agent.
-
-    Sleeper replays a real browser's session: hiding that browser would break
-    the session at the firewall, and claiming to be something else would be a
-    lie. Both are therefore announced — the originating client, and the robot
-    using it — so that a site administrator can identify and reach us.
-    """
-    if not browser_agent:
-        return identification
-    return f"{browser_agent} {identification}".strip()
-
-
-def _html_body(response: httpx.Response) -> str:
+def _html_body(response: Response) -> str:
     """Start of the body, only when the response is not JSON."""
-    if "json" in response.headers.get("content-type", "").lower():
-        return ""
-    return response.text[:2000]
+    return "" if response.is_json else response.text[:2000]
 
 
-def _is_captcha(response: httpx.Response) -> bool:
+def is_captcha(response: Response) -> bool:
     """The site is asking for a human to step in."""
     excerpt = _html_body(response)
     return any(signature.search(excerpt) for signature in _CAPTCHA_SIGNATURES)
 
 
-def _is_expired_session(response: httpx.Response) -> bool:
+def is_expired_session(response: Response) -> bool:
     """The site is merely asking for its entry JavaScript challenge again."""
     excerpt = _html_body(response)
     return any(signature.search(excerpt) for signature in _EXPIRED_SESSION_SIGNATURES)
@@ -140,44 +98,19 @@ class RateLimiter:
 
 
 class DomaineClient:
-    """Calls the Domaine's GraphQL gateway."""
+    """Calls the Domaine's GraphQL gateway over a transport."""
 
     def __init__(
         self,
         network: Network,
-        session: SessionProvider,
-        transport: httpx.BaseTransport | None = None,
+        transport: Transport,
         sleep: Callable[[float], None] = time.sleep,
         clock: Callable[[], float] = time.monotonic,
     ) -> None:
         self._network = network
-        self._session = session
+        self._transport = transport
         self._sleep = sleep
         self._limiter = RateLimiter(network.delay_between_requests_s, clock, sleep)
-        self._client = httpx.Client(
-            base_url=network.base_url,
-            headers={
-                "Accept": "application/json, text/plain, */*",
-                "Accept-Language": "fr-FR,fr;q=0.9",
-            },
-            timeout=network.timeout_s,
-            transport=transport,
-            follow_redirects=False,
-        )
-
-    def __enter__(self) -> Self:
-        return self
-
-    def __exit__(
-        self,
-        exc_type: type[BaseException] | None,
-        exc_value: BaseException | None,
-        traceback: TracebackType | None,
-    ) -> None:
-        self.close()
-
-    def close(self) -> None:
-        self._client.close()
 
     def query(self, request: str, variables: Mapping[str, Any]) -> dict[str, Any]:
         """Run a GraphQL operation and return its JSON payload."""
@@ -190,34 +123,31 @@ class DomaineClient:
         for attempt in range(1, self._network.max_attempts + 1):
             self._limiter.wait()
             try:
-                session = self._session.session()
-                self._client.cookies.update(dict(session.cookies))
-                self._client.headers["User-Agent"] = build_user_agent(
-                    session.user_agent, self._network.user_agent
-                )
-                response = self._client.get(GRAPHQL_PATH, params=params)
-            except httpx.HTTPError as exc:
+                response = self._transport.send(GRAPHQL_PATH, params)
+            except NetworkError as exc:
                 last = exc
+            except Exception as exc:  # third-party transport: the cause is opaque
+                last = NetworkError(f"échec de transport : {type(exc).__name__}: {exc}")
             else:
                 self._refuse_if_captcha(response)
-                if _is_expired_session(response) and not session_renewed:
+                if is_expired_session(response) and not session_renewed:
                     _LOG.info("session.expired", action="renewal")
-                    self._session.renew()
+                    self._transport.renew()
                     session_renewed = True
                     continue
-                if _is_expired_session(response):
+                if is_expired_session(response):
                     raise NetworkError(
                         "le site redemande son challenge JavaScript malgré une "
                         "session neuve : la protection a probablement changé"
                     )
-                if response.status_code < _MIN_ERROR_STATUS:
-                    return self._payload(response)
-                if response.status_code not in _RETRYABLE_STATUSES:
+                if response.status < _MIN_ERROR_STATUS:
+                    return payload_of(response)
+                if response.status not in _RETRYABLE_STATUSES:
                     raise NetworkError(
-                        f"réponse définitive {response.status_code} de la passerelle : "
+                        f"réponse définitive {response.status} de la passerelle : "
                         f"{response.text[:200]}"
                     )
-                last = NetworkError(f"statut {response.status_code}")
+                last = NetworkError(f"statut {response.status}")
             if attempt < self._network.max_attempts:
                 self._sleep(self._backoff(attempt))
 
@@ -231,28 +161,15 @@ class DomaineClient:
         return min(raw, self._network.backoff_max_s)
 
     @staticmethod
-    def _refuse_if_captcha(response: httpx.Response) -> None:
+    def _refuse_if_captcha(response: Response) -> None:
         """Stop everything if the site serves a CAPTCHA.
 
         Sleeper solves no CAPTCHA and does not retry: retrying would amount to
         trying to get around it.
         """
-        if _is_captcha(response):
+        if is_captcha(response):
             raise AntiBotChallengeError(
                 "le site présente un challenge anti-robot (WAF/CAPTCHA). "
                 "Sleeper ne le contourne pas : espacer les exécutions, vérifier "
                 "la cadence configurée, puis relancer plus tard."
             )
-
-    @staticmethod
-    def _payload(response: httpx.Response) -> dict[str, Any]:
-        try:
-            payload = response.json()
-        except ValueError as exc:
-            raise NetworkError(
-                f"réponse non JSON de la passerelle ({response.headers.get('content-type')}) : "
-                f"{response.text[:200]}"
-            ) from exc
-        if not isinstance(payload, dict):
-            raise NetworkError("charge utile JSON inattendue : objet attendu")
-        return payload

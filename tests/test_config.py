@@ -39,7 +39,6 @@ class TestLoading:
         config = load_configuration(write(tmp_path, MINIMAL))
         assert isinstance(config, Configuration)
         assert config.scope.departments == frozenset({"59", "62"})
-        assert config.network.max_concurrency == 2
         assert config.network.max_attempts >= 1
 
     def test_the_browser_is_not_headless_by_default(self, tmp_path: Path) -> None:
@@ -76,8 +75,10 @@ class TestValidation:
         with pytest.raises(ConfigurationError, match="ZZZZ"):
             load_configuration(write(tmp_path, content))
 
-    def test_excessive_concurrency_is_refused(self, tmp_path: Path) -> None:
-        content = MINIMAL.replace("[perimetre]", "concurrence_max = 32\n\n[perimetre]")
+    def test_an_unknown_network_setting_is_refused(self, tmp_path: Path) -> None:
+        # Notably `concurrence_max`, removed once requests became sequential:
+        # a stale setting must fail rather than be silently ignored.
+        content = MINIMAL.replace("[perimetre]", "concurrence_max = 2\n\n[perimetre]")
         with pytest.raises(ConfigurationError, match="concurrence_max"):
             load_configuration(write(tmp_path, content))
 

@@ -22,7 +22,7 @@ from rich.table import Table
 
 from sleeper import __version__
 from sleeper.api.client import DomaineClient
-from sleeper.api.session import BrowserSession
+from sleeper.api.transport import BrowserTransport
 from sleeper.config import Configuration, load_configuration
 from sleeper.domain.models import OutputDocument
 from sleeper.errors import AntiBotChallengeError, SleeperError
@@ -71,12 +71,12 @@ def collecter(
     config = _load(config_path)
     _LOG.info("run.starting", version=__version__, config=str(config_path))
 
-    session = BrowserSession(config.network, session_cache)
     try:
         with (
             SleeperState(config.state.database) as state,
-            DomaineClient(config.network, session) as gateway,
+            BrowserTransport(config.network, session_cache) as transport,
         ):
+            gateway = DomaineClient(config.network, transport)
             result = Collector(config, gateway, state).run()
     except AntiBotChallengeError as exc:
         console.print(f"[bold yellow]Arrêt volontaire[/] : {exc}")
@@ -144,7 +144,6 @@ def validate_config(config_path: ConfigPath = DEFAULT_CONFIG) -> None:
     table.add_row("Pays étrangers", ", ".join(sorted(perimeter.foreign_countries)) or "aucun")
     table.add_row("Règles d'exclusion", str(len(engine.rules)))
     table.add_row("Cadence", f"{config.network.delay_between_requests_s} s entre requêtes")
-    table.add_row("Concurrence", str(config.network.max_concurrency))
     table.add_row("Sortie", str(config.output.directory))
     table.add_row("État", str(config.state.database))
     console.print(table)

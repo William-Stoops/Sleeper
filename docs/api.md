@@ -5,7 +5,8 @@
 
 ## 1. Verdict
 
-**L'API est exploitable en HTTP direct, sans navigateur pour le run lui-même.**
+**L'API GraphQL est pleinement exploitable — mais uniquement depuis la pile
+réseau d'un navigateur.**
 
 Le site est une application monopage. Contrairement à ce que laissait supposer
 le segment `hermes` des anciennes URL, le backend n'est pas un service maison :
@@ -167,13 +168,22 @@ Le site est derrière un **WAF UBIKA** :
 
 Conséquences architecturales, toutes assumées :
 
-- **Un navigateur réel, et visible, obtient la session**, parce qu'un navigateur
-  exécute le JavaScript du site comme le ferait n'importe quel visiteur.
-  `api/session.py` isole cette acquisition, la met en cache et la renouvelle.
-  Le mode headless est désactivé par défaut : Chromium y annonce
-  `HeadlessChrome/151…`, que le pare-feu refuse. Masquer ce jeton aurait été un
-  déguisement ; on ouvre donc une vraie fenêtre. Sur serveur sans affichage,
-  passer par `xvfb-run`.
+- **Les requêtes partent d'un vrai navigateur** (`api/transport.py`,
+  `context.request`). Mesures à l'appui :
+
+  | Tentative | Résultat |
+  |---|---|
+  | `httpx` + requête forgée | `400 — Bad query params length`, puis CAPTCHA |
+  | `httpx` + requête **exacte** + cookies du navigateur | challenge JavaScript |
+  | idem + en-têtes fonctionnels (`Store`, `Referer`, `Content-Type`) | challenge |
+  | idem en HTTP/2 | challenge |
+  | `context.request` du navigateur | **JSON** |
+
+  Le pare-feu discrimine sur la signature TLS. La forger serait un
+  contournement, donc hors périmètre. Emettre depuis le navigateur n'en est pas
+  un : c'est le client légitime de l'application, simplement sans rendu de page.
+  Le mode headless est désactivé : Chromium y annonce `HeadlessChrome/151…`,
+  que le pare-feu refuse également. Sur serveur sans affichage, `xvfb-run`.
 - **Les requêtes sont rejouées à l'identique.** `operations.py` reproduit
   au caractère près les textes émis par l'application ; seules les variables
   changent. Un test bloque toute divergence.
@@ -219,7 +229,7 @@ probablement une contrainte de catégorie, sans sortir du gabarit accepté par l
 pare-feu. Il faut la relever, pas la deviner :
 
 ```bash
-uv run --extra discovery python tools/discover_api.py --out var/discovery
+uv run python tools/discover_api.py --out var/discovery
 ```
 
 Le script visite désormais `/categorie/vehicules`, ce qui capture la requête
@@ -246,9 +256,9 @@ filtre dans `pipeline.Collector._sale_lots`.
 ## 8. Rejouer la reconnaissance
 
 ```bash
-uv sync --extra discovery
+uv sync
 uv run playwright install chromium
-uv run --extra discovery python tools/discover_api.py --out var/discovery
+uv run python tools/discover_api.py --out var/discovery
 ```
 
 Le script ouvre Chromium, intercepte **toutes** les réponses JSON

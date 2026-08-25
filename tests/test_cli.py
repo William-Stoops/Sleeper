@@ -121,9 +121,9 @@ def stub_runtime(monkeypatch: pytest.MonkeyPatch, outcome: OutputDocument | Exce
         def __exit__(self, *_: object) -> None: ...
 
     monkeypatch.setattr(cli, "Collector", FakeCollector)
-    monkeypatch.setattr(cli, "DomaineClient", FakeContext)
+    monkeypatch.setattr(cli, "BrowserTransport", FakeContext)
     monkeypatch.setattr(cli, "SleeperState", FakeContext)
-    monkeypatch.setattr(cli, "BrowserSession", lambda *_, **__: None)
+    monkeypatch.setattr(cli, "DomaineClient", lambda *_, **__: None)
 
 
 class TestValidateConfig:

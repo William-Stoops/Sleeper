@@ -91,13 +91,14 @@ winget install --id=astral-sh.uv -e
 ```bash
 git clone https://github.com/William-Stoops/Sleeper.git
 cd Sleeper
-uv sync --extra discovery
+uv sync
 ```
 
 `uv sync` crée l'environnement et installe les versions exactes de `uv.lock`.
-L'extra `discovery` ajoute Playwright, **nécessaire** : le site sert un
-challenge JavaScript avant toute donnée, et un vrai navigateur est requis pour
-obtenir la session (voir [Limites assumées](#limites-assumées)).
+Playwright fait partie des dépendances **du run lui-même**, pas d'un extra : le
+site refuse tout client qui n'est pas un navigateur, et Sleeper émet donc ses
+requêtes depuis la pile réseau d'un vrai navigateur. Voir
+[Limites assumées](#limites-assumées).
 
 ### 3. Installer le navigateur
 
@@ -224,7 +225,9 @@ site. Ils valent `null` par absence de source, pas par échec de lecture. Voir
 
 **Une seule exécution par jour.** Le site est un service public protégé par un
 pare-feu applicatif ; une cadence plus élevée déclenche un CAPTCHA et l'outil
-s'arrête (code `3`).
+s'arrête (code `3`). Les requêtes partent **en séquence**, espacées de
+`delai_entre_requetes_s` : il n'y a pas de réglage de concurrence, une limite
+de débit globale étant une garantie plus stricte.
 
 <details open>
 <summary><b>Linux / macOS — cron</b></summary>
@@ -407,8 +410,8 @@ src/sleeper/
 │   └── codes.py       grammaire de la source (statuts, booléens, genres)
 ├── api/           ← LE TRANSPORT
 │   ├── operations.py  requêtes GraphQL figées, identiques à celles du site
-│   ├── session.py     acquisition et cache de la session navigateur
-│   ├── client.py      httpx, limiteur de débit, reprises, refus du challenge
+│   ├── transport.py   pile réseau du navigateur, session persistée
+│   ├── client.py      limiteur de débit, reprises, refus du challenge
 │   └── mapping.py     JSON → objets typés, échec bruyant si le schéma casse
 ├── state/         ← LA MÉMOIRE
 │   ├── migrations.py  schéma SQLite versionné
@@ -471,7 +474,7 @@ correspondante sont consignés, une fois et une seule.
 ## Développement
 
 ```bash
-uv sync --all-extras
+uv sync
 uv run pre-commit install
 ```
 
@@ -502,7 +505,7 @@ et il tourne en pre-commit comme en CI.
 Quand un run échoue en `SchemaAmontError`, c'est que le contrat amont a bougé :
 
 ```bash
-uv run --extra discovery python tools/discover_api.py --out var/discovery
+uv run python tools/discover_api.py --out var/discovery
 ```
 
 Procédure détaillée dans [`docs/api.md` §8](docs/api.md).
@@ -514,17 +517,39 @@ Procédure détaillée dans [`docs/api.md` §8](docs/api.md).
 **Le site est protégé par un pare-feu applicatif UBIKA doublé d'un CAPTCHA
 ALTCHA.** Cela impose trois choses, toutes délibérées :
 
-1. **Un navigateur réel, et visible, obtient la session.** Le site sert un
-   challenge JavaScript avant toute donnée ; un navigateur l'exécute comme le
-   ferait n'importe quel visiteur. Cette acquisition est isolée dans
-   `api/session.py`, mise en cache et renouvelée automatiquement. Le run
-   lui-même se fait ensuite en HTTP direct, sans navigateur.
+1. **Les requêtes partent de la pile réseau d'un vrai navigateur.**
+   C'est le point qui a coûté le plus cher, et il mérite d'être expliqué en
+   entier, parce qu'il s'écarte de ce qui était prévu.
+
+   Le plan initial — découvrir les endpoints JSON puis les appeler en `httpx`
+   sans navigateur — **ne fonctionne pas sur ce site**. Ont été essayés, et
+   mesurés :
+
+   | Tentative | Résultat |
+   |---|---|
+   | `httpx` + requête GraphQL forgée | `400 — Bad query params length`, puis CAPTCHA |
+   | `httpx` + requête **exacte** de l'application + cookies du navigateur | challenge JavaScript au lieu du JSON |
+   | idem + en-têtes fonctionnels de l'application (`Store`, `Referer`, `Content-Type`) | challenge |
+   | idem en **HTTP/2** | challenge |
+   | requête émise **par le navigateur** (`context.request`) | **JSON** |
+
+   Le pare-feu discrimine donc sur la **signature TLS** du client. La franchir
+   supposerait de forger l'empreinte TLS d'un navigateur : c'est un
+   contournement de protection anti-robot, explicitement hors périmètre.
+
+   L'équivalent conforme est de faire émettre les requêtes **par le navigateur
+   lui-même** (`api/transport.py`). Ce n'est pas un contournement : c'est un
+   vrai navigateur, muni d'une vraie session, qui appelle l'API publique de
+   l'application. Les pages ne sont simplement pas rendues — un choix de
+   performance, pas une esquive. On conserve ainsi l'essentiel du gain visé :
+   du JSON structuré, aucun sélecteur CSS, aucun parsing de DOM.
 
    **Le navigateur n'est pas en mode headless, et c'est délibéré.** En headless,
    Chromium annonce `HeadlessChrome/151…` dans son User-Agent, ce que le
-   pare-feu du site refuse. Deux issues étaient possibles : masquer ce jeton, ou
-   ouvrir un vrai navigateur. Masquer aurait été un déguisement ; l'outil ouvre
-   donc une fenêtre, quelques secondes, une fois par exécution.
+   pare-feu refuse. Deux issues étaient possibles : masquer ce jeton, ou ouvrir
+   un vrai navigateur. Masquer aurait été un déguisement. La session est
+   persistée entre les exécutions (`storage_state`), de sorte que le challenge
+   d'entrée n'est repassé que lorsqu'il expire.
 
    <details>
    <summary>Sur un serveur sans affichage — xvfb</summary>
@@ -577,18 +602,12 @@ Aucune dépendance n'est ajoutée sans raison écrite.
 
 | Paquet | Pourquoi celui-là |
 |---|---|
-| **httpx** | client HTTP avec `MockTransport` intégré, ce qui permet de tester toute la couche transport **sans dépendance de test supplémentaire** ni serveur factice |
+| **playwright** | **seul moyen d'atteindre l'API sans contourner la protection anti-robot** : le pare-feu du site rejette tout client dont la signature TLS n'est pas celle d'un navigateur. Sert aussi à la phase de reconnaissance |
 | **pydantic** v2 | modèles typés, validation, et **génération du JSON Schema** depuis les mêmes classes : le contrat de sortie a une seule source de vérité |
 | **typer** | CLI typée dérivée des annotations, cohérente avec `mypy --strict` |
 | **rich** | tableau de bilan lisible en fin de run |
 | **structlog** | journalisation structurée JSON, indispensable pour une tâche planifiée non surveillée |
 | **jsonschema** | valide le document contre le schéma **publié sur disque**. Ce détour est volontaire : il fait échouer le run si le schéma versionné et les modèles divergent, là où une validation Pydantic ne validerait le document que contre lui-même |
-
-### Découverte (extra `discovery`)
-
-| Paquet | Pourquoi |
-|---|---|
-| **playwright** | seul moyen d'exécuter le challenge JavaScript du site pour obtenir une session, et outil de la phase de reconnaissance |
 
 ### Développement
 
@@ -598,8 +617,8 @@ Aucune dépendance n'est ajoutée sans raison écrite.
 
 | Envisagé | Pourquoi non |
 |---|---|
-| `pytest-recording` / `vcrpy` | `httpx.MockTransport` couvre le besoin sans dépendance supplémentaire, et les fixtures restent des fichiers JSON lisibles et expurgeables à la main |
-| `respx` | idem : `MockTransport` est fourni par httpx |
+| `httpx` | **retiré** : inutilisable ici, le pare-feu du site rejette sa signature TLS. Le transport passe par le navigateur |
+| `pytest-recording` / `vcrpy` | le transport est derrière un `Protocol` : un transport factice suffit, et les fixtures restent des fichiers JSON lisibles et expurgeables à la main |
 | `sqlite-utils` | la bibliothèque standard suffit ; les migrations sont explicites et versionnées |
 | `beautifulsoup4` / `lxml` | l'API renvoie du JSON structuré. Aucun sélecteur CSS n'est utilisé nulle part |
 | `pandas` | aucun calcul tabulaire : l'outil collecte, il n'analyse pas |

@@ -19,7 +19,6 @@ from __future__ import annotations
 
 import hashlib
 from collections.abc import Callable, Iterator, Mapping
-from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from typing import Any, Protocol
@@ -207,15 +206,19 @@ class Collector:
 
         if to_fetch:
             _LOG.info("listings.fetching", to_fetch=len(to_fetch), cached=len(found))
-            with ThreadPoolExecutor(max_workers=self._config.network.max_concurrency) as pool:
-                results = list(pool.map(self._listing, to_fetch))
-            for raw, attributes in zip(to_fetch, results, strict=True):
-                if attributes is None:
-                    continue
-                found[raw.id] = attributes
-                self._state.cache_listing(
-                    raw.id, _fingerprint(raw), _to_memo(attributes), self._started_at
-                )
+        # Sequential, deliberately. The transport is a browser, whose
+        # synchronous API is single-threaded; and behind a shared rate limiter
+        # concurrency buys nothing anyway — the limiter would serialise the
+        # requests regardless. Politeness is enforced by the delay, which is a
+        # stricter guarantee than a cap on simultaneous requests.
+        for raw in to_fetch:
+            attributes = self._listing(raw)
+            if attributes is None:
+                continue
+            found[raw.id] = attributes
+            self._state.cache_listing(
+                raw.id, _fingerprint(raw), _to_memo(attributes), self._started_at
+            )
         return found
 
     def _from_cache(self, raw: LotSource) -> VehicleAttributes | None:

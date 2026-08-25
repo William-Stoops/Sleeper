@@ -6,16 +6,13 @@ readme = "README.md"
 requires-python = ">=3.12"
 license = { text = "MIT" }
 dependencies = [
-    "httpx>=0.28",
     "jsonschema>=4.23",
+    "playwright>=1.49",
     "pydantic>=2.9",
     "rich>=13.9",
     "structlog>=24.4",
     "typer>=0.15",
 ]
-
-[project.optional-dependencies]
-discovery = ["playwright>=1.49"]
 
 [project.scripts]
 sleeper = "sleeper.cli:app"

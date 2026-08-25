@@ -28,9 +28,13 @@ _DEPARTMENT = re.compile(r"^(?:\d{2,3}|2A|2B)$")
 _COUNTRY = re.compile(r"^[A-Z]{2}$")
 
 #: Pacing floor. The site is a public service behind a WAF: one run a day,
-#: a couple of requests per second at most.
+#: and never more than one request every half-second.
+#:
+#: There is no concurrency setting: requests are issued sequentially. The
+#: transport is a browser, whose synchronous API is single-threaded, and a
+#: global rate limit is a stricter guarantee than a cap on simultaneous
+#: requests anyway.
 MINIMUM_DELAY_S: Final = 0.5
-MAXIMUM_CONCURRENCY: Final = 3
 
 _RULE_CODES: Final = frozenset(r.code for r in DEFAULT_RULES)
 
@@ -56,9 +60,6 @@ class Network(_Section):
 
     base_url: str = "https://encheres-domaine.gouv.fr"
     user_agent: str
-    max_concurrency: Annotated[int, Field(ge=1, le=MAXIMUM_CONCURRENCY)] = Field(
-        alias="concurrence_max", default=2
-    )
     delay_between_requests_s: Annotated[float, Field(ge=MINIMUM_DELAY_S)] = Field(
         alias="delai_entre_requetes_s", default=1.5
     )

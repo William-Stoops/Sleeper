@@ -29,6 +29,7 @@ from sleeper.api import mapping, operations
 from sleeper.api.mapping import LotSource, SaleSource, VehicleAttributes
 from sleeper.config import Configuration
 from sleeper.domain import text
+from sleeper.domain.damage import classify_damage
 from sleeper.domain.exclusions import ExclusionEngine, LotSignals
 from sleeper.domain.models import (
     CRITICAL_FIELD,
@@ -567,6 +568,7 @@ def _vehicle_fields(
         "registration_certificate": attributes.registration_certificate if attributes else None,
         "keys": attributes.has_key if attributes else None,
         "declared_condition": text.extract_declared_condition(description) or "",
+        "body_damage": classify_damage(description),
         "vat_reclaimable": _vat_reclaimable(attributes.vat if attributes else ""),
     }
 

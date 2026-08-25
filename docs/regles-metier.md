@@ -201,38 +201,7 @@ Annulée par :
 - `moteur en bon etat`
 - `moteur revise`
 
-### 9. `choc_ou_accident`
-
-**Choc, accident ou dégâts de carrosserie**
-
-Déclenche sur :
-
-- `accidente`
-- `accidentee`
-- `vehicule accidente`
-- `choc avant`
-- `choc arriere`
-- `choc lateral`
-- `degats de carrosserie`
-- `degat de carrosserie`
-- `carrosserie endommagee`
-- `carrosserie abimee`
-- `sinistre`
-- `vehicule sinistre`
-- `impacts de carrosserie`
-
-Annulée par :
-
-- `sans choc`
-- `aucun choc`
-- `non accidente`
-- `non accidentee`
-- `aucun degat de carrosserie`
-- `aucun degat`
-- `sans degat`
-- `carrosserie en bon etat`
-
-### 10. `gage_ou_opposition`
+### 9. `gage_ou_opposition`
 
 **Gage ou opposition**
 
@@ -252,7 +221,7 @@ Annulée par :
 - `aucune opposition`
 - `sans opposition`
 
-### 11. `kilometrage_inconnu`
+### 10. `kilometrage_inconnu`
 
 **Kilométrage inconnu, non renseigné ou absent**
 
@@ -267,6 +236,41 @@ Déclenche sur :
 - `kilometrage non garanti`
 - `compteur non fiable`
 
+
+## Dommages de carrosserie — gradués, jamais excluants
+
+Sur ce gisement, presque toutes les descriptions mentionnent un choc.
+« Coups, chocs, rayures et frottements d'usage » est une formule
+administrative. En faire un motif d'exclusion revient à jeter le
+gisement : le meilleur dossier du run du 25/08 — un Ford Transit de 2021
+à 27 798 km, mis à prix 800 € — en porte deux.
+
+Le niveau est donc **gradué**, il alimente le budget de remise en état
+et le score, et il n'écarte jamais.
+
+| Niveau | Motif de déclenchement (forme normalisée) |
+|---|---|
+| `structurel` | `\b(?:traverse|longeron|berceau|chassis|montant|pavillon perce|toit perce|corrosion|grele|grelee|deformation|structure|airbag declenche|airbags declenches|degats non expertises)\b` |
+| `cosmetique` | `\b(?:choc|chocs|enfoncement|enfonce|enfoncee|frottement|frottements|abime|abimee|casse|cassee|accidente|accidentee|sinistre|degat|degats)\b[^.]{0,40}?\b(?:aile|porti[eè]re|portiere|bouclier|pare[- ]?chocs?|hayon|capot|coffre|bas de caisse|retroviseur|r[ée]troviseur)\b|\b(?:aile|porti[eè]re|portiere|bouclier|pare[- ]?chocs?|hayon|capot|coffre|bas de caisse|retroviseur|r[ée]troviseur)\b[^.]{0,40}?\b(?:choc|chocs|enfoncement|enfonce|enfoncee|frottement|frottements|abime|abimee|casse|cassee|accidente|accidentee|sinistre|degat|degats)\b` |
+| `usage` | `\b(?:rayures?|eclats? de peinture|frottements? d usage|coups chocs rayures et frottements d usage)\b` |
+| `aucun` | aucune des formes ci-dessus, et aucun mot d'impact isolé |
+
+### Reclassement des lots que l'ancienne règle écartait
+
+Les dix lots écartés pour `choc_ou_accident` lors du run du 2026-08-25, tels qu'ils sont désormais classés. Aucun n'est plus exclu.
+
+| Lot | Niveau | Titre |
+|---|---|---|
+| [212764](https://encheres-domaine.gouv.fr/lot/renaultkangoo5placescx-409-qm-1.html) | `cosmetique` | RENAULT Kangoo |
+| [289643](https://encheres-domaine.gouv.fr/lot/em-309-ebpeugeotexperttraveller-1.html) | `cosmetique` | PEUGEOT Expert Traveller |
+| [290039](https://encheres-domaine.gouv.fr/lot/ac-602-txrenaulttrafic-1.html) | `structurel` | RENAULT Trafic |
+| [290041](https://encheres-domaine.gouv.fr/lot/753rmk75renaulttrafic-1.html) | `structurel` | RENAULT Trafic |
+| [291540](https://encheres-domaine.gouv.fr/lot/c-maxdd-234-ah-1.html) | `cosmetique` | FORD C-Max |
+| [306088](https://encheres-domaine.gouv.fr/lot/peugeot308allurebusinesspure-tech-1.html) | `cosmetique` | PEUGEOT 308 |
+| [308717](https://encheres-domaine.gouv.fr/lot/ea-626-fl-1.html) | `structurel` | RENAULT Master |
+| [320384](https://encheres-domaine.gouv.fr/lot/toyotalandcruiser-fl-352-rj-chassisjtebz29j900192388-1.html) | `cosmetique` | TOYOTA Land Cruiser |
+| [321553](https://encheres-domaine.gouv.fr/lot/peugeot208-1-doo-94.html) | `cosmetique` | PEUGEOT 208 |
+| [331277](https://encheres-domaine.gouv.fr/lot/ea-643-cq-1.html) | `cosmetique` | RENAULT Clio |
 ## Attributs structurés qui priment sur le texte
 
 | Règle | Attribut de la fiche | Verdict |

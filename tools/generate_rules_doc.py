@@ -9,9 +9,12 @@ file matches what this script produces.
 
 from __future__ import annotations
 
+import json
+from pathlib import Path
 from typing import Final
 
 from sleeper.domain.codes import OUT_OF_SCOPE_KINDS
+from sleeper.domain.damage import DAMAGE_PATTERNS
 from sleeper.domain.exclusions import CLASSIC_CAR_YEAR, DEFAULT_RULES
 
 HEADER: Final = """\
@@ -144,6 +147,7 @@ def render() -> str:
             parts.append("\n".join(f"- `{c}`" for c in rule.counter_phrases))
             parts.append("\n")
     parts.append("\n")
+    parts.append(_damage_section())
     parts.append(
         FOOTER.format(
             annee=CLASSIC_CAR_YEAR,
@@ -151,6 +155,48 @@ def render() -> str:
         )
     )
     return "".join(parts)
+
+
+def _damage_section() -> str:
+    """Dommages de carrosserie : les motifs, et le reclassement des lots réels."""
+    lignes = [
+        "\n## Dommages de carrosserie — gradués, jamais excluants\n",
+        "\nSur ce gisement, presque toutes les descriptions mentionnent un choc.",
+        "\n« Coups, chocs, rayures et frottements d'usage » est une formule",
+        "\nadministrative. En faire un motif d'exclusion revient à jeter le",
+        "\ngisement : le meilleur dossier du run du 25/08 — un Ford Transit de 2021",
+        "\nà 27 798 km, mis à prix 800 € — en porte deux.\n",
+        "\nLe niveau est donc **gradué**, il alimente le budget de remise en état",
+        "\net le score, et il n'écarte jamais.\n",
+        "\n| Niveau | Motif de déclenchement (forme normalisée) |\n|---|---|\n",
+    ]
+    for niveau, motif in DAMAGE_PATTERNS.items():
+        lignes.append(f"| `{niveau}` | `{motif}` |\n")
+    lignes.append("| `aucun` | aucune des formes ci-dessus, et aucun mot d'impact isolé |\n")
+
+    reclasses = _reclassified_lots()
+    if reclasses:
+        lignes.append(
+            "\n### Reclassement des lots que l'ancienne règle écartait\n"
+            "\nLes dix lots écartés pour `choc_ou_accident` lors du run du"
+            " 2026-08-25, tels qu'ils sont désormais classés. Aucun n'est plus"
+            " exclu.\n"
+            "\n| Lot | Niveau | Titre |\n|---|---|---|\n"
+        )
+        for lot_id, lot in sorted(reclasses.items()):
+            lignes.append(f"| [{lot_id}]({lot['url']}) | `{lot['dommages']}` | {lot['titre']} |\n")
+    return "".join(lignes)
+
+
+def _reclassified_lots() -> dict[str, dict[str, str]]:
+    """Lit la fixture du run réel, si elle est présente."""
+    fixture = Path("tests/fixtures/reel/run-2026-08-25.json")
+    if not fixture.is_file():
+        return {}
+    charge: dict[str, dict[str, str]] = json.loads(fixture.read_text(encoding="utf-8")).get(
+        "choc_reclasses", {}
+    )
+    return charge
 
 
 def main() -> int:

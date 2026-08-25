@@ -16,6 +16,12 @@ testable and extensible without guessing what a parser is up to.
 Rule codes stay in French: they are part of the output contract
 (`ecartes[].motif`) and of the configuration the operator edits daily.
 Recognised wordings are documented in docs/regles-metier.md.
+
+**There is deliberately no rule about knocks.** On this seam, nearly every
+description mentions one — "coups, chocs, rayures et frottements d'usage" is
+boilerplate — and excluding on it threw away the best file of the run of
+2026-08-25. Body damage is graded in `domain/damage.py`, where it feeds the
+repair budget and the score without ever excluding.
 """
 
 from __future__ import annotations
@@ -277,35 +283,6 @@ DEFAULT_RULES: Final[tuple[Rule, ...]] = (
             "boite hs",
         ),
         counter_phrases=("moteur en bon etat", "moteur revise"),
-    ),
-    Rule(
-        code="choc_ou_accident",
-        label="Choc, accident ou dégâts de carrosserie",
-        phrases=(
-            "accidente",
-            "accidentee",
-            "vehicule accidente",
-            "choc avant",
-            "choc arriere",
-            "choc lateral",
-            "degats de carrosserie",
-            "degat de carrosserie",
-            "carrosserie endommagee",
-            "carrosserie abimee",
-            "sinistre",
-            "vehicule sinistre",
-            "impacts de carrosserie",
-        ),
-        counter_phrases=(
-            "sans choc",
-            "aucun choc",
-            "non accidente",
-            "non accidentee",
-            "aucun degat de carrosserie",
-            "aucun degat",
-            "sans degat",
-            "carrosserie en bon etat",
-        ),
     ),
     Rule(
         code="gage_ou_opposition",

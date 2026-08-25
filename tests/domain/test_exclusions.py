@@ -146,19 +146,30 @@ class TestEndOfLife:
         assert engine.reason(signals("90000 km", declared_end_of_life=True)) == "epave_ou_pieces"
 
 
-class TestCrashDamage:
-    @pytest.mark.parametrize(
-        "description",
-        ["véhicule accidenté", "choc avant", "dégâts de carrosserie", "carrosserie endommagée"],
-    )
-    def test_variants(self, engine: ExclusionEngine, description: str) -> None:
-        assert engine.reason(signals(f"{description}, 90000 km")) == "choc_ou_accident"
+class TestKnocksNeverExclude:
+    """Correctif 2 : sur ce gisement, un choc n'est pas un motif d'exclusion.
+
+    Presque toutes les descriptions du Domaine en mentionnent un. Le meilleur
+    dossier du run du 25/08 — un Ford Transit de 2021 à 27 798 km, mis à prix
+    800 € — porte « choc AR » et « multiples chocs et impacts sur carrosserie ».
+    """
 
     @pytest.mark.parametrize(
-        "description", ["sans choc apparent", "aucun dégât de carrosserie", "non accidenté"]
+        "description",
+        [
+            "véhicule accidenté",
+            "choc avant",
+            "dégâts de carrosserie",
+            "carrosserie endommagée",
+            "coups, chocs, rayures et frottements d'usage",
+            "multiples chocs et impacts sur carrosserie",
+        ],
     )
-    def test_negative_wordings_do_not_fire(self, engine: ExclusionEngine, description: str) -> None:
+    def test_no_knock_wording_excludes(self, engine: ExclusionEngine, description: str) -> None:
         assert engine.reason(signals(f"{description}, 90000 km")) is None
+
+    def test_the_rule_no_longer_exists(self, engine: ExclusionEngine) -> None:
+        assert "choc_ou_accident" not in {rule.code for rule in engine.rules}
 
 
 class TestDeadEngine:

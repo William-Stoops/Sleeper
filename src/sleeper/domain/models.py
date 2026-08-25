@@ -23,6 +23,7 @@ from typing import Annotated, Literal
 
 from pydantic import BaseModel, ConfigDict, Field
 
+from sleeper.domain.damage import BodyDamage
 from sleeper.domain.territory import ScopeStatus
 
 Postcode = Annotated[str, Field(max_length=10)]
@@ -113,6 +114,8 @@ class Lot(SleeperModel):
     registration_certificate: bool | None = Field(alias="carte_grise")
     keys: bool | None = Field(alias="cles")
     declared_condition: str = Field(alias="etat_declare")
+    #: Graded, never grounds for exclusion. See `domain/damage.py`.
+    body_damage: BodyDamage = Field(alias="dommages_carrosserie", default="aucun")
     starting_price: float | None = Field(alias="mise_a_prix", default=None, ge=0)
     current_bid: float | None = Field(alias="enchere_en_cours", default=None, ge=0)
     bidder_count: int | None = Field(alias="nb_encherisseurs", default=None, ge=0)

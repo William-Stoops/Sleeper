@@ -127,6 +127,17 @@
           "title": "Etat Declare",
           "type": "string"
         },
+        "dommages_carrosserie": {
+          "default": "aucun",
+          "enum": [
+            "aucun",
+            "usage",
+            "cosmetique",
+            "structurel"
+          ],
+          "title": "Dommages Carrosserie",
+          "type": "string"
+        },
         "mise_a_prix": {
           "anyOf": [
             {

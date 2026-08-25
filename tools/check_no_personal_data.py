@@ -47,6 +47,13 @@ ALLOWED: Final = frozenset(
     }
 )
 
+#: File names that must never be tracked, whatever they contain. A service
+#: account grants write access to someone's Drive; a private key is worse.
+FORBIDDEN_NAMES: Final = re.compile(
+    r"service[-_]?account|credentials\.json|\.pem$|\.key$|\.p12$|\.pfx$",
+    re.IGNORECASE,
+)
+
 #: Binary and generated files it makes no sense to scan.
 SKIPPED_SUFFIXES: Final = frozenset({".png", ".jpg", ".jpeg", ".pdf", ".ico", ".lock"})
 
@@ -67,6 +74,8 @@ def main() -> int:
     leaks: list[str] = []
     scanned = 0
     for file in tracked_files():
+        if FORBIDDEN_NAMES.search(file.as_posix()):
+            leaks.append(f"{file}: fichier de secret versionné")
         if file.suffix in SKIPPED_SUFFIXES or not file.is_file():
             continue
         scanned += 1
@@ -89,7 +98,7 @@ def main() -> int:
             file=sys.stderr,
         )
         return 1
-    print(f"Dépôt propre : {scanned} fichiers versionnés inspectés.")
+    print(f"Dépôt propre : {scanned} fichiers versionnés inspectés, aucun secret.")
     return 0
 
 

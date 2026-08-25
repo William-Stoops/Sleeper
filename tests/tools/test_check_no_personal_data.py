@@ -12,7 +12,7 @@ import pytest
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "tools"))
 
-from check_no_personal_data import ALLOWED, PATTERNS, tracked_files
+from check_no_personal_data import ALLOWED, FORBIDDEN_NAMES, PATTERNS, tracked_files
 
 
 class TestIbanPattern:
@@ -68,3 +68,33 @@ class TestOtherPatterns:
 
     def test_does_not_flag_a_mileage(self) -> None:
         assert not PATTERNS["téléphone"].search("110430 km")
+
+
+class TestForbiddenFileNames:
+    """Un compte de service donne l'écriture sur le Drive de quelqu'un."""
+
+    @pytest.mark.parametrize(
+        "name",
+        [
+            "config/drive-service-account.json",
+            "config/service_account.json",
+            "secrets/credentials.json",
+            "keys/deploy.pem",
+            "keys/private.key",
+            "certs/client.p12",
+        ],
+    )
+    def test_a_secret_file_name_is_refused(self, name: str) -> None:
+        assert FORBIDDEN_NAMES.search(name)
+
+    @pytest.mark.parametrize(
+        "name",
+        [
+            "config/default.toml",
+            "tests/fixtures/api/auctions_list_page1.json",
+            "src/sleeper/output/drive.py",
+            "schemas/sortie-2.0.json",
+        ],
+    )
+    def test_an_ordinary_file_passes(self, name: str) -> None:
+        assert not FORBIDDEN_NAMES.search(name)

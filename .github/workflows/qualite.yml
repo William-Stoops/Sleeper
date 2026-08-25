@@ -51,9 +51,6 @@ jobs:
       - name: La configuration livrée est valide
         run: uv run sleeper valider-config
 
-      - name: Aucun secret dans le dépôt
-        run: |
-          ! git ls-files | grep -Ei 'service-account|credentials[.]json|[.]pem$|[.]key$'
 
   # Contrôles de dérive : ils comparent des fichiers générés à ceux du dépôt.
   # Inutile de les rejouer sur six combinaisons, et surtout : la redirection

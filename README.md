@@ -40,7 +40,7 @@ ventes ouvertes → lots de chaque vente → fiche détaillée (si besoin)
 | **Balaye** | toutes les ventes en cours (statut 3) et à venir (statut 2) comportant la catégorie « Véhicules » |
 | **Extrait** | pour chaque lot : mention professionnels, mise à prix, enchère en cours, marque, modèle, kilométrage, énergie, boîte, VIN, carte grise, clés, contrôle technique, lieu de retrait, dates de visite, description intégrale |
 | **Filtre** | sur le **lieu de retrait** (jamais le siège de la vente) et sur onze règles d'exclusion métier |
-| **Mémorise** | dans SQLite : nouveautés, historique des enchères, ventes clôturées, cache des fiches |
+| **Mémorise** | dans SQLite : nouveautés, historique des enchères, **prix d'adjudication**, ventes clôturées, cache des fiches |
 | **Produit** | un JSON horodaté validé contre son JSON Schema, plus un digest Markdown |
 
 L'information la plus importante du projet est `reserve_aux_professionnels` :

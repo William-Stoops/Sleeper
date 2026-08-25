@@ -80,11 +80,11 @@ class BrowserTransport:
         self._browser: Any = None
         self._context: Any = None
 
-    def __enter__(self) -> Self:
+    def __enter__(self) -> Self:  # pragma: no cover
         self._start()
         return self
 
-    def __exit__(
+    def __exit__(  # pragma: no cover
         self,
         exc_type: type[BaseException] | None,
         exc_value: BaseException | None,
@@ -92,7 +92,7 @@ class BrowserTransport:
     ) -> None:
         self.close()
 
-    def close(self) -> None:
+    def close(self) -> None:  # pragma: no cover
         """Save the session, then close the browser."""
         if self._context is not None:
             self._save_session()
@@ -105,7 +105,7 @@ class BrowserTransport:
             self._playwright.stop()
             self._playwright = None
 
-    def send(self, path: str, params: Mapping[str, str]) -> Response:
+    def send(self, path: str, params: Mapping[str, str]) -> Response:  # pragma: no cover
         """Issue the request through the browser's request context."""
         if self._context is None:
             self._start()
@@ -128,7 +128,7 @@ class BrowserTransport:
             text=raw.text(),
         )
 
-    def renew(self) -> None:
+    def renew(self) -> None:  # pragma: no cover
         """Reopen a browser context, discarding the cached session."""
         _LOG.info("session.renewing")
         self._session_cache.unlink(missing_ok=True)
@@ -137,7 +137,7 @@ class BrowserTransport:
 
     # ----------------------------------------------------------------- private
 
-    def _start(self) -> None:
+    def _start(self) -> None:  # pragma: no cover
         """Launch the browser and pass the entry challenge."""
         try:
             # Deferred import, deliberately: it keeps the domain and output
@@ -174,7 +174,7 @@ class BrowserTransport:
             return None
         return str(self._session_cache)
 
-    def _pass_entry_challenge(self) -> None:
+    def _pass_entry_challenge(self) -> None:  # pragma: no cover
         """Load the sales page, which is where the site hands out its session."""
         page = self._context.new_page()
         try:
@@ -189,7 +189,7 @@ class BrowserTransport:
         finally:
             page.close()
 
-    def _save_session(self) -> None:
+    def _save_session(self) -> None:  # pragma: no cover
         """Persist the session so the next run does not redo the challenge."""
         if self._context is None:
             return

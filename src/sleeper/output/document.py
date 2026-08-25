@@ -73,3 +73,29 @@ def validate(document: OutputDocument, directory: Path = SCHEMA_DIRECTORY) -> No
         raise OutputError(
             f"document non conforme au schéma {SCHEMA_VERSION} en « {location} » : {exc.message}"
         ) from exc
+
+
+def read_document(path: Path) -> OutputDocument:
+    """Read a Sleeper document, refusing any version this build does not know.
+
+    **A consumer must fail loudly on an unknown `schema_version`, never read
+    it degraded.** A 1.0 file says `hors_perimetre: false` where 2.0 says
+    `perimetre: "inconnu"` — reading the first as the second would silently
+    turn "we could not tell" into "it is in scope", which is exactly the
+    failure the whole contract exists to prevent.
+    """
+    try:
+        payload = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, ValueError) as exc:
+        raise OutputError(f"document illisible : {path} ({exc})") from exc
+    if not isinstance(payload, dict):
+        raise OutputError(f"document inattendu dans {path} : objet JSON attendu")
+
+    found = payload.get("schema_version")
+    if found != SCHEMA_VERSION:
+        raise OutputError(
+            f"version de schéma inconnue dans {path} : « {found} », "
+            f"cette version de Sleeper lit « {SCHEMA_VERSION} ». "
+            "Aucune lecture dégradée n'est tentée : les champs ont changé de sens."
+        )
+    return OutputDocument.model_validate(payload)

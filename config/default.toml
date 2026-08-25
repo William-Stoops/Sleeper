@@ -186,6 +186,19 @@ nom_lien_courant = "latest.json"
 digest = true
 nom_digest = "latest.md"
 
+# Depot du JSON classe sur Google Drive, pour le systeme d'analyse aval.
+# C'est ce « latest.json » qu'il vient lire chaque jour.
+#
+# Le fichier de compte de service N'ENTRE JAMAIS DANS LE DEPOT : seul son
+# chemin est ici, et le fichier lui-meme est dans .gitignore.
+#
+# Un echec de depot ne fait pas echouer le run : le fichier local reste ecrit
+# et reste la source, et l'erreur remonte dans run.erreurs.
+[sortie.drive]
+actif = false
+credentials = "config/drive-service-account.json"
+dossier_id = ""
+
 # ---------------------------------------------------------------------------
 [etat]
 # ---------------------------------------------------------------------------

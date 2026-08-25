@@ -17,6 +17,11 @@ dependencies = [
 [project.scripts]
 sleeper = "sleeper.cli:app"
 
+[project.optional-dependencies]
+# Dépôt du JSON classé sur Google Drive, pour le système d'analyse aval.
+# Optionnel : une machine qui ne publie pas n'a pas à installer ces paquets.
+drive = ["google-api-python-client>=2.150", "google-auth>=2.35"]
+
 [dependency-groups]
 dev = [
     "mypy>=1.13",
@@ -78,6 +83,19 @@ files = ["src", "tests", "tools"]
 [[tool.mypy.overrides]]
 module = "playwright.*"
 ignore_missing_imports = true
+
+# Les bibliothèques Google ne publient pas de stubs et vivent dans un extra :
+# une machine qui ne dépose pas sur Drive ne les installe pas.
+[[tool.mypy.overrides]]
+module = ["googleapiclient.*", "google.oauth2.*", "google.auth.*"]
+ignore_missing_imports = true
+
+# google-auth n'expose aucune annotation : appeler ses constructeurs depuis un
+# module typé déclenche disallow_untyped_calls. La levée est cantonnée au seul
+# module qui les appelle, et rien d'autre n'y est relâché.
+[[tool.mypy.overrides]]
+module = "sleeper.output.drive"
+disallow_untyped_calls = false
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

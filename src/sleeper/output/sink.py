@@ -9,7 +9,7 @@ Only the local-file destination is implemented today.
 
 from __future__ import annotations
 
-import re
+from datetime import datetime
 from pathlib import Path
 from typing import Protocol
 
@@ -61,12 +61,10 @@ class FileSink:
         return str(link)
 
 
-def timestamped_name(prefix: str, instant: str, extension: str) -> str:
-    """Build a portable file name from an ISO timestamp.
+def timestamped_name(prefix: str, instant: datetime, extension: str) -> str:
+    """Build a portable file name: `sleeper-2026-08-25-1441.json`.
 
-    Sub-second precision is dropped: it makes the name unreadable and two runs
-    a second apart do not exist — the tool runs once a day.
+    Minute precision, no offset, no separators a filesystem dislikes. The tool
+    runs once a day; anything finer only makes the name unreadable.
     """
-    without_micros = re.sub(r"\.\d+", "", instant)
-    safe = without_micros.replace(":", "-").replace("+", "_")
-    return f"{prefix}-{safe}.{extension}"
+    return f"{prefix}-{instant:%Y-%m-%d-%H%M}.{extension}"

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from datetime import UTC, datetime
 from pathlib import Path
 
 import pytest
@@ -63,13 +64,13 @@ class TestLatestLink:
 
 
 class TestTimestampedName:
-    def test_produces_a_portable_name(self) -> None:
-        name = timestamped_name("sleeper", "2026-08-25T04:30:00+02:00", "json")
-        assert name == "sleeper-2026-08-25T04-30-00_02-00.json"
+    def test_produces_a_readable_portable_name(self) -> None:
+        name = timestamped_name("sleeper", datetime(2026, 8, 25, 4, 30, tzinfo=UTC), "json")
+        assert name == "sleeper-2026-08-25-0430.json"
         assert ":" not in name
 
-    def test_drops_sub_second_precision(self) -> None:
-        # Relevé sur un run réel : « 12-40-02.254400 » est illisible, et deux
-        # runs à une seconde d'intervalle n'existent pas.
-        name = timestamped_name("sleeper", "2026-08-25T12:40:02.254400+00:00", "json")
-        assert name == "sleeper-2026-08-25T12-40-02_00-00.json"
+    def test_precision_stops_at_the_minute(self) -> None:
+        # L'outil tourne une fois par jour : plus fin ne fait qu'illisible.
+        first = timestamped_name("sleeper", datetime(2026, 8, 25, 12, 40, 2), "json")
+        second = timestamped_name("sleeper", datetime(2026, 8, 25, 12, 40, 59), "json")
+        assert first == second == "sleeper-2026-08-25-1240.json"

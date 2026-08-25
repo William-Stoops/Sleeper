@@ -41,7 +41,14 @@ ventes ouvertes → lots de chaque vente → fiche détaillée (si besoin)
 | **Extrait** | pour chaque lot : mention professionnels, mise à prix, enchère en cours, marque, modèle, kilométrage, énergie, boîte, VIN, carte grise, clés, contrôle technique, lieu de retrait, dates de visite, description intégrale |
 | **Filtre** | sur le **lieu de retrait** (jamais le siège de la vente) et sur onze règles d'exclusion métier |
 | **Mémorise** | dans SQLite : nouveautés, historique des enchères, **prix d'adjudication**, ventes clôturées, cache des fiches |
+| **Classe** | un tri déterministe qui décide qui reçoit l'analyse coûteuse en aval |
 | **Produit** | un JSON horodaté validé contre son JSON Schema, plus un digest Markdown |
+
+> **Le classement est un tri, pas une cotation.** Il est grossier, rapide,
+> entièrement déterministe, explicable ligne à ligne, et volontairement
+> conservateur : il vaut mieux faire remonter un lot médiocre que d'en
+> enterrer un bon. **Il ne décide d'aucun achat. Il décide seulement de qui
+> reçoit l'analyse coûteuse.**
 
 L'information la plus importante du projet est `reserve_aux_professionnels` :
 les particuliers sont exclus de ces lots, la concurrence y est structurellement
@@ -211,13 +218,20 @@ lots incomplets, qui ont leur propre tableau.
 
 ### Le JSON
 
-Structure complète dans [`schemas/sortie-1.0.json`](schemas/sortie-1.0.json).
+Structure complète dans [`schemas/sortie-2.0.json`](schemas/sortie-2.0.json),
+migration depuis la 1.0 dans [`docs/schema.md`](docs/schema.md).
 Le document est **validé contre ce fichier avant écriture** : si les modèles et
 le schéma publié divergent, le run échoue plutôt que de livrer.
 
+> **Un consommateur doit échouer bruyamment sur une `schema_version` inconnue,
+> jamais lire en dégradé.** Un 1.0 dit `hors_perimetre: false` là où un 2.0 dit
+> `perimetre: "inconnu"` : le lire comme un 2.0 transformerait « on n'a pas su »
+> en « c'est dans le périmètre ». `sleeper.output.document.read_document`
+> applique la règle.
+
 ```jsonc
 {
-  "schema_version": "1.0",
+  "schema_version": "2.0",
   "run":     { "horodatage": …, "lots_vus": …, "lots_retenus": …, "erreurs": [] },
   "ventes":  [ { "id": …, "dans_perimetre": true, "nb_lots": … } ],
   "lots":    [ { "reserve_aux_professionnels": true, "mise_a_prix": 1500.0, … } ],
@@ -408,6 +422,31 @@ message explicite plutôt que de produire un scan silencieusement vide.
 | `[etat]` | chemin de la base SQLite |
 | `[journalisation]` | niveau, format `json` ou `console` |
 
+### Le classement, et sa dette
+
+Deux tables pilotent le tri, toutes deux dans `config/` :
+
+| Fichier | Ce qu'il porte |
+|---|---|
+| [`config/cotes.csv`](config/cotes.csv) | valeur de revente indicative par famille de véhicule |
+| [`config/reparations.csv`](config/reparations.csv) | forfaits de remise en état déclenchés par expression |
+
+> ⚠️ **La calibration de `cotes.csv` est la principale dette du projet.**
+> Chaque ligne porte `source = amorce_a_calibrer` : ces valeurs viennent d'une
+> estimation du marché français, pas de comparables vérifiés un par un. Le tri
+> ne vaut jamais mieux qu'elles. Elles sont faites pour être remplacées au fil
+> du temps par des valeurs vérifiées.
+
+Sur le run du 25/08, la table couvrait 189 des 338 lots retenus : **les 149
+autres ne participent pas au classement** et ne remontent que par la clause du
+prix bas. Élargir la table est le levier le plus rentable du projet.
+
+Les forfaits de `reparations.csv`, eux, sont tirés des descriptions réelles de
+ce run — ils ont été relevés sur le terrain, pas inventés.
+
+Tous les coefficients vivent dans `[score]` de `config/default.toml`, aucun
+n'est en dur.
+
 ### Enrichir les règles sans toucher au code
 
 Quand vous croisez une formulation non couverte :
@@ -491,11 +530,36 @@ correspondance dans les deux sens.
 (`sale`, `lot`, `bid`, `hammer_price`, `listing_cache`) : c'est un détail
 d'implémentation interne, jamais lu par l'opérateur.
 
-### Ajouter une destination de sortie
+### Les destinations de sortie
 
-`output/sink.py` définit un `Protocol` à deux méthodes. Une destination
-distante (dépôt Git, stockage objet) s'ajoute en l'implémentant, sans toucher au
-reste de la chaîne. Seule la destination fichier est implémentée aujourd'hui.
+`output/sink.py` définit un `Protocol` à deux méthodes. Deux implémentations :
+
+| Destination | Quand |
+|---|---|
+| [`FileSink`](src/sleeper/output/sink.py) | toujours, et en premier |
+| [`DriveSink`](src/sleeper/output/drive.py) | quand `[sortie.drive] actif = true` |
+
+**Le fichier local est écrit d'abord, et il reste la source.** Un échec de
+dépôt sur Drive ne fait jamais échouer le run : l'erreur est repliée dans
+`run.erreurs`, le fichier local est réécrit pour la porter, et l'opérateur la
+trouve là où il la cherche.
+
+Pour activer le dépôt :
+
+```toml
+[sortie.drive]
+actif = true
+credentials = "/chemin/hors/depot/service-account.json"
+dossier_id = "1AbC..."
+```
+
+```bash
+uv sync --extra drive
+```
+
+> 🔐 **Le fichier de compte de service n'entre jamais dans le dépôt.** Seul son
+> chemin est configuration, et `.gitignore` refuse le fichier lui-même. Donnez
+> au compte de service l'accès au seul dossier de destination.
 
 ### L'état persistant a une valeur propre
 
@@ -528,6 +592,7 @@ uv run pre-commit install
 | `uv run ruff format src tests tools` | format |
 | `uv run python tools/check_fixtures.py` | aucune donnée personnelle dans les fixtures |
 | `uv run python tools/generate_rules_doc.py > docs/regles-metier.md` | régénérer la doc des règles |
+| `uv run python tools/audit_rule.py sans_cle --limit 30` | auditer une règle d'exclusion, avec le fragment déclencheur de chaque lot |
 
 La CI GitHub Actions rejoue l'ensemble sur Linux, macOS et Windows, en Python
 3.12 et 3.13, et vérifie en plus que le JSON Schema publié et la documentation
@@ -644,6 +709,7 @@ Aucune dépendance n'est ajoutée sans raison écrite.
 
 | Paquet | Pourquoi celui-là |
 |---|---|
+| **google-api-python-client**, **google-auth** | dépôt du JSON classé sur Drive. **Optionnels** (`--extra drive`) : une machine qui ne publie pas n'a pas à les installer |
 | **playwright** | **seul moyen d'atteindre l'API sans contourner la protection anti-robot** : le pare-feu du site rejette tout client dont la signature TLS n'est pas celle d'un navigateur. Sert aussi à la phase de reconnaissance |
 | **pydantic** v2 | modèles typés, validation, et **génération du JSON Schema** depuis les mêmes classes : le contrat de sortie a une seule source de vérité |
 | **typer** | CLI typée dérivée des annotations, cohérente avec `mypy --strict` |

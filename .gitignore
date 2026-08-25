@@ -12,3 +12,9 @@ htmlcov/
 # Elle reste sur votre machine, elle n'a rien à faire dans le dépôt.
 config/local.toml
 config/*.local.toml
+
+# Compte de service Google : il donne l'écriture sur votre Drive.
+# Il reste sur votre machine, son chemin seul est configuration.
+config/drive-service-account.json
+config/*service-account*.json
+*-credentials.json

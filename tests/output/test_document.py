@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import re
 from datetime import UTC, datetime
 from pathlib import Path
 
@@ -102,3 +103,43 @@ class TestValidation:
         (tmp_path / document.SCHEMA_NAME).write_text(json.dumps(schema), encoding="utf-8")
         with pytest.raises(OutputError, match="non conforme"):
             document.validate(empty_document(), tmp_path)
+
+
+class TestReadingBack:
+    """Un consommateur doit échouer bruyamment sur une version inconnue."""
+
+    def test_it_reads_a_document_of_the_current_version(self, tmp_path: Path) -> None:
+        path = tmp_path / "run.json"
+        path.write_bytes(document.serialize(empty_document()))
+        assert document.read_document(path).run.lots_kept == 1
+
+    @pytest.mark.parametrize("version", ["1.0", "3.0", "", None])
+    def test_an_unknown_version_is_refused(self, tmp_path: Path, version: str | None) -> None:
+        path = tmp_path / "run.json"
+        payload = json.loads(document.serialize(empty_document()))
+        payload["schema_version"] = version
+        path.write_text(json.dumps(payload), encoding="utf-8")
+        with pytest.raises(OutputError, match="version de schéma inconnue"):
+            document.read_document(path)
+
+    def test_no_degraded_reading_is_attempted(self, tmp_path: Path) -> None:
+        """Un 1.0 dit « hors_perimetre: false » là où un 2.0 dit « inconnu ».
+
+        Le lire comme un 2.0 transformerait « on n'a pas su » en « c'est dans
+        le périmètre » — exactement ce que le contrat existe pour empêcher.
+        """
+        path = tmp_path / "v1.json"
+        path.write_text(
+            json.dumps(
+                {"schema_version": "1.0", "run": {}, "ventes": [], "lots": [], "ecartes": []}
+            ),
+            encoding="utf-8",
+        )
+        with pytest.raises(OutputError, match=re.escape("« 1.0 »")):
+            document.read_document(path)
+
+    def test_an_unreadable_file_is_an_explicit_error(self, tmp_path: Path) -> None:
+        path = tmp_path / "cassé.json"
+        path.write_text("{ pas du json", encoding="utf-8")
+        with pytest.raises(OutputError, match="illisible"):
+            document.read_document(path)

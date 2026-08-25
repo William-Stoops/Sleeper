@@ -24,11 +24,12 @@ from sleeper import __version__
 from sleeper.api.client import DomaineClient
 from sleeper.api.transport import BrowserTransport
 from sleeper.config import Configuration, load_configuration
-from sleeper.domain.models import OutputDocument
+from sleeper.domain.models import OutputDocument, RunError
 from sleeper.errors import AntiBotChallengeError, SleeperError
 from sleeper.logging_setup import configure
 from sleeper.output import document as output_document
 from sleeper.output.digest import render
+from sleeper.output.drive import DriveSink, build_client
 from sleeper.output.sink import FileSink, Sink, timestamped_name
 from sleeper.pipeline import Collector
 from sleeper.state.store import SleeperState
@@ -87,30 +88,87 @@ def collecter(
         _LOG.error("run.failed", kind=type(exc).__name__, message=str(exc))
         raise typer.Exit(EXIT_BUSINESS_ERROR) from exc
 
-    _publish(config, result)
+    result = _publish(config, result)
     _summarise(result)
     if any(lot.is_incomplete for lot in result.lots):
         raise typer.Exit(EXIT_BUSINESS_ERROR)
 
 
-def _publish(config: Configuration, result: OutputDocument) -> None:
-    """Validate, then drop the document and its digest."""
+def _publish(config: Configuration, result: OutputDocument) -> OutputDocument:
+    """Validate, write locally, then try Drive.
+
+    Local first, always: a collection that found lots is worth keeping even
+    when the upload fails. A Drive failure is then folded back into the
+    document and the local file is rewritten, so the error is where the
+    operator will look for it.
+    """
     try:
         output_document.validate(result)
     except SleeperError as exc:
         console.print(f"[bold red]Sortie non conforme[/] : {exc}")
         raise typer.Exit(EXIT_BUSINESS_ERROR) from exc
 
-    sink: Sink = FileSink(config.output.directory)
-    name = timestamped_name("sleeper", result.run.timestamp.isoformat(), "json")
+    local = FileSink(config.output.directory)
+    _write(local, config, result)
+
+    if not config.output.drive.enabled:
+        return result
+
+    try:
+        _upload_to_drive(config, result)
+    except Exception as exc:
+        console.print(f"[bold yellow]Dépôt sur Drive échoué[/] : {exc}")
+        _LOG.error("drive.failed", kind=type(exc).__name__, message=str(exc))
+        failed = result.model_copy(
+            update={
+                "run": result.run.model_copy(
+                    update={
+                        "errors": [
+                            *result.run.errors,
+                            RunError(
+                                step="drive",
+                                target=config.output.drive.folder_id,
+                                kind=type(exc).__name__,
+                                message=(
+                                    f"dépôt sur Drive échoué : {exc}. Le fichier local "
+                                    "est écrit et reste la source."
+                                ),
+                            ),
+                        ]
+                    }
+                )
+            }
+        )
+        _write(local, config, failed)
+        return failed
+    return result
+
+
+def _write(sink: Sink, config: Configuration, result: OutputDocument) -> None:
+    """Write the document and its digest to a destination."""
+    name = timestamped_name("sleeper", result.run.timestamp, "json")
     path = sink.put(name, output_document.serialize(result))
     link = sink.point_at_latest(name, config.output.current_link_name)
     _LOG.info("output.written", file=path, link=link)
 
     if config.output.digest:
-        digest_name = timestamped_name("sleeper", result.run.timestamp.isoformat(), "md")
+        digest_name = timestamped_name("sleeper", result.run.timestamp, "md")
         sink.put(digest_name, render(result).encode("utf-8"))
         sink.point_at_latest(digest_name, config.output.digest_name)
+
+
+def _upload_to_drive(config: Configuration, result: OutputDocument) -> None:
+    """Deposit the run on Drive: one timestamped file, one stable name."""
+    drive = DriveSink(
+        build_client(config.output.drive.credentials_path), config.output.drive.folder_id
+    )
+    payload = output_document.serialize(result)
+    drive.put(timestamped_name("sleeper", result.run.timestamp, "json"), payload)
+    drive.put(config.output.current_link_name, payload)
+    if config.output.digest:
+        digest = render(result).encode("utf-8")
+        drive.put(timestamped_name("sleeper", result.run.timestamp, "md"), digest)
+        drive.put(config.output.digest_name, digest)
 
 
 def _summarise(result: OutputDocument) -> None:

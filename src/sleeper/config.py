@@ -17,7 +17,14 @@ import tomllib
 from pathlib import Path
 from typing import Annotated, Final
 
-from pydantic import BaseModel, ConfigDict, Field, ValidationError, field_validator
+from pydantic import (
+    BaseModel,
+    ConfigDict,
+    Field,
+    ValidationError,
+    field_validator,
+    model_validator,
+)
 
 from sleeper.domain.codes import SaleStatus
 from sleeper.domain.exclusions import DEFAULT_RULES, ExclusionEngine
@@ -228,6 +235,25 @@ class ScoringConfig(_Section):
     inactive_segment: float = Field(alias="segment_inactif", default=0.0)
 
 
+class DriveConfig(_Section):
+    """Google Drive destination, for the downstream analysis system.
+
+    The service-account file never enters the repository: only its path is
+    configuration, and the file itself is git-ignored.
+    """
+
+    enabled: bool = Field(alias="actif", default=False)
+    credentials_path: Path = Field(
+        alias="credentials", default=Path("config/drive-service-account.json")
+    )
+    folder_id: str = Field(alias="dossier_id", default="")
+
+    @field_validator("folder_id")
+    @classmethod
+    def _folder_when_enabled(cls, value: str) -> str:
+        return value.strip()
+
+
 class OutputConfig(_Section):
     """Destination of the produced document."""
 
@@ -235,6 +261,14 @@ class OutputConfig(_Section):
     current_link_name: str = Field(alias="nom_lien_courant", default="latest.json")
     digest: bool = True
     digest_name: str = Field(alias="nom_digest", default="latest.md")
+    drive: DriveConfig = Field(alias="drive", default_factory=DriveConfig)
+
+    @model_validator(mode="after")
+    def _drive_needs_a_folder(self) -> OutputConfig:
+        """An enabled Drive sink without a folder would fail every night."""
+        if self.drive.enabled and not self.drive.folder_id:
+            raise ValueError("sortie.drive.actif est vrai mais sortie.drive.dossier_id est vide")
+        return self
 
 
 class StateConfig(_Section):

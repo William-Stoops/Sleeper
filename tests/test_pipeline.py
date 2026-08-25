@@ -97,6 +97,15 @@ class TestNominalRun:
     def test_produces_a_document_conforming_to_its_schema(self, config: Configuration) -> None:
         document.validate(collect(config, FakeGateway()))
 
+    def test_the_sale_carries_its_regional_directorate(self, config: Configuration) -> None:
+        """`dnid` porte la direction régionale, seule information de la source
+        qui serait sinon perdue — la remplir avec l'id ne ferait que dupliquer
+        le champ `id`."""
+        result = collect(config, FakeGateway())
+        sale = next(s for s in result.sales if s.id == "467")
+        assert sale.dnid == "LA REUNION"
+        assert sale.dnid != sale.id
+
     def test_reads_the_trade_only_mention(self, config: Configuration) -> None:
         result = collect(config, FakeGateway())
         kept = [lot for lot in result.lots if lot.sale_id == "467"]

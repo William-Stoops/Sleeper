@@ -69,6 +69,11 @@ class Sale(SleeperModel):
     id: str
     url: str
     title: str = Field(alias="intitule")
+    #: Regional directorate running the sale ("LILLE", "LA REUNION"). The
+    #: contract calls this field `dnid`, after the administration that runs
+    #: these sales. Filling it with the sale id would only duplicate `id`,
+    #: while the directorate is the one piece of the source that would
+    #: otherwise be lost.
     dnid: str
     opens_at: datetime | None = Field(alias="date_ouverture")
     closes_at: datetime | None = Field(alias="date_cloture")

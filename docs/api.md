@@ -54,7 +54,7 @@ Champs d'un item exploités :
 | `auction_auto_status` | `Int` | **2 = à venir, 3 = en cours** |
 | `name`, `description` | `String` | intitulé et libellé libre |
 | `start_date`, `end_date` | ISO 8601 | horodatages aware, UTC |
-| `sales_inspector_label` | `String` | direction régionale (« LILLE », « LA REUNION ») |
+| `sales_inspector_label` | `String` | direction régionale (« LILLE », « LA REUNION ») → `ventes[].dnid` |
 | `auction_number_of_lots` | `Int` | volumétrie annoncée |
 | `categories[].name` | `String` | filtre « Véhicules » |
 | `professional_only` | **`String`** `"0"`/`"1"` | ⚠️ voir §6 |
@@ -287,3 +287,15 @@ contiennent des données personnelles.
 | Version | Date | Changement |
 |---|---|---|
 | `1.0` | 2026-08-25 | Contrat initial. Schéma : [`schemas/sortie-1.0.json`](../schemas/sortie-1.0.json) |
+
+### Interprétation retenue pour `ventes[].dnid`
+
+Le contrat nomme ce champ d'après la Direction nationale d'interventions
+domaniales, sans en préciser le contenu. Deux lectures étaient possibles :
+l'identifiant DNID de la vente, ou la direction qui la conduit.
+
+**La seconde a été retenue** : `dnid` porte la direction régionale
+(`sales_inspector_label` : « LILLE », « LA REUNION »). La première aurait
+dupliqué `ventes[].id` à l'identique, tout en laissant tomber la seule
+information de la source qui n'a pas d'autre place dans le contrat. À corriger
+si l'intention était l'inverse — c'est une ligne dans `pipeline.Collector._sale`.

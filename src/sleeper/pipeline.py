@@ -324,7 +324,7 @@ class Collector:
             id=str(source.id),
             url=f"{self._config.network.base_url}/vente/{source.id}",
             title=source.title,
-            dnid=str(source.id),
+            dnid=source.regional_directorate,
             opens_at=source.opens_at,
             closes_at=source.closes_at,
             collection_place=place,

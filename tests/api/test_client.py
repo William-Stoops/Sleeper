@@ -1,311 +1,314 @@
-"""Client HTTP : cadence, reprises, et refus explicite du challenge anti-robot.
+"""HTTP client: pacing, retries, and explicit refusal of the anti-bot challenge.
 
-Aucun test ne touche le reseau : httpx.MockTransport joue les reponses.
+No test touches the network: httpx.MockTransport plays the responses back.
 """
 
 from __future__ import annotations
 
 import itertools
 import json
+from collections.abc import Callable
 from typing import Any
 
 import httpx
 import pytest
 
-from sleeper.api.client import Cadenceur, ClientDomaine, SessionStatique, identifier
+from sleeper.api.client import DomaineClient, RateLimiter, StaticSession, build_user_agent
 from sleeper.api.session import Session
-from sleeper.config import Reseau
-from sleeper.errors import ProtectionAntiRobotError, ReseauError
+from sleeper.config import Network
+from sleeper.errors import AntiBotChallengeError, NetworkError
 
-PAGE_ALTCHA = (
+ALTCHA_PAGE = (
     "<!DOCTYPE html><html><head><title>Check that you are not a robot</title>"
     "<script src='/.well-known/ubika/captcha/altcha.js'></script></head></html>"
 )
 
-
-@pytest.fixture
-def reseau() -> Reseau:
-    return Reseau(
-        user_agent="SleeperBot/0.1 (+mailto:test@example.org)",
-        delai_entre_requetes_s=0.5,
-        tentatives_max=3,
-        backoff_initial_s=0.01,
-        backoff_max_s=0.05,
-    )
-
-
-def horloge_qui_court() -> Any:
-    """Horloge avancant de 1000 s a chaque lecture : le cadenceur ne dort jamais.
-
-    Les sommeils enregistres sont alors exclusivement ceux du backoff, ce qui
-    rend les assertions sur les reprises non ambigues.
-    """
-    compteur = itertools.count(0.0, 1000.0)
-    return lambda: next(compteur)
-
-
-def client_avec(
-    reseau: Reseau, gestionnaire: Any, sommeils: list[float] | None = None
-) -> ClientDomaine:
-    return ClientDomaine(
-        reseau=reseau,
-        session=SessionStatique({"bot_mitigation_cookie": "x"}, user_agent="Chrome/140"),
-        transport=httpx.MockTransport(gestionnaire),
-        dormir=(sommeils.append if sommeils is not None else lambda _: None),
-        horloge=horloge_qui_court(),
-    )
-
-
-class TestRequeteNominale:
-    def test_rend_le_payload_json(self, reseau: Reseau) -> None:
-        def gestionnaire(_: httpx.Request) -> httpx.Response:
-            return httpx.Response(200, json={"data": {"ok": True}})
-
-        with client_avec(reseau, gestionnaire) as client:
-            assert client.interroger("query x{y}", {"a": 1}) == {"data": {"ok": True}}
-
-    def test_transmet_query_variables_et_operation(self, reseau: Reseau) -> None:
-        vues: list[httpx.Request] = []
-
-        def gestionnaire(requete: httpx.Request) -> httpx.Response:
-            vues.append(requete)
-            return httpx.Response(200, json={"data": {}})
-
-        with client_avec(reseau, gestionnaire) as client:
-            client.interroger("query getAuctions{a}", {"currentPage": 2})
-
-        params = vues[0].url.params
-        assert params["query"] == "query getAuctions{a}"
-        assert json.loads(params["variables"]) == {"currentPage": 2}
-        # Le navigateur d'origine ET le robot sont annonces : la session reste
-        # valide cote pare-feu, et l'operateur du site peut nous joindre.
-        agent = vues[0].headers["user-agent"]
-        assert agent.startswith("Chrome/140")
-        assert "SleeperBot/0.1 (+mailto:test@example.org)" in agent
-
-    def test_envoie_les_cookies_de_session(self, reseau: Reseau) -> None:
-        vues: list[httpx.Request] = []
-
-        def gestionnaire(requete: httpx.Request) -> httpx.Response:
-            vues.append(requete)
-            return httpx.Response(200, json={"data": {}})
-
-        with client_avec(reseau, gestionnaire) as client:
-            client.interroger("query x{y}", {})
-        assert "bot_mitigation_cookie=x" in vues[0].headers["cookie"]
-
-
-class TestProtectionAntiRobot:
-    @pytest.mark.parametrize("statut", [200, 403])
-    def test_page_captcha_est_terminale(self, reseau: Reseau, statut: int) -> None:
-        appels = 0
-
-        def gestionnaire(_: httpx.Request) -> httpx.Response:
-            nonlocal appels
-            appels += 1
-            return httpx.Response(statut, text=PAGE_ALTCHA, headers={"content-type": "text/html"})
-
-        with client_avec(reseau, gestionnaire) as client, pytest.raises(ProtectionAntiRobotError):
-            client.interroger("query x{y}", {})
-        # Aucune reprise : insister sur un challenge, c'est chercher a le contourner.
-        assert appels == 1
-
-    def test_un_captcha_nest_pas_confondu_avec_une_session_expiree(self, reseau: Reseau) -> None:
-        """Un CAPTCHA reste terminal meme si la session pourrait etre renouvelee."""
-        session = SessionCompteuse()
-
-        def gestionnaire(_: httpx.Request) -> httpx.Response:
-            return httpx.Response(200, text=PAGE_ALTCHA, headers={"content-type": "text/html"})
-
-        client = ClientDomaine(
-            reseau=reseau,
-            session=session,
-            transport=httpx.MockTransport(gestionnaire),
-            dormir=lambda _: None,
-            horloge=horloge_qui_court(),
-        )
-        with client, pytest.raises(ProtectionAntiRobotError):
-            client.interroger("query x{y}", {})
-        assert session.renouvellements == 0
-
-
-PAGE_CHALLENGE_JS = (
+JS_CHALLENGE_PAGE = (
     "<html><body><script>window.location.href='/redirect_ABC/x'</script>"
     "<noscript>This website requires JS enabled and cookies</noscript></body></html>"
 )
 
 
-class SessionCompteuse:
-    """Session qui compte ses renouvellements."""
+@pytest.fixture
+def network() -> Network:
+    return Network(
+        user_agent="SleeperBot/0.1 (+mailto:test@example.org)",
+        delay_between_requests_s=0.5,
+        max_attempts=3,
+        backoff_initial_s=0.01,
+        backoff_max_s=0.05,
+    )
+
+
+def racing_clock() -> Callable[[], float]:
+    """A clock jumping 1000 s per read: the rate limiter never sleeps.
+
+    Recorded sleeps are then exclusively backoff sleeps, which makes the
+    assertions about retries unambiguous.
+    """
+    counter = itertools.count(0.0, 1000.0)
+    return lambda: next(counter)
+
+
+def client_with(network: Network, handler: Any, sleeps: list[float] | None = None) -> DomaineClient:
+    return DomaineClient(
+        network=network,
+        session=StaticSession({"bot_mitigation_cookie": "x"}, user_agent="Chrome/140"),
+        transport=httpx.MockTransport(handler),
+        sleep=(sleeps.append if sleeps is not None else lambda _: None),
+        clock=racing_clock(),
+    )
+
+
+class CountingSession:
+    """A session that counts its renewals."""
 
     def __init__(self) -> None:
-        self.renouvellements = 0
+        self.renewals = 0
         self._session = Session(cookies={"bot_mitigation_cookie": "v0"}, user_agent="Chrome/140")
 
     def session(self) -> Session:
         return self._session
 
-    def renouveler(self) -> Session:
-        self.renouvellements += 1
+    def renew(self) -> Session:
+        self.renewals += 1
         self._session = Session(
-            cookies={"bot_mitigation_cookie": f"v{self.renouvellements}"},
-            user_agent="Chrome/140",
+            cookies={"bot_mitigation_cookie": f"v{self.renewals}"}, user_agent="Chrome/140"
         )
         return self._session
 
 
-class TestSessionExpiree:
-    """Le challenge JS d'entree n'est PAS un CAPTCHA : c'est une session a refaire."""
+class TestNominalRequest:
+    def test_returns_the_json_payload(self, network: Network) -> None:
+        def handler(_: httpx.Request) -> httpx.Response:
+            return httpx.Response(200, json={"data": {"ok": True}})
 
-    def _client(
-        self, reseau: Reseau, gestionnaire: Any, session: SessionCompteuse
-    ) -> ClientDomaine:
-        return ClientDomaine(
-            reseau=reseau,
+        with client_with(network, handler) as client:
+            assert client.query("query x{y}", {"a": 1}) == {"data": {"ok": True}}
+
+    def test_sends_query_variables_and_operation(self, network: Network) -> None:
+        seen: list[httpx.Request] = []
+
+        def handler(request: httpx.Request) -> httpx.Response:
+            seen.append(request)
+            return httpx.Response(200, json={"data": {}})
+
+        with client_with(network, handler) as client:
+            client.query("query getAuctions{a}", {"currentPage": 2})
+
+        params = seen[0].url.params
+        assert params["query"] == "query getAuctions{a}"
+        assert json.loads(params["variables"]) == {"currentPage": 2}
+
+    def test_announces_the_browser_then_the_robot(self, network: Network) -> None:
+        seen: list[httpx.Request] = []
+
+        def handler(request: httpx.Request) -> httpx.Response:
+            seen.append(request)
+            return httpx.Response(200, json={"data": {}})
+
+        with client_with(network, handler) as client:
+            client.query("query x{y}", {})
+
+        # Both the originating browser AND the robot are announced: the session
+        # stays valid at the firewall, and the site operator can reach us.
+        agent = seen[0].headers["user-agent"]
+        assert agent.startswith("Chrome/140")
+        assert "SleeperBot/0.1 (+mailto:test@example.org)" in agent
+
+    def test_sends_the_session_cookies(self, network: Network) -> None:
+        seen: list[httpx.Request] = []
+
+        def handler(request: httpx.Request) -> httpx.Response:
+            seen.append(request)
+            return httpx.Response(200, json={"data": {}})
+
+        with client_with(network, handler) as client:
+            client.query("query x{y}", {})
+        assert "bot_mitigation_cookie=x" in seen[0].headers["cookie"]
+
+
+class TestAntiBotChallenge:
+    @pytest.mark.parametrize("status", [200, 403])
+    def test_a_captcha_page_is_terminal(self, network: Network, status: int) -> None:
+        calls = 0
+
+        def handler(_: httpx.Request) -> httpx.Response:
+            nonlocal calls
+            calls += 1
+            return httpx.Response(status, text=ALTCHA_PAGE, headers={"content-type": "text/html"})
+
+        with client_with(network, handler) as client, pytest.raises(AntiBotChallengeError):
+            client.query("query x{y}", {})
+        # No retry: insisting on a challenge is trying to get around it.
+        assert calls == 1
+
+    def test_a_captcha_is_not_mistaken_for_an_expired_session(self, network: Network) -> None:
+        session = CountingSession()
+
+        def handler(_: httpx.Request) -> httpx.Response:
+            return httpx.Response(200, text=ALTCHA_PAGE, headers={"content-type": "text/html"})
+
+        client = DomaineClient(
+            network=network,
             session=session,
-            transport=httpx.MockTransport(gestionnaire),
-            dormir=lambda _: None,
-            horloge=horloge_qui_court(),
+            transport=httpx.MockTransport(handler),
+            sleep=lambda _: None,
+            clock=racing_clock(),
+        )
+        with client, pytest.raises(AntiBotChallengeError):
+            client.query("query x{y}", {})
+        assert session.renewals == 0
+
+
+class TestExpiredSession:
+    """The entry JS challenge is NOT a CAPTCHA: it is a session to redo."""
+
+    def _client(self, network: Network, handler: Any, session: CountingSession) -> DomaineClient:
+        return DomaineClient(
+            network=network,
+            session=session,
+            transport=httpx.MockTransport(handler),
+            sleep=lambda _: None,
+            clock=racing_clock(),
         )
 
-    def test_renouvelle_la_session_puis_reussit(self, reseau: Reseau) -> None:
-        session = SessionCompteuse()
-        reponses = [
-            httpx.Response(200, text=PAGE_CHALLENGE_JS, headers={"content-type": "text/html"}),
+    def test_renews_the_session_then_succeeds(self, network: Network) -> None:
+        session = CountingSession()
+        responses = [
+            httpx.Response(200, text=JS_CHALLENGE_PAGE, headers={"content-type": "text/html"}),
             httpx.Response(200, json={"data": {"ok": 1}}),
         ]
 
-        def gestionnaire(_: httpx.Request) -> httpx.Response:
-            return reponses.pop(0)
+        def handler(_: httpx.Request) -> httpx.Response:
+            return responses.pop(0)
 
-        with self._client(reseau, gestionnaire, session) as client:
-            assert client.interroger("query x{y}", {}) == {"data": {"ok": 1}}
-        assert session.renouvellements == 1
+        with self._client(network, handler, session) as client:
+            assert client.query("query x{y}", {}) == {"data": {"ok": 1}}
+        assert session.renewals == 1
 
-    def test_la_requete_repart_avec_les_nouveaux_cookies(self, reseau: Reseau) -> None:
-        session = SessionCompteuse()
-        vues: list[httpx.Request] = []
-        reponses = [
-            httpx.Response(200, text=PAGE_CHALLENGE_JS, headers={"content-type": "text/html"}),
+    def test_the_request_restarts_with_the_new_cookies(self, network: Network) -> None:
+        session = CountingSession()
+        seen: list[httpx.Request] = []
+        responses = [
+            httpx.Response(200, text=JS_CHALLENGE_PAGE, headers={"content-type": "text/html"}),
             httpx.Response(200, json={"data": {}}),
         ]
 
-        def gestionnaire(requete: httpx.Request) -> httpx.Response:
-            vues.append(requete)
-            return reponses.pop(0)
+        def handler(request: httpx.Request) -> httpx.Response:
+            seen.append(request)
+            return responses.pop(0)
 
-        with self._client(reseau, gestionnaire, session) as client:
-            client.interroger("query x{y}", {})
-        assert "bot_mitigation_cookie=v1" in vues[-1].headers["cookie"]
+        with self._client(network, handler, session) as client:
+            client.query("query x{y}", {})
+        assert "bot_mitigation_cookie=v1" in seen[-1].headers["cookie"]
 
-    def test_un_challenge_persistant_apres_renouvellement_est_une_erreur_claire(
-        self, reseau: Reseau
-    ) -> None:
-        session = SessionCompteuse()
+    def test_a_challenge_persisting_after_renewal_is_a_clear_error(self, network: Network) -> None:
+        session = CountingSession()
 
-        def gestionnaire(_: httpx.Request) -> httpx.Response:
+        def handler(_: httpx.Request) -> httpx.Response:
             return httpx.Response(
-                200, text=PAGE_CHALLENGE_JS, headers={"content-type": "text/html"}
+                200, text=JS_CHALLENGE_PAGE, headers={"content-type": "text/html"}
             )
 
         with (
-            self._client(reseau, gestionnaire, session) as client,
-            pytest.raises(ReseauError, match="protection a probablement change"),
+            self._client(network, handler, session) as client,
+            pytest.raises(NetworkError, match="protection a probablement changé"),
         ):
-            client.interroger("query x{y}", {})
-        # Une seule tentative de renouvellement : on n'insiste pas.
-        assert session.renouvellements == 1
+            client.query("query x{y}", {})
+        # A single renewal attempt: we do not insist.
+        assert session.renewals == 1
 
 
-class TestReprises:
-    def test_reessaie_sur_erreur_serveur_puis_reussit(self, reseau: Reseau) -> None:
-        reponses = [httpx.Response(503), httpx.Response(200, json={"data": {"ok": 1}})]
+class TestRetries:
+    def test_retries_on_a_server_error_then_succeeds(self, network: Network) -> None:
+        responses = [httpx.Response(503), httpx.Response(200, json={"data": {"ok": 1}})]
 
-        def gestionnaire(_: httpx.Request) -> httpx.Response:
-            return reponses.pop(0)
+        def handler(_: httpx.Request) -> httpx.Response:
+            return responses.pop(0)
 
-        sommeils: list[float] = []
-        with client_avec(reseau, gestionnaire, sommeils) as client:
-            assert client.interroger("query x{y}", {}) == {"data": {"ok": 1}}
-        assert not reponses
+        sleeps: list[float] = []
+        with client_with(network, handler, sleeps) as client:
+            assert client.query("query x{y}", {}) == {"data": {"ok": 1}}
+        assert not responses
 
-    def test_backoff_est_exponentiel_et_plafonne(self, reseau: Reseau) -> None:
-        def gestionnaire(_: httpx.Request) -> httpx.Response:
+    def test_backoff_is_exponential(self, network: Network) -> None:
+        def handler(_: httpx.Request) -> httpx.Response:
             return httpx.Response(500)
 
-        sommeils: list[float] = []
-        with client_avec(reseau, gestionnaire, sommeils) as client, pytest.raises(ReseauError):
-            client.interroger("query x{y}", {})
-        # tentatives_max = 3 -> deux attentes entre les trois essais
-        assert sommeils == [0.01, 0.02]
-        assert max(sommeils) <= reseau.backoff_max_s
+        sleeps: list[float] = []
+        with client_with(network, handler, sleeps) as client, pytest.raises(NetworkError):
+            client.query("query x{y}", {})
+        # max_attempts = 3 -> two waits between the three attempts
+        assert sleeps == [0.01, 0.02]
+        assert max(sleeps) <= network.backoff_max_s
 
-    def test_backoff_est_plafonne(self, reseau: Reseau) -> None:
-        genereux = reseau.model_copy(
-            update={"tentatives_max": 6, "backoff_initial_s": 1.0, "backoff_max_s": 4.0}
+    def test_backoff_is_capped(self, network: Network) -> None:
+        generous = network.model_copy(
+            update={"max_attempts": 6, "backoff_initial_s": 1.0, "backoff_max_s": 4.0}
         )
 
-        def gestionnaire(_: httpx.Request) -> httpx.Response:
+        def handler(_: httpx.Request) -> httpx.Response:
             return httpx.Response(500)
 
-        sommeils: list[float] = []
-        with client_avec(genereux, gestionnaire, sommeils) as client, pytest.raises(ReseauError):
-            client.interroger("query x{y}", {})
-        assert sommeils == [1.0, 2.0, 4.0, 4.0, 4.0]
+        sleeps: list[float] = []
+        with client_with(generous, handler, sleeps) as client, pytest.raises(NetworkError):
+            client.query("query x{y}", {})
+        assert sleeps == [1.0, 2.0, 4.0, 4.0, 4.0]
 
-    def test_echec_persistant_leve_une_erreur_reseau_explicite(self, reseau: Reseau) -> None:
-        def gestionnaire(_: httpx.Request) -> httpx.Response:
-            raise httpx.ConnectError("connexion refusee")
+    def test_a_persistent_failure_raises_an_explicit_network_error(self, network: Network) -> None:
+        def handler(_: httpx.Request) -> httpx.Response:
+            raise httpx.ConnectError("connexion refusée")
 
         with (
-            client_avec(reseau, gestionnaire) as client,
-            pytest.raises(ReseauError, match="3 tentatives"),
+            client_with(network, handler) as client,
+            pytest.raises(NetworkError, match="3 tentatives"),
         ):
-            client.interroger("query x{y}", {})
+            client.query("query x{y}", {})
 
-    def test_erreur_client_definitive_nest_pas_reessayee(self, reseau: Reseau) -> None:
-        appels = 0
+    def test_a_definitive_client_error_is_not_retried(self, network: Network) -> None:
+        calls = 0
 
-        def gestionnaire(_: httpx.Request) -> httpx.Response:
-            nonlocal appels
-            appels += 1
+        def handler(_: httpx.Request) -> httpx.Response:
+            nonlocal calls
+            calls += 1
             return httpx.Response(400, json={"message": "Bad query params length"})
 
-        with client_avec(reseau, gestionnaire) as client, pytest.raises(ReseauError, match="400"):
-            client.interroger("query x{y}", {})
-        assert appels == 1
+        with client_with(network, handler) as client, pytest.raises(NetworkError, match="400"):
+            client.query("query x{y}", {})
+        assert calls == 1
 
-    def test_reponse_non_json_est_une_erreur(self, reseau: Reseau) -> None:
-        def gestionnaire(_: httpx.Request) -> httpx.Response:
+    def test_a_non_json_response_is_an_error(self, network: Network) -> None:
+        def handler(_: httpx.Request) -> httpx.Response:
             return httpx.Response(200, text="pas du json", headers={"content-type": "text/plain"})
 
-        with client_avec(reseau, gestionnaire) as client, pytest.raises(ReseauError, match="JSON"):
-            client.interroger("query x{y}", {})
+        with client_with(network, handler) as client, pytest.raises(NetworkError, match="JSON"):
+            client.query("query x{y}", {})
 
 
-class TestCadenceur:
-    def test_espace_les_appels_du_delai_demande(self) -> None:
-        # Lectures d'horloge : 1) 1er appel, 2) 2e appel, 3) apres le sommeil.
+class TestRateLimiter:
+    def test_spaces_calls_by_the_requested_delay(self) -> None:
+        # Clock reads: 1) first call, 2) second call, 3) after the sleep.
         instants = iter([0.0, 0.2, 0.5])
-        sommeils: list[float] = []
-        cadenceur = Cadenceur(0.5, horloge=lambda: next(instants), dormir=sommeils.append)
-        cadenceur.attendre()  # premier appel : rien a attendre
-        cadenceur.attendre()  # 0.2 s ecoulees : il reste 0.3 s
-        assert sommeils == [pytest.approx(0.3)]
+        sleeps: list[float] = []
+        limiter = RateLimiter(0.5, clock=lambda: next(instants), sleep=sleeps.append)
+        limiter.wait()  # first call: nothing to wait for
+        limiter.wait()  # 0.2 s elapsed: 0.3 s left
+        assert sleeps == [pytest.approx(0.3)]
 
-    def test_naquiert_jamais_de_delai_negatif(self) -> None:
+    def test_never_produces_a_negative_delay(self) -> None:
         instants = iter([0.0, 10.0])
-        sommeils: list[float] = []
-        cadenceur = Cadenceur(0.5, horloge=lambda: next(instants), dormir=sommeils.append)
-        cadenceur.attendre()
-        cadenceur.attendre()  # largement au-dela du delai : aucun sommeil
-        assert sommeils == []
+        sleeps: list[float] = []
+        limiter = RateLimiter(0.5, clock=lambda: next(instants), sleep=sleeps.append)
+        limiter.wait()
+        limiter.wait()  # far beyond the delay: no sleep at all
+        assert sleeps == []
 
 
-class TestIdentification:
-    def test_annonce_le_navigateur_puis_le_robot(self) -> None:
-        compose = identifier("Mozilla/5.0 Chrome/140", "SleeperBot/0.1 (+mailto:a@b.fr)")
-        assert compose == "Mozilla/5.0 Chrome/140 SleeperBot/0.1 (+mailto:a@b.fr)"
+class TestUserAgentComposition:
+    def test_announces_the_browser_then_the_robot(self) -> None:
+        composed = build_user_agent("Mozilla/5.0 Chrome/140", "SleeperBot/0.1 (+mailto:a@b.fr)")
+        assert composed == "Mozilla/5.0 Chrome/140 SleeperBot/0.1 (+mailto:a@b.fr)"
 
-    def test_sans_navigateur_seule_lidentification_subsiste(self) -> None:
-        assert identifier("", "SleeperBot/0.1") == "SleeperBot/0.1"
+    def test_without_a_browser_only_the_identification_remains(self) -> None:
+        assert build_user_agent("", "SleeperBot/0.1") == "SleeperBot/0.1"

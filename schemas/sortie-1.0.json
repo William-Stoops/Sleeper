@@ -1,38 +1,8 @@
 {
   "$defs": {
-    "ErreurRun": {
-      "additionalProperties": false,
-      "description": "Une anomalie rencontree pendant l'execution, jamais avalee.",
-      "properties": {
-        "etape": {
-          "title": "Etape",
-          "type": "string"
-        },
-        "cible": {
-          "title": "Cible",
-          "type": "string"
-        },
-        "type": {
-          "title": "Type",
-          "type": "string"
-        },
-        "message": {
-          "title": "Message",
-          "type": "string"
-        }
-      },
-      "required": [
-        "etape",
-        "cible",
-        "type",
-        "message"
-      ],
-      "title": "ErreurRun",
-      "type": "object"
-    },
     "Lot": {
       "additionalProperties": false,
-      "description": "Un lot vehicule, dans la forme exacte du contrat de sortie.",
+      "description": "A vehicle lot, in the exact shape of the output contract.",
       "properties": {
         "id": {
           "title": "Id",
@@ -295,9 +265,9 @@
       "title": "Lot",
       "type": "object"
     },
-    "LotEcarte": {
+    "RejectedLot": {
       "additionalProperties": false,
-      "description": "Un lot elimine par une regle metier, avec son motif.",
+      "description": "A lot dropped by a business rule, with its reason.",
       "properties": {
         "id": {
           "title": "Id",
@@ -322,12 +292,12 @@
         "titre",
         "motif"
       ],
-      "title": "LotEcarte",
+      "title": "RejectedLot",
       "type": "object"
     },
     "Run": {
       "additionalProperties": false,
-      "description": "Bilan chiffre de l'execution.",
+      "description": "Numeric summary of the execution.",
       "properties": {
         "horodatage": {
           "format": "date-time",
@@ -361,7 +331,7 @@
         },
         "erreurs": {
           "items": {
-            "$ref": "#/$defs/ErreurRun"
+            "$ref": "#/$defs/RunError"
           },
           "title": "Erreurs",
           "type": "array"
@@ -378,9 +348,39 @@
       "title": "Run",
       "type": "object"
     },
-    "Vente": {
+    "RunError": {
       "additionalProperties": false,
-      "description": "Une vente du Domaine.",
+      "description": "An anomaly met during the run. Never swallowed.",
+      "properties": {
+        "etape": {
+          "title": "Etape",
+          "type": "string"
+        },
+        "cible": {
+          "title": "Cible",
+          "type": "string"
+        },
+        "type": {
+          "title": "Type",
+          "type": "string"
+        },
+        "message": {
+          "title": "Message",
+          "type": "string"
+        }
+      },
+      "required": [
+        "etape",
+        "cible",
+        "type",
+        "message"
+      ],
+      "title": "RunError",
+      "type": "object"
+    },
+    "Sale": {
+      "additionalProperties": false,
+      "description": "A Domaine sale.",
       "properties": {
         "id": {
           "title": "Id",
@@ -459,12 +459,12 @@
         "dans_perimetre",
         "nb_lots"
       ],
-      "title": "Vente",
+      "title": "Sale",
       "type": "object"
     }
   },
   "additionalProperties": false,
-  "description": "Le document produit a chaque execution.",
+  "description": "The document produced by each execution.",
   "properties": {
     "schema_version": {
       "const": "1.0",
@@ -477,7 +477,7 @@
     },
     "ventes": {
       "items": {
-        "$ref": "#/$defs/Vente"
+        "$ref": "#/$defs/Sale"
       },
       "title": "Ventes",
       "type": "array"
@@ -491,7 +491,7 @@
     },
     "ecartes": {
       "items": {
-        "$ref": "#/$defs/LotEcarte"
+        "$ref": "#/$defs/RejectedLot"
       },
       "title": "Ecartes",
       "type": "array"
@@ -503,7 +503,7 @@
     "lots",
     "ecartes"
   ],
-  "title": "DocumentSortie",
+  "title": "OutputDocument",
   "type": "object",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://github.com/William-Stoops/Sleeper/schemas/sortie-1.0.json"

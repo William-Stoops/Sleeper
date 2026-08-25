@@ -1,8 +1,8 @@
-"""Tables de correspondance de l'API Magento du Domaine.
+"""Lookup tables for the Domaine's Magento API.
 
-Ces valeurs sont des constantes du protocole amont, relevees pendant la phase
-de decouverte (voir docs/api.md). Elles ne sont pas configurables : ce ne sont
-pas des reglages metier mais la grammaire de la source.
+These values are constants of the upstream protocol, recorded during the
+discovery phase (see docs/api.md). They are deliberately not configurable:
+they are not business settings, they are the grammar of the source.
 """
 
 from __future__ import annotations
@@ -11,39 +11,39 @@ from enum import IntEnum, StrEnum
 from typing import Final
 
 
-class StatutVente(IntEnum):
-    """`auction_auto_status` : cycle de vie d'une vente."""
+class SaleStatus(IntEnum):
+    """`auction_auto_status`: lifecycle of a sale."""
 
-    A_VENIR = 2
-    EN_COURS = 3
-    CLOTUREE = 4
+    UPCOMING = 2
+    RUNNING = 3
+    CLOSED = 4
 
     @classmethod
-    def ouvertes(cls) -> tuple[StatutVente, ...]:
-        """Statuts qu'un run quotidien doit balayer."""
-        return (cls.A_VENIR, cls.EN_COURS)
+    def open_statuses(cls) -> tuple[SaleStatus, ...]:
+        """Statuses a daily run must sweep."""
+        return (cls.UPCOMING, cls.RUNNING)
 
 
-class Ternaire(StrEnum):
-    """Reponse d'un attribut booleen du Domaine, qui admet un troisieme etat."""
+class Tristate(StrEnum):
+    """A Domaine boolean attribute, which admits a third state."""
 
-    OUI = "Oui"
-    NON = "Non"
-    INDETERMINE = "N/A"
+    YES = "Oui"
+    NO = "Non"
+    UNKNOWN = "N/A"
 
 
-#: `professional_only` arrive en `str` sur une vente et en `int` sur un lot.
-#: L'incoherence est amont ; elle est absorbee ici, une fois pour toutes.
-VRAI_API: Final = frozenset({1, "1", "Oui", "oui"})  # 1 == True en Python
-FAUX_API: Final = frozenset({0, "0", "Non", "non"})  # 0 == False en Python
+#: `professional_only` arrives as `str` on a sale and as `int` on a lot.
+#: The inconsistency is upstream; it is absorbed here, once and for all.
+API_TRUE: Final = frozenset({1, "1", "Oui", "oui"})  # 1 == True in Python
+API_FALSE: Final = frozenset({0, "0", "Non", "non"})  # 0 == False in Python
 
-#: Genres de carte grise (attribut `kind`), rubrique J.1 du certificat.
-GENRE_VOITURE: Final = "VP"
-GENRE_CAMIONNETTE: Final = "CTTE"
+#: Registration-document vehicle kinds (`kind` attribute), field J.1.
+KIND_CAR: Final = "VP"
+KIND_VAN: Final = "CTTE"
 
-#: Genres a ignorer d'office : deux-roues, quadricycles, agricole, remorques.
-#: `QM` couvre le quadricycle a moteur, c'est-a-dire la voiture sans permis.
-GENRES_HORS_CIBLE: Final = frozenset(
+#: Kinds to skip outright: two-wheelers, quadricycles, farm gear, trailers.
+#: `QM` covers the powered quadricycle, i.e. the licence-free car.
+OUT_OF_SCOPE_KINDS: Final = frozenset(
     {
         "CL",
         "CM",
@@ -51,40 +51,40 @@ GENRES_HORS_CIBLE: Final = frozenset(
         "MTT1",
         "MTT2",
         "MTT3",
-        "MTT4",  # deux-roues
+        "MTT4",  # two-wheelers
         "QM",
         "QLEM",
-        "QLOM",  # quadricycles / sans permis
+        "QLOM",  # quadricycles / licence-free
         "TRA",
         "MAGA",
         "MIAR",
-        "MAAG",  # agricole
+        "MAAG",  # farm equipment
         "REM",
         "REMORQUE",
         "RESP",
-        "SREM",  # remorques
+        "SREM",  # trailers
     }
 )
 
-#: Codes attributs porteurs de donnees personnelles ou bancaires.
-#: Ils ne sont jamais recopies dans la sortie ni dans les fixtures.
-ATTRIBUTS_SENSIBLES: Final = frozenset(
+#: Attribute codes carrying personal or banking data.
+#: They are never copied into the output, nor into the fixtures.
+SENSITIVE_ATTRIBUTES: Final = frozenset(
     {"biciban", "contact_dropoff_location_id", "bid_winner_user", "id_remitting_entity"}
 )
 
 
-def vers_booleen(valeur: object) -> bool | None:
-    """Normalise un booleen de l'API. Renvoie `None` si la source est muette.
+def to_bool(value: object) -> bool | None:
+    """Normalise an upstream boolean. Returns `None` when the source is silent.
 
-    `None` signifie « absent de la source », jamais « on n'a pas su lire » :
-    une valeur inconnue leve, elle ne se tait pas.
+    `None` means "absent from the source", never "we failed to read it": an
+    unknown value raises rather than keeping quiet.
     """
-    if valeur is None or valeur == "":
+    if value is None or value == "":
         return None
-    if valeur in VRAI_API:
+    if value in API_TRUE:
         return True
-    if valeur in FAUX_API:
+    if value in API_FALSE:
         return False
-    if isinstance(valeur, str) and valeur.strip().upper() in {"N/A", "NA", "-"}:
+    if isinstance(value, str) and value.strip().upper() in {"N/A", "NA", "-"}:
         return None
-    raise ValueError(f"booleen amont non reconnu : {valeur!r}")
+    raise ValueError(f"booléen amont non reconnu : {value!r}")

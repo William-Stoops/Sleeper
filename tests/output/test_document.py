@@ -1,4 +1,4 @@
-"""Serialisation, publication du schema, et garde-fou anti-derive."""
+"""Serialisation, schema publication, and the anti-drift guard rail."""
 
 from __future__ import annotations
 
@@ -8,45 +8,52 @@ from pathlib import Path
 
 import pytest
 
-from sleeper.domain.models import DocumentSortie, ErreurRun, Run
-from sleeper.errors import SortieError
+from sleeper.domain.models import OutputDocument, Run, RunError
+from sleeper.errors import OutputError
 from sleeper.output import document
 
 
-def document_vide() -> DocumentSortie:
-    return DocumentSortie(
+def empty_document() -> OutputDocument:
+    return OutputDocument(
         run=Run(
-            horodatage=datetime(2026, 8, 25, 4, 30, tzinfo=UTC),
-            duree_secondes=1.5,
-            ventes_scannees=1,
-            lots_vus=2,
-            lots_retenus=1,
-            lots_ecartes=1,
+            timestamp=datetime(2026, 8, 25, 4, 30, tzinfo=UTC),
+            duration_seconds=1.5,
+            sales_scanned=1,
+            lots_seen=2,
+            lots_kept=1,
+            lots_rejected=1,
         ),
-        ventes=[],
+        sales=[],
         lots=[],
-        ecartes=[],
+        rejected=[],
     )
 
 
 class TestSerialisation:
-    def test_produit_du_json_utf8_lisible(self) -> None:
-        brut = document.serialiser(document_vide())
-        charge = json.loads(brut)
-        assert charge["schema_version"] == "1.0"
-        assert charge["run"]["ventes_scannees"] == 1
+    def test_produces_readable_utf8_json(self) -> None:
+        raw = document.serialize(empty_document())
+        payload = json.loads(raw)
+        assert payload["schema_version"] == "1.0"
+        assert payload["run"]["ventes_scannees"] == 1
 
-    def test_conserve_les_accents_sans_les_echapper(self) -> None:
-        base = document_vide()
-        avec_erreur = base.model_copy(
+    def test_the_wire_format_keeps_the_french_contract(self) -> None:
+        """Identifiers are English; the JSON keys stay the specified contract."""
+        payload = json.loads(document.serialize(empty_document()))
+        assert set(payload) == {"schema_version", "run", "ventes", "lots", "ecartes"}
+        assert "duree_secondes" in payload["run"]
+        assert "duration_seconds" not in payload["run"]
+
+    def test_keeps_accents_without_escaping_them(self) -> None:
+        base = empty_document()
+        with_error = base.model_copy(
             update={
                 "run": base.run.model_copy(
                     update={
-                        "erreurs": [
-                            ErreurRun(
-                                etape="lots",
-                                cible="467",
-                                type="SchemaAmontError",
+                        "errors": [
+                            RunError(
+                                step="lots",
+                                target="467",
+                                kind="UpstreamSchemaError",
                                 message="champ réservé absent",
                             )
                         ]
@@ -54,44 +61,44 @@ class TestSerialisation:
                 )
             }
         )
-        brut = document.serialiser(avec_erreur)
-        assert "réservé".encode() in brut
-        assert rb"\u00e9" not in brut
+        raw = document.serialize(with_error)
+        assert "réservé".encode() in raw
+        assert rb"\u00e9" not in raw
 
 
-class TestSchemaPublie:
-    def test_le_schema_versionne_dans_le_depot_est_a_jour(self) -> None:
-        """Garde-fou : le schema publie doit suivre les modeles."""
-        chemin = Path("schemas") / document.NOM_SCHEMA
-        assert chemin.is_file(), "lancer « uv run sleeper schema »"
-        publie = json.loads(chemin.read_text(encoding="utf-8"))
-        assert publie == document.schema_courant(), (
-            "le schema publie a derive des modeles : relancer « uv run sleeper schema »"
+class TestPublishedSchema:
+    def test_the_schema_versioned_in_the_repository_is_up_to_date(self) -> None:
+        """Guard rail: the published schema must follow the models."""
+        path = Path("schemas") / document.SCHEMA_NAME
+        assert path.is_file(), "lancer « uv run sleeper schema »"
+        published = json.loads(path.read_text(encoding="utf-8"))
+        assert published == document.current_schema(), (
+            "le schéma publié a dérivé des modèles : relancer « uv run sleeper schema »"
         )
 
-    def test_publier_ecrit_le_fichier(self, tmp_path: Path) -> None:
-        chemin = document.publier_schema(tmp_path)
-        assert chemin.is_file()
-        assert json.loads(chemin.read_text(encoding="utf-8"))["title"] == "DocumentSortie"
+    def test_publishing_writes_the_file(self, tmp_path: Path) -> None:
+        path = document.publish_schema(tmp_path)
+        assert path.is_file()
+        assert json.loads(path.read_text(encoding="utf-8"))["title"] == "OutputDocument"
 
 
 class TestValidation:
-    def test_un_document_conforme_passe(self, tmp_path: Path) -> None:
-        document.publier_schema(tmp_path)
-        document.valider(document_vide(), tmp_path)
+    def test_a_conforming_document_passes(self, tmp_path: Path) -> None:
+        document.publish_schema(tmp_path)
+        document.validate(empty_document(), tmp_path)
 
-    def test_schema_absent_est_une_erreur_explicite(self, tmp_path: Path) -> None:
-        with pytest.raises(SortieError, match="schema de sortie absent"):
-            document.valider(document_vide(), tmp_path)
+    def test_a_missing_schema_is_an_explicit_error(self, tmp_path: Path) -> None:
+        with pytest.raises(OutputError, match="schéma de sortie absent"):
+            document.validate(empty_document(), tmp_path)
 
-    def test_schema_illisible_est_une_erreur_explicite(self, tmp_path: Path) -> None:
-        (tmp_path / document.NOM_SCHEMA).write_text("{ pas du json", encoding="utf-8")
-        with pytest.raises(SortieError, match="illisible"):
-            document.valider(document_vide(), tmp_path)
+    def test_an_unreadable_schema_is_an_explicit_error(self, tmp_path: Path) -> None:
+        (tmp_path / document.SCHEMA_NAME).write_text("{ pas du json", encoding="utf-8")
+        with pytest.raises(OutputError, match="illisible"):
+            document.validate(empty_document(), tmp_path)
 
-    def test_document_non_conforme_est_rejete(self, tmp_path: Path) -> None:
-        schema = document.schema_courant()
+    def test_a_non_conforming_document_is_rejected(self, tmp_path: Path) -> None:
+        schema = document.current_schema()
         schema["required"] = [*schema.get("required", []), "champ_inexistant"]
-        (tmp_path / document.NOM_SCHEMA).write_text(json.dumps(schema), encoding="utf-8")
-        with pytest.raises(SortieError, match="non conforme"):
-            document.valider(document_vide(), tmp_path)
+        (tmp_path / document.SCHEMA_NAME).write_text(json.dumps(schema), encoding="utf-8")
+        with pytest.raises(OutputError, match="non conforme"):
+            document.validate(empty_document(), tmp_path)

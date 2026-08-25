@@ -1,7 +1,7 @@
-"""Etat persistant : nouveautes, mouvements d'enchere, cache, historique.
+"""Persistent state: new lots, bid movements, cache, history.
 
-L'idempotence est la propriete la plus importante ici : deux executions
-successives sans changement amont ne doivent produire aucune fausse alerte.
+Idempotence is the most important property here: two consecutive runs with no
+upstream change must raise no false "new lot" alert.
 """
 
 from __future__ import annotations
@@ -12,180 +12,155 @@ from pathlib import Path
 
 import pytest
 
-from sleeper.state.store import EtatSleeper, ObservationLot
+from sleeper.state.store import LotObservation, SleeperState
 
 T0 = datetime(2026, 8, 25, 4, 30, tzinfo=UTC)
 T1 = T0 + timedelta(days=1)
 
 
 @pytest.fixture
-def etat(tmp_path: Path) -> Iterator[EtatSleeper]:
-    with EtatSleeper(tmp_path / "etat.sqlite3") as ouvert:
-        yield ouvert
+def state(tmp_path: Path) -> Iterator[SleeperState]:
+    with SleeperState(tmp_path / "state.sqlite3") as opened:
+        yield opened
 
 
-def observer(
-    etat: EtatSleeper, *, lot_id: int = 1, enchere: float | None = None, quand: datetime = T0
-) -> ObservationLot:
-    return etat.observer_lot(
+def observe(
+    state: SleeperState,
+    *,
+    lot_id: int = 1,
+    bid: float | None = None,
+    when: datetime = T0,
+) -> LotObservation:
+    return state.observe_lot(
         lot_id=lot_id,
-        vente_id=467,
+        sale_id=467,
         url=f"https://exemple/lot/{lot_id}",
-        titre="DACIA DUSTER",
-        reserve_aux_professionnels=True,
-        mise_a_prix=1500.0,
-        enchere_en_cours=enchere,
-        code_postal="59000",
-        departement="59",
-        horodatage=quand,
+        title="DACIA DUSTER",
+        trade_only=True,
+        starting_price=1500.0,
+        current_bid=bid,
+        postcode="59000",
+        department="59",
+        timestamp=when,
+    )
+
+
+def record_sale(state: SleeperState, when: datetime = T0, title: str = "Vente") -> None:
+    state.record_sale(
+        sale_id=467,
+        title=title,
+        regional_directorate="LILLE",
+        status=3,
+        lot_count=161,
+        opens_at=T0,
+        closes_at=T0,
+        timestamp=when,
     )
 
 
 class TestMigrations:
-    def test_cree_le_schema_et_note_sa_version(self, tmp_path: Path) -> None:
-        with EtatSleeper(tmp_path / "etat.sqlite3") as etat:
-            assert etat.version_schema() >= 1
+    def test_creates_the_schema_and_records_its_version(self, tmp_path: Path) -> None:
+        with SleeperState(tmp_path / "state.sqlite3") as state:
+            assert state.schema_version() >= 1
 
-    def test_rouvrir_une_base_existante_ne_la_recree_pas(self, tmp_path: Path) -> None:
-        chemin = tmp_path / "etat.sqlite3"
-        with EtatSleeper(chemin) as etat:
-            observer(etat)
-            version = etat.version_schema()
-        with EtatSleeper(chemin) as etat:
-            assert etat.version_schema() == version
-            assert observer(etat, quand=T1).nouveau is False
-
-
-class TestDetectionDesNouveautes:
-    def test_un_lot_jamais_vu_est_nouveau(self, etat: EtatSleeper) -> None:
-        assert observer(etat).nouveau is True
-
-    def test_un_lot_deja_vu_ne_lest_plus(self, etat: EtatSleeper) -> None:
-        observer(etat)
-        assert observer(etat, quand=T1).nouveau is False
-
-    def test_deux_executions_identiques_ne_produisent_aucune_alerte(
-        self, etat: EtatSleeper
-    ) -> None:
-        observer(etat, enchere=900.0)
-        seconde = observer(etat, enchere=900.0, quand=T1)
-        assert (seconde.nouveau, seconde.enchere_a_bouge) == (False, False)
+    def test_reopening_an_existing_database_does_not_recreate_it(self, tmp_path: Path) -> None:
+        path = tmp_path / "state.sqlite3"
+        with SleeperState(path) as state:
+            observe(state)
+            version = state.schema_version()
+        with SleeperState(path) as state:
+            assert state.schema_version() == version
+            assert observe(state, when=T1).is_new is False
 
 
-class TestMouvementDenchere:
-    def test_premiere_enchere_constatee_est_un_mouvement(self, etat: EtatSleeper) -> None:
-        observer(etat, enchere=None)
-        assert observer(etat, enchere=900.0, quand=T1).enchere_a_bouge is True
+class TestNewLotDetection:
+    def test_a_never_seen_lot_is_new(self, state: SleeperState) -> None:
+        assert observe(state).is_new is True
 
-    def test_enchere_stable_nest_pas_un_mouvement(self, etat: EtatSleeper) -> None:
-        observer(etat, enchere=900.0)
-        assert observer(etat, enchere=900.0, quand=T1).enchere_a_bouge is False
+    def test_an_already_seen_lot_is_not(self, state: SleeperState) -> None:
+        observe(state)
+        assert observe(state, when=T1).is_new is False
 
-    def test_enchere_qui_monte_est_un_mouvement(self, etat: EtatSleeper) -> None:
-        observer(etat, enchere=900.0)
-        assert observer(etat, enchere=1000.0, quand=T1).enchere_a_bouge is True
-
-    def test_un_lot_neuf_sans_enchere_ne_bouge_pas(self, etat: EtatSleeper) -> None:
-        assert observer(etat, enchere=None).enchere_a_bouge is False
-
-    def test_lhistorique_ne_retient_que_les_changements(self, etat: EtatSleeper) -> None:
-        observer(etat, enchere=900.0)
-        observer(etat, enchere=900.0, quand=T1)
-        observer(etat, enchere=1200.0, quand=T1 + timedelta(days=1))
-        historique = etat.historique_encheres(1)
-        assert [montant for _, montant in historique] == [900.0, 1200.0]
+    def test_two_identical_runs_raise_no_alert(self, state: SleeperState) -> None:
+        observe(state, bid=900.0)
+        second = observe(state, bid=900.0, when=T1)
+        assert (second.is_new, second.bid_moved) == (False, False)
 
 
-class TestCacheDeFiche:
-    def test_absence_de_cache_rend_none(self, etat: EtatSleeper) -> None:
-        assert etat.fiche_en_cache(1, "empreinte") is None
+class TestBidMovement:
+    def test_a_first_observed_bid_is_a_movement(self, state: SleeperState) -> None:
+        observe(state, bid=None)
+        assert observe(state, bid=900.0, when=T1).bid_moved is True
 
-    def test_relit_une_fiche_a_empreinte_identique(self, etat: EtatSleeper) -> None:
-        etat.memoriser_fiche(1, "e1", {"marque": "DACIA"}, T0)
-        assert etat.fiche_en_cache(1, "e1") == {"marque": "DACIA"}
+    def test_a_stable_bid_is_not_a_movement(self, state: SleeperState) -> None:
+        observe(state, bid=900.0)
+        assert observe(state, bid=900.0, when=T1).bid_moved is False
 
-    def test_une_empreinte_differente_invalide_le_cache(self, etat: EtatSleeper) -> None:
-        etat.memoriser_fiche(1, "e1", {"marque": "DACIA"}, T0)
-        assert etat.fiche_en_cache(1, "e2") is None
+    def test_a_rising_bid_is_a_movement(self, state: SleeperState) -> None:
+        observe(state, bid=900.0)
+        assert observe(state, bid=1000.0, when=T1).bid_moved is True
 
-    def test_memoriser_deux_fois_remplace(self, etat: EtatSleeper) -> None:
-        etat.memoriser_fiche(1, "e1", {"marque": "DACIA"}, T0)
-        etat.memoriser_fiche(1, "e2", {"marque": "RENAULT"}, T1)
-        assert etat.fiche_en_cache(1, "e2") == {"marque": "RENAULT"}
+    def test_a_fresh_lot_without_a_bid_does_not_move(self, state: SleeperState) -> None:
+        assert observe(state, bid=None).bid_moved is False
 
-
-class TestVentesEtAdjudications:
-    def test_enregistre_puis_cloture_une_vente(self, etat: EtatSleeper) -> None:
-        etat.enregistrer_vente(
-            vente_id=467,
-            intitule="Vente du 27 août",
-            direction_regionale="LILLE",
-            statut=3,
-            nb_lots=161,
-            date_ouverture=T0,
-            date_cloture=T0,
-            horodatage=T0,
-        )
-        etat.cloturer_ventes_absentes({999}, T1)
-        assert etat.ventes_cloturees() == [467]
-
-    def test_une_vente_encore_vue_nest_pas_cloturee(self, etat: EtatSleeper) -> None:
-        etat.enregistrer_vente(
-            vente_id=467,
-            intitule="Vente",
-            direction_regionale="LILLE",
-            statut=3,
-            nb_lots=161,
-            date_ouverture=T0,
-            date_cloture=T0,
-            horodatage=T0,
-        )
-        etat.cloturer_ventes_absentes({467}, T1)
-        assert etat.ventes_cloturees() == []
-
-    def test_conserve_le_prix_dadjudication(self, etat: EtatSleeper) -> None:
-        observer(etat, enchere=900.0)
-        etat.enregistrer_adjudication(1, 2400.0, 1500.0, T1)
-        assert etat.adjudications() == [(1, 2400.0, 1500.0)]
-
-    def test_ladjudication_est_idempotente(self, etat: EtatSleeper) -> None:
-        observer(etat)
-        etat.enregistrer_adjudication(1, 2400.0, 1500.0, T0)
-        etat.enregistrer_adjudication(1, 2400.0, 1500.0, T1)
-        assert len(etat.adjudications()) == 1
+    def test_the_history_only_keeps_changes(self, state: SleeperState) -> None:
+        observe(state, bid=900.0)
+        observe(state, bid=900.0, when=T1)
+        observe(state, bid=1200.0, when=T1 + timedelta(days=1))
+        assert [amount for _, amount in state.bid_history(1)] == [900.0, 1200.0]
 
 
-class TestClotureProtegee:
-    def test_un_run_sans_aucune_vente_ne_cloture_rien(self, etat: EtatSleeper) -> None:
-        """Garde-fou : un scan vide est bien plus probablement une panne amont."""
-        etat.enregistrer_vente(
-            vente_id=467,
-            intitule="Vente",
-            direction_regionale="LILLE",
-            statut=3,
-            nb_lots=161,
-            date_ouverture=T0,
-            date_cloture=T0,
-            horodatage=T0,
-        )
-        etat.cloturer_ventes_absentes(set(), T1)
-        assert etat.ventes_cloturees() == []
+class TestListingCache:
+    def test_no_cache_returns_none(self, state: SleeperState) -> None:
+        assert state.cached_listing(1, "fingerprint") is None
 
-    def test_une_vente_reapparue_est_rouverte(self, etat: EtatSleeper) -> None:
-        def enregistrer(quand: datetime) -> None:
-            etat.enregistrer_vente(
-                vente_id=467,
-                intitule="Vente",
-                direction_regionale="LILLE",
-                statut=3,
-                nb_lots=161,
-                date_ouverture=T0,
-                date_cloture=T0,
-                horodatage=quand,
-            )
+    def test_rereads_a_listing_with_an_identical_fingerprint(self, state: SleeperState) -> None:
+        state.cache_listing(1, "f1", {"make": "DACIA"}, T0)
+        assert state.cached_listing(1, "f1") == {"make": "DACIA"}
 
-        enregistrer(T0)
-        etat.cloturer_ventes_absentes({999}, T1)
-        assert etat.ventes_cloturees() == [467]
-        enregistrer(T1)
-        assert etat.ventes_cloturees() == []
+    def test_a_different_fingerprint_invalidates_the_cache(self, state: SleeperState) -> None:
+        state.cache_listing(1, "f1", {"make": "DACIA"}, T0)
+        assert state.cached_listing(1, "f2") is None
+
+    def test_caching_twice_replaces(self, state: SleeperState) -> None:
+        state.cache_listing(1, "f1", {"make": "DACIA"}, T0)
+        state.cache_listing(1, "f2", {"make": "RENAULT"}, T1)
+        assert state.cached_listing(1, "f2") == {"make": "RENAULT"}
+
+
+class TestSalesAndHammerPrices:
+    def test_records_then_closes_a_sale(self, state: SleeperState) -> None:
+        record_sale(state, title="Vente du 27 août")
+        state.close_absent_sales({999}, T1)
+        assert state.closed_sales() == [467]
+
+    def test_a_still_visible_sale_is_not_closed(self, state: SleeperState) -> None:
+        record_sale(state)
+        state.close_absent_sales({467}, T1)
+        assert state.closed_sales() == []
+
+    def test_keeps_the_hammer_price(self, state: SleeperState) -> None:
+        observe(state, bid=900.0)
+        state.record_hammer_price(1, 2400.0, 1500.0, T1)
+        assert state.hammer_prices() == [(1, 2400.0, 1500.0)]
+
+    def test_the_hammer_price_is_idempotent(self, state: SleeperState) -> None:
+        observe(state)
+        state.record_hammer_price(1, 2400.0, 1500.0, T0)
+        state.record_hammer_price(1, 2400.0, 1500.0, T1)
+        assert len(state.hammer_prices()) == 1
+
+
+class TestProtectedClosure:
+    def test_a_run_with_no_sale_at_all_closes_nothing(self, state: SleeperState) -> None:
+        """Guard rail: an empty scan is far more likely an upstream failure."""
+        record_sale(state)
+        state.close_absent_sales(set(), T1)
+        assert state.closed_sales() == []
+
+    def test_a_reappearing_sale_is_reopened(self, state: SleeperState) -> None:
+        record_sale(state)
+        state.close_absent_sales({999}, T1)
+        assert state.closed_sales() == [467]
+        record_sale(state, when=T1)
+        assert state.closed_sales() == []

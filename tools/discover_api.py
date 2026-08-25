@@ -1,12 +1,12 @@
-"""Phase de decouverte : intercepte le trafic reseau du site cible.
+"""Discovery phase: intercept the target site's network traffic.
 
-Ce script n'est PAS utilise par le run quotidien. Il sert a (re)decouvrir les
-endpoints JSON de l'application quand le site change, et a produire la matiere
-de `docs/api.md`.
+This script is NOT used by the daily run. It exists to (re)discover the
+application's JSON endpoints when the site changes, and to produce the raw
+material for `docs/api.md`.
 
-Il pilote un vrai navigateur : le challenge JS anti-robot est resolu par le
-navigateur lui-meme, comme pour un visiteur humain. Aucune protection n'est
-contournee ni reimplementee.
+It drives a real browser: the anti-bot JavaScript challenge is passed by the
+browser itself, exactly as for a human visitor. No protection is circumvented
+or reimplemented.
 
     uv run --extra discovery python tools/discover_api.py --out var/discovery
 """
@@ -34,7 +34,7 @@ SAFE_NAME = re.compile(r"[^a-zA-Z0-9._-]+")
 
 @dataclass(slots=True)
 class Capture:
-    """Une reponse HTTP observee pendant la navigation."""
+    """One HTTP response observed while browsing."""
 
     url: str
     method: str
@@ -52,7 +52,7 @@ def slugify(url: str, index: int) -> str:
 
 
 def top_level_shape(payload: Any) -> list[str]:
-    """Resume la forme d'une reponse sans en dumper le contenu."""
+    """Summarise the shape of a response without dumping its contents."""
     if isinstance(payload, dict):
         return sorted(str(k) for k in payload)
     if isinstance(payload, list) and payload and isinstance(payload[0], dict):
@@ -63,7 +63,7 @@ def top_level_shape(payload: Any) -> list[str]:
 
 
 class Recorder:
-    """Accumule les reponses JSON et ecrit les corps sur disque."""
+    """Accumulate JSON responses and write their bodies to disk."""
 
     def __init__(self, out_dir: Path) -> None:
         self.out_dir = out_dir
@@ -83,7 +83,7 @@ class Recorder:
         )
         try:
             payload = response.json()
-        except Exception as exc:  # on veut tracer toute anomalie, pas la trier
+        except Exception as exc:  # every anomaly is worth recording, not triaging
             capture.error = f"{type(exc).__name__}: {exc}"
         else:
             name = slugify(response.url, len(self.captures))
@@ -98,27 +98,27 @@ def save_text(out_dir: Path, name: str, content: str) -> None:
     (out_dir / name).write_text(content, encoding="utf-8")
 
 
-def _liens(page: Page) -> list[str]:
-    """Liens de la page courante, dedoublonnes."""
-    bruts = page.eval_on_selector_all("a[href]", "els => els.map(e => e.getAttribute('href'))")
-    return sorted({h for h in bruts if isinstance(h, str)})
+def _links(page: Page) -> list[str]:
+    """Links of the current page, deduplicated."""
+    raw = page.eval_on_selector_all("a[href]", "els => els.map(e => e.getAttribute('href'))")
+    return sorted({h for h in raw if isinstance(h, str)})
 
 
-def _conformite(page: Page, out_dir: Path) -> None:
-    """Releve robots.txt et les CGU avant toute autre navigation."""
+def _compliance(page: Page, out_dir: Path) -> None:
+    """Record robots.txt and the terms of use before any other navigation."""
     for name, path in (("robots.txt", "/robots.txt"), ("cgu.html", "/cgu")):
         try:
             page.goto(f"{BASE}{path}", wait_until="networkidle", timeout=45_000)
             save_text(out_dir, name, page.content())
-        except Exception as exc:  # la reconnaissance ne doit jamais s'arreter net
+        except Exception as exc:  # discovery must never stop dead
             save_text(out_dir, name, f"ERREUR: {type(exc).__name__}: {exc}")
 
 
-def _explorer(page: Page, out_dir: Path, vente_id: str) -> None:
-    """Categorie vehicules, liste des ventes, puis une vente, puis un lot."""
-    # La page de categorie est la seule qui montre comment l'application filtre
-    # les lots par categorie — filtre que le run quotidien ne sait pas encore
-    # appliquer cote API (voir docs/api.md §6).
+def _explore(page: Page, out_dir: Path, sale_id: str) -> None:
+    """Vehicle category, sales list, then one sale, then one lot."""
+    # The category page is the only one showing how the application filters
+    # lots by category — a filter the daily run cannot yet apply API-side
+    # (see docs/api.md §6).
     page.goto(f"{BASE}/categorie/vehicules", wait_until="networkidle", timeout=60_000)
     page.wait_for_timeout(4_000)
     save_text(out_dir, "categorie_vehicules.html", page.content())
@@ -126,20 +126,18 @@ def _explorer(page: Page, out_dir: Path, vente_id: str) -> None:
     page.goto(f"{BASE}/ventes", wait_until="networkidle", timeout=60_000)
     page.wait_for_timeout(4_000)
     save_text(out_dir, "ventes.html", page.content())
-    links = _liens(page)
+    links = _links(page)
     save_text(out_dir, "ventes_links.json", json.dumps(links, indent=2))
 
-    vente_href = (
-        f"/vente/{vente_id}"
-        if vente_id
-        else next((h for h in links if h.startswith("/vente/")), "")
+    sale_href = (
+        f"/vente/{sale_id}" if sale_id else next((h for h in links if h.startswith("/vente/")), "")
     )
-    if not vente_href:
+    if not sale_href:
         return
-    page.goto(f"{BASE}{vente_href}", wait_until="networkidle", timeout=60_000)
+    page.goto(f"{BASE}{sale_href}", wait_until="networkidle", timeout=60_000)
     page.wait_for_timeout(4_000)
     save_text(out_dir, "vente.html", page.content())
-    lot_links = _liens(page)
+    lot_links = _links(page)
     save_text(out_dir, "vente_links.json", json.dumps(lot_links, indent=2))
 
     lot_href = next((h for h in lot_links if h.startswith("/lot/") or "/hermes/" in h), "")
@@ -153,7 +151,9 @@ def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--out", type=Path, default=Path("var/discovery"))
     parser.add_argument("--headed", action="store_true", help="afficher le navigateur")
-    parser.add_argument("--vente-id", default="", help="id de vente a ouvrir (sinon: 1er lien)")
+    parser.add_argument(
+        "--sale-id", default="", help="id de vente à ouvrir (sinon : premier lien trouvé)"
+    )
     args = parser.parse_args()
 
     out_dir: Path = args.out
@@ -166,8 +166,8 @@ def main() -> int:
         page = context.new_page()
         page.on("response", recorder.on_response)
 
-        _conformite(page, out_dir)
-        _explorer(page, out_dir, args.vente_id)
+        _compliance(page, out_dir)
+        _explore(page, out_dir, args.sale_id)
 
         cookies = context.cookies()
         save_text(out_dir, "cookies.json", json.dumps(cookies, indent=2))
@@ -186,7 +186,7 @@ def main() -> int:
         for c in recorder.captures
     ]
     save_text(out_dir, "captures.json", json.dumps(report, ensure_ascii=False, indent=2))
-    print(f"{len(report)} reponses JSON capturees -> {out_dir}")
+    print(f"{len(report)} réponses JSON capturées -> {out_dir}")
     for capture in recorder.captures:
         print(f"  {capture.status} {capture.method} {capture.url[:130]}")
     return 0

@@ -1,8 +1,8 @@
-"""Les requetes GraphQL doivent rester identiques a celles de l'application.
+"""GraphQL requests must stay identical to the application's own.
 
-Le pare-feu applicatif du site valide la forme des parametres : une requete
-forgee, meme semantiquement equivalente, est rejetee puis suivie d'un
-challenge anti-robot. Ce test est donc un garde-fou, pas une formalite.
+The site's web application firewall validates the shape of the parameters: a
+forged request, even a semantically equivalent one, is rejected and followed
+by an anti-bot challenge. This test is a guard rail, not a formality.
 """
 
 from __future__ import annotations
@@ -20,24 +20,24 @@ REFERENCE = json.loads(
     )
 )
 
-CORRESPONDANCES = {
-    "LISTE_VENTES": "getAuctions",
-    "ENTETE_VENTE": "getAuctionHeaderInfos",
-    "LOTS_DE_VENTE": "getAuctionLots",
-    "FICHE_LOT_PRINCIPALE": "getProductPageMain",
-    "FICHE_LOT_ENCHERE": "getProductPageSide",
+MAPPINGS = {
+    "SALES_LIST": "getAuctions",
+    "SALE_HEADER": "getAuctionHeaderInfos",
+    "SALE_LOTS": "getAuctionLots",
+    "LOT_MAIN": "getProductPageMain",
+    "LOT_BIDDING": "getProductPageSide",
 }
 
 
-@pytest.mark.parametrize(("constante", "operation"), CORRESPONDANCES.items())
-def test_requete_identique_a_la_capture(constante: str, operation: str) -> None:
-    assert getattr(operations, constante) == REFERENCE[operation]["query"]
+@pytest.mark.parametrize(("constant", "operation"), MAPPINGS.items())
+def test_request_is_identical_to_the_capture(constant: str, operation: str) -> None:
+    assert getattr(operations, constant) == REFERENCE[operation]["query"]
 
 
-@pytest.mark.parametrize(("constante", "operation"), CORRESPONDANCES.items())
-def test_nom_doperation_declare(constante: str, operation: str) -> None:
-    assert operations.NOM_OPERATION[getattr(operations, constante)] == operation
+@pytest.mark.parametrize(("constant", "operation"), MAPPINGS.items())
+def test_operation_name_is_declared(constant: str, operation: str) -> None:
+    assert operations.OPERATION_NAME[getattr(operations, constant)] == operation
 
 
-def test_chemin_de_passerelle() -> None:
-    assert operations.CHEMIN_GRAPHQL == "/gateway/magento/graphql/"
+def test_gateway_path() -> None:
+    assert operations.GRAPHQL_PATH == "/gateway/magento/graphql/"

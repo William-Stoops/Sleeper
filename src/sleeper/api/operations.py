@@ -1,28 +1,28 @@
-"""Operations GraphQL de l'application du Domaine.
+"""GraphQL operations of the Domaine's application.
 
-Ces chaines sont reproduites A L'IDENTIQUE de ce que la page emet. Ce n'est
-pas une coquetterie : le pare-feu applicatif du site valide la forme et la
-longueur des parametres, et rejette (400, puis challenge anti-robot) toute
-requete forgee, meme semantiquement equivalente.
+These strings reproduce EXACTLY what the page emits. That is not fussiness:
+the site's web application firewall validates the shape and the length of the
+parameters, and rejects any forged request — with a 400, then an anti-bot
+challenge — even when it is semantically equivalent.
 
-Sleeper rejoue donc le contrat public de l'application, sans le detourner :
-seules les VARIABLES changent d'un appel a l'autre. Toute modification d'une
-de ces chaines doit etre precedee d'une re-execution de la decouverte
-(tools/discover_api.py) et repercutee dans docs/api.md.
+Sleeper therefore replays the application's public contract without diverting
+it: only the VARIABLES change from one call to the next. Any change to one of
+these strings must be preceded by a fresh discovery run
+(tools/discover_api.py) and reflected in docs/api.md.
 
-Relevees le 2026-08-25 sur encheres-domaine.gouv.fr.
+Recorded on 2026-08-25 from encheres-domaine.gouv.fr.
 """
 
 from __future__ import annotations
 
 from typing import Final
 
-#: Chemin de la passerelle GraphQL, relatif a `reseau.base_url`.
-CHEMIN_GRAPHQL: Final = "/gateway/magento/graphql/"
+#: Path of the GraphQL gateway, relative to `network.base_url`.
+GRAPHQL_PATH: Final = "/gateway/magento/graphql/"
 
-#: Liste paginee des ventes, filtrable sur `auction_auto_status`.
+#: Paginated list of sales, filterable on `auction_auto_status`.
 #: operationName = 'getAuctions'
-LISTE_VENTES: Final = (
+SALES_LIST: Final = (
     "query getAuctions($currentPage:Int$filter:AuctionFiltersInput$pageSize:Int$sort:AuctionS"
     "ortsInput){auctionsList(currentPage:$currentPage filter:$filter pageSize:$pageSize sort:"
     "$sort){items{auction_auto_status auction_documents{pdf_specifications{label url_path typ"
@@ -32,9 +32,9 @@ LISTE_VENTES: Final = (
     "fo{total_pages __typename}total_count __typename}}"
 )
 
-#: Entete d'une vente : intitule, dates, direction regionale.
+#: Header of a sale: title, dates, regional directorate.
 #: operationName = 'getAuctionHeaderInfos'
-ENTETE_VENTE: Final = (
+SALE_HEADER: Final = (
     "query getAuctionHeaderInfos($id:Int!){auction(id:$id){auction_additional_status auction_"
     "auto_status auction_documents{conditions_of_sale{label url_path type size __typename}pdf"
     "_specifications{label url_path type size __typename}sales_catalog{label url_path type si"
@@ -45,9 +45,9 @@ ENTETE_VENTE: Final = (
     "_text type type_text __typename}}"
 )
 
-#: Lots d'une vente : prix, lieu de retrait, mention professionnels.
+#: Lots of a sale: prices, collection point, trade-only flag.
 #: operationName = 'getAuctionLots'
-LOTS_DE_VENTE: Final = (
+SALE_LOTS: Final = (
     "query getAuctionLots($currentPage:Int$filter:ProductAttributeFilterInput$pageSize:Int$so"
     "rt:ProductAttributeSortInput){products(currentPage:$currentPage filter:$filter pageSize:"
     "$pageSize sort:$sort){...ProductsFragment __typename}}fragment ProductsFragment on Produ"
@@ -60,9 +60,9 @@ LOTS_DE_VENTE: Final = (
     "info{total_pages __typename}total_count __typename}"
 )
 
-#: Fiche complete d'un lot, avec ses attributs vehicule.
+#: Full listing of a lot, with its vehicle attributes.
 #: operationName = 'getProductPageMain'
-FICHE_LOT_PRINCIPALE: Final = (
+LOT_MAIN: Final = (
     "query getProductPageMain($urlKey:String!){products(filter:{url_key:{eq:$urlKey}}){items{"
     "uid __typename auction_type categories{uid breadcrumbs{category_uid category_name catego"
     "ry_url_path category_level __typename}image name url_key url_path __typename}custom_attr"
@@ -80,9 +80,9 @@ FICHE_LOT_PRINCIPALE: Final = (
     "bel percent __typename}state_property_tax url_key}__typename}}"
 )
 
-#: Volet enchere d'un lot : mise a prix, derniere enchere, statut.
+#: Bidding panel of a lot: starting price, last bid, status.
 #: operationName = 'getProductPageSide'
-FICHE_LOT_ENCHERE: Final = (
+LOT_BIDDING: Final = (
     "query getProductPageSide($urlKey:String!){products(filter:{url_key:{eq:$urlKey}}){items{"
     "ape_authorization ape_restriction not_conforme auction auction_documents{pdf_specificati"
     "ons{label url_path type size __typename}__typename}auction_auto_status auction_name auct"
@@ -94,11 +94,11 @@ FICHE_LOT_ENCHERE: Final = (
     "e}start_auction_lot_at start_date uid url_key __typename}__typename}}"
 )
 
-#: `operationName` attendu par la passerelle pour chaque requete.
-NOM_OPERATION: Final[dict[str, str]] = {
-    LISTE_VENTES: "getAuctions",
-    ENTETE_VENTE: "getAuctionHeaderInfos",
-    LOTS_DE_VENTE: "getAuctionLots",
-    FICHE_LOT_PRINCIPALE: "getProductPageMain",
-    FICHE_LOT_ENCHERE: "getProductPageSide",
+#: `operationName` expected by the gateway for each request.
+OPERATION_NAME: Final[dict[str, str]] = {
+    SALES_LIST: "getAuctions",
+    SALE_HEADER: "getAuctionHeaderInfos",
+    SALE_LOTS: "getAuctionLots",
+    LOT_MAIN: "getProductPageMain",
+    LOT_BIDDING: "getProductPageSide",
 }

@@ -1,11 +1,10 @@
-"""Destinations de sortie.
+"""Output destinations.
 
-Le contrat est volontairement minimal — deposer un contenu nomme, et faire
-pointer un nom stable vers le dernier depot — pour qu'une destination
-distante (depot Git, stockage objet) puisse etre ajoutee plus tard sans
-toucher au reste de la chaine.
+The contract is deliberately minimal — drop a named payload, and point a
+stable name at the latest drop — so that a remote destination (Git repository,
+object storage) can be added later without touching the rest of the chain.
 
-Seule la destination « fichier local » est implementee aujourd'hui.
+Only the local-file destination is implemented today.
 """
 
 from __future__ import annotations
@@ -15,53 +14,53 @@ from typing import Protocol
 
 
 class Sink(Protocol):
-    """Destination des artefacts produits par un run."""
+    """Destination for the artefacts a run produces."""
 
-    def deposer(self, nom: str, contenu: bytes) -> str:
-        """Depose un contenu et rend son emplacement, lisible par un humain."""
+    def put(self, name: str, payload: bytes) -> str:
+        """Drop a payload and return where it landed, readable by a human."""
         ...
 
-    def pointer_vers_courant(self, nom_cible: str, nom_lien: str) -> str:
-        """Fait pointer un nom stable vers le dernier artefact depose."""
+    def point_at_latest(self, target_name: str, link_name: str) -> str:
+        """Point a stable name at the most recent artefact."""
         ...
 
 
-class SinkFichier:
-    """Ecrit dans un repertoire local, avec un raccourci vers le dernier run."""
+class FileSink:
+    """Writes into a local directory, with a shortcut to the latest run."""
 
-    def __init__(self, repertoire: Path) -> None:
-        self._repertoire = repertoire
-        repertoire.mkdir(parents=True, exist_ok=True)
+    def __init__(self, directory: Path) -> None:
+        self._directory = directory
+        directory.mkdir(parents=True, exist_ok=True)
 
     @property
-    def repertoire(self) -> Path:
-        return self._repertoire
+    def directory(self) -> Path:
+        return self._directory
 
-    def deposer(self, nom: str, contenu: bytes) -> str:
-        """Ecrit le contenu de maniere atomique : jamais de fichier a moitie ecrit."""
-        cible = self._repertoire / nom
-        provisoire = cible.with_name(f".{nom}.partiel")
-        provisoire.write_bytes(contenu)
-        provisoire.replace(cible)
-        return str(cible)
+    def put(self, name: str, payload: bytes) -> str:
+        """Write atomically: never a half-written file."""
+        target = self._directory / name
+        staging = target.with_name(f".{name}.partiel")
+        staging.write_bytes(payload)
+        staging.replace(target)
+        return str(target)
 
-    def pointer_vers_courant(self, nom_cible: str, nom_lien: str) -> str:
-        """Cree `latest.json` : lien symbolique si possible, copie sinon.
+    def point_at_latest(self, target_name: str, link_name: str) -> str:
+        """Create `latest.json`: a symlink when possible, a copy otherwise.
 
-        Windows refuse les liens symboliques sans privilege particulier ; on
-        retombe alors sur une copie, qui rend le meme service.
+        Windows refuses symlinks without a specific privilege; we then fall
+        back to a copy, which renders the same service.
         """
-        lien = self._repertoire / nom_lien
-        cible = self._repertoire / nom_cible
-        lien.unlink(missing_ok=True)
+        link = self._directory / link_name
+        target = self._directory / target_name
+        link.unlink(missing_ok=True)
         try:
-            lien.symlink_to(nom_cible)
+            link.symlink_to(target_name)
         except (OSError, NotImplementedError):
-            lien.write_bytes(cible.read_bytes())
-        return str(lien)
+            link.write_bytes(target.read_bytes())
+        return str(link)
 
 
-def nom_horodate(prefixe: str, instant: str, extension: str) -> str:
-    """Compose un nom de fichier portable a partir d'un horodatage ISO."""
-    sur = instant.replace(":", "-").replace("+", "_")
-    return f"{prefixe}-{sur}.{extension}"
+def timestamped_name(prefix: str, instant: str, extension: str) -> str:
+    """Build a portable file name from an ISO timestamp."""
+    safe = instant.replace(":", "-").replace("+", "_")
+    return f"{prefix}-{safe}.{extension}"

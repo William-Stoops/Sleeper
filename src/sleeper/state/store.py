@@ -1,18 +1,18 @@
-"""Etat persistant sur SQLite.
+"""Persistent state on SQLite.
 
-Trois roles :
+Three jobs:
 
-* distinguer les lots reellement nouveaux des lots deja vus ;
-* suivre l'historique des encheres, lot par lot, sans bruit ;
-* eviter de retelecharger une fiche inchangee.
+* tell genuinely new lots apart from lots already seen;
+* track the bid history, lot by lot, without noise;
+* avoid re-downloading an unchanged listing.
 
-Et un quatrieme, differe : constituer la serie historique qui permettra de
-savoir a quel pourcentage de la mise a prix les lots partent reellement.
+And a fourth, deferred one: build the historical series that will show at what
+percentage of the starting price lots actually sell.
 
-`historique_encheres`, `ventes_cloturees` et `adjudications` sont la surface de
-LECTURE de cette serie. Le run quotidien ne s'en sert pas — c'est normal : il
-ecrit, il ne relit pas. Elles existent pour le systeme d'analyse aval, elles
-sont couvertes par des tests, et elles fixent le contrat de lecture de la base.
+`bid_history`, `closed_sales` and `hammer_prices` are the READ surface of that
+series. The daily run does not use them — that is expected: it writes, it does
+not read back. They exist for the downstream analysis system, they are covered
+by tests, and they pin the read contract of the database.
 """
 
 from __future__ import annotations
@@ -30,288 +30,283 @@ from typing import Any, Self
 from sleeper.state.migrations import MIGRATIONS
 
 _UPSERT_LOT = """
-    INSERT INTO lot (id, vente_id, url, titre, reserve_aux_professionnels,
-                     mise_a_prix, code_postal, departement,
-                     vue_la_premiere_fois, vue_la_derniere_fois)
+    INSERT INTO lot (id, sale_id, url, title, trade_only, starting_price,
+                     postcode, department, first_seen_at, last_seen_at)
     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     ON CONFLICT(id) DO UPDATE SET
-        vente_id = excluded.vente_id,
+        sale_id = excluded.sale_id,
         url = excluded.url,
-        titre = excluded.titre,
-        reserve_aux_professionnels = excluded.reserve_aux_professionnels,
-        mise_a_prix = excluded.mise_a_prix,
-        code_postal = excluded.code_postal,
-        departement = excluded.departement,
-        vue_la_derniere_fois = excluded.vue_la_derniere_fois
+        title = excluded.title,
+        trade_only = excluded.trade_only,
+        starting_price = excluded.starting_price,
+        postcode = excluded.postcode,
+        department = excluded.department,
+        last_seen_at = excluded.last_seen_at
 """
 
 
 @dataclass(frozen=True, slots=True)
-class ObservationLot:
-    """Ce que l'etat sait dire d'un lot au moment ou on le revoit."""
+class LotObservation:
+    """What the state can say about a lot when it is seen again."""
 
-    nouveau: bool
-    enchere_a_bouge: bool
-    enchere_precedente: float | None
+    is_new: bool
+    bid_moved: bool
+    previous_bid: float | None
 
 
-class EtatSleeper:
-    """Acces a la base d'etat. A utiliser comme gestionnaire de contexte."""
+class SleeperState:
+    """Access to the state database. Use as a context manager."""
 
-    def __init__(self, chemin: Path) -> None:
-        self._chemin = chemin
-        chemin.parent.mkdir(parents=True, exist_ok=True)
-        self._cnx = sqlite3.connect(chemin, isolation_level=None)
+    def __init__(self, path: Path) -> None:
+        self._path = path
+        path.parent.mkdir(parents=True, exist_ok=True)
+        self._cnx = sqlite3.connect(path, isolation_level=None)
         self._cnx.row_factory = sqlite3.Row
         self._cnx.execute("PRAGMA journal_mode = WAL")
         self._cnx.execute("PRAGMA foreign_keys = ON")
-        self._migrer()
+        self._migrate()
 
     def __enter__(self) -> Self:
         return self
 
     def __exit__(
         self,
-        type_exc: type[BaseException] | None,
-        valeur: BaseException | None,
-        trace: TracebackType | None,
+        exc_type: type[BaseException] | None,
+        exc_value: BaseException | None,
+        traceback: TracebackType | None,
     ) -> None:
-        self.fermer()
+        self.close()
 
-    def fermer(self) -> None:
+    def close(self) -> None:
         self._cnx.close()
 
     # ------------------------------------------------------------------ schema
 
-    def _migrer(self) -> None:
+    def _migrate(self) -> None:
         self._cnx.execute(
             "CREATE TABLE IF NOT EXISTS schema_version ("
-            " version INTEGER PRIMARY KEY, applique_le TEXT NOT NULL)"
+            " version INTEGER PRIMARY KEY, applied_at TEXT NOT NULL)"
         )
-        courante = self.version_schema()
+        current = self.schema_version()
         for version, sql in MIGRATIONS:
-            if version <= courante:
+            if version <= current:
                 continue
             with self._cnx:
                 self._cnx.executescript(sql)
                 self._cnx.execute(
-                    "INSERT INTO schema_version (version, applique_le) VALUES (?, datetime('now'))",
+                    "INSERT INTO schema_version (version, applied_at) VALUES (?, datetime('now'))",
                     (version,),
                 )
 
-    def version_schema(self) -> int:
-        """Derniere migration appliquee. Zero sur une base neuve."""
-        with closing(self._cnx.execute("SELECT MAX(version) AS v FROM schema_version")) as curseur:
-            return int(curseur.fetchone()["v"] or 0)
+    def schema_version(self) -> int:
+        """Last migration applied. Zero on a fresh database."""
+        with closing(self._cnx.execute("SELECT MAX(version) AS v FROM schema_version")) as cursor:
+            return int(cursor.fetchone()["v"] or 0)
 
-    # ------------------------------------------------------------------- ventes
+    # ------------------------------------------------------------------- sales
 
-    def enregistrer_vente(
+    def record_sale(
         self,
         *,
-        vente_id: int,
-        intitule: str,
-        direction_regionale: str,
-        statut: int,
-        nb_lots: int,
-        date_ouverture: datetime | None,
-        date_cloture: datetime | None,
-        horodatage: datetime,
+        sale_id: int,
+        title: str,
+        regional_directorate: str,
+        status: int,
+        lot_count: int,
+        opens_at: datetime | None,
+        closes_at: datetime | None,
+        timestamp: datetime,
     ) -> None:
-        """Enregistre ou rafraichit une vente vue pendant ce run."""
-        vu = horodatage.isoformat()
+        """Record or refresh a sale seen during this run."""
+        seen = timestamp.isoformat()
         with self._cnx:
             self._cnx.execute(
                 """
-                INSERT INTO vente (id, intitule, direction_regionale, statut, nb_lots,
-                                   date_ouverture, date_cloture,
-                                   vue_la_premiere_fois, vue_la_derniere_fois)
+                INSERT INTO sale (id, title, regional_directorate, status, lot_count,
+                                  opens_at, closes_at, first_seen_at, last_seen_at)
                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
                 ON CONFLICT(id) DO UPDATE SET
-                    intitule = excluded.intitule,
-                    direction_regionale = excluded.direction_regionale,
-                    statut = excluded.statut,
-                    nb_lots = excluded.nb_lots,
-                    date_ouverture = excluded.date_ouverture,
-                    date_cloture = excluded.date_cloture,
-                    vue_la_derniere_fois = excluded.vue_la_derniere_fois,
-                    cloturee_le = NULL
+                    title = excluded.title,
+                    regional_directorate = excluded.regional_directorate,
+                    status = excluded.status,
+                    lot_count = excluded.lot_count,
+                    opens_at = excluded.opens_at,
+                    closes_at = excluded.closes_at,
+                    last_seen_at = excluded.last_seen_at,
+                    closed_at = NULL
                 """,
                 (
-                    vente_id,
-                    intitule,
-                    direction_regionale,
-                    statut,
-                    nb_lots,
-                    _iso(date_ouverture),
-                    _iso(date_cloture),
-                    vu,
-                    vu,
+                    sale_id,
+                    title,
+                    regional_directorate,
+                    status,
+                    lot_count,
+                    _iso(opens_at),
+                    _iso(closes_at),
+                    seen,
+                    seen,
                 ),
             )
 
-    def cloturer_ventes_absentes(self, vues: Iterable[int], horodatage: datetime) -> None:
-        """Marque comme cloturees les ventes connues qui ne sont plus publiees.
+    def close_absent_sales(self, seen: Iterable[int], timestamp: datetime) -> None:
+        """Mark known sales that are no longer published as closed.
 
-        Un run qui n'a vu AUCUNE vente ne cloture rien. Le site publie en
-        permanence des ventes ouvertes : un scan vide signale bien plus
-        surement une panne amont qu'un catalogue reellement vide, et il ne doit
-        pas se traduire par une cloture en masse de l'historique.
+        A run that saw NO sale closes nothing. The site permanently publishes
+        open sales: an empty scan signals an upstream failure far more surely
+        than a genuinely empty catalogue, and must not translate into a mass
+        closure of the history.
         """
-        identifiants = tuple(vues)
-        if not identifiants:
+        identifiers = tuple(seen)
+        if not identifiers:
             return
-        trous = ",".join("?" * len(identifiants))
+        # `holes` is only a run of "?" derived from the number of identifiers:
+        # no data is interpolated here.
+        holes = ",".join("?" * len(identifiers))
         with self._cnx:
             self._cnx.execute(
-                # `trous` n'est qu'une suite de « ? » derivee du nombre
-                # d'identifiants : aucune donnee n'est interpolee ici.
-                f"UPDATE vente SET cloturee_le = ? "
-                f"WHERE cloturee_le IS NULL AND id NOT IN ({trous})",
-                (horodatage.isoformat(), *identifiants),
+                f"UPDATE sale SET closed_at = ? WHERE closed_at IS NULL AND id NOT IN ({holes})",
+                (timestamp.isoformat(), *identifiers),
             )
 
-    def ventes_cloturees(self) -> list[int]:
-        """Identifiants des ventes constatees cloturees."""
+    def closed_sales(self) -> list[int]:
+        """Identifiers of sales observed as closed."""
         with closing(
-            self._cnx.execute("SELECT id FROM vente WHERE cloturee_le IS NOT NULL ORDER BY id")
-        ) as curseur:
-            return [int(ligne["id"]) for ligne in curseur]
+            self._cnx.execute("SELECT id FROM sale WHERE closed_at IS NOT NULL ORDER BY id")
+        ) as cursor:
+            return [int(row["id"]) for row in cursor]
 
     # ---------------------------------------------------------------------- lots
 
-    def observer_lot(
+    def observe_lot(
         self,
         *,
         lot_id: int,
-        vente_id: int,
+        sale_id: int,
         url: str,
-        titre: str,
-        reserve_aux_professionnels: bool | None,
-        mise_a_prix: float | None,
-        enchere_en_cours: float | None,
-        code_postal: str,
-        departement: str,
-        horodatage: datetime,
-    ) -> ObservationLot:
-        """Consigne un lot et dit ce qui a change depuis la derniere fois."""
-        vu = horodatage.isoformat()
-        with closing(self._cnx.execute("SELECT id FROM lot WHERE id = ?", (lot_id,))) as curseur:
-            nouveau = curseur.fetchone() is None
+        title: str,
+        trade_only: bool | None,
+        starting_price: float | None,
+        current_bid: float | None,
+        postcode: str,
+        department: str,
+        timestamp: datetime,
+    ) -> LotObservation:
+        """Record a lot and report what changed since last time."""
+        seen = timestamp.isoformat()
+        with closing(self._cnx.execute("SELECT id FROM lot WHERE id = ?", (lot_id,))) as cursor:
+            is_new = cursor.fetchone() is None
 
-        precedente = self.derniere_enchere(lot_id)
-        a_bouge = enchere_en_cours is not None and enchere_en_cours != precedente
+        previous = self.last_bid(lot_id)
+        moved = current_bid is not None and current_bid != previous
 
         with self._cnx:
             self._cnx.execute(
                 _UPSERT_LOT,
                 (
                     lot_id,
-                    vente_id,
+                    sale_id,
                     url,
-                    titre,
-                    _booleen(reserve_aux_professionnels),
-                    mise_a_prix,
-                    code_postal,
-                    departement,
-                    vu,
-                    vu,
+                    title,
+                    _as_int(trade_only),
+                    starting_price,
+                    postcode,
+                    department,
+                    seen,
+                    seen,
                 ),
             )
-            # Une ligne d'historique n'est ecrite QUE si le montant a change :
-            # c'est ce qui garantit qu'un run sans changement amont ne laisse
-            # aucune trace et ne declenche aucune fausse alerte.
-            if a_bouge:
+            # A history row is written ONLY when the amount changed: that is
+            # what guarantees a run with no upstream change leaves no trace and
+            # raises no false alert.
+            if moved:
                 self._cnx.execute(
-                    "INSERT OR REPLACE INTO enchere (lot_id, horodatage, montant) VALUES (?, ?, ?)",
-                    (lot_id, vu, enchere_en_cours),
+                    "INSERT OR REPLACE INTO bid (lot_id, recorded_at, amount) VALUES (?, ?, ?)",
+                    (lot_id, seen, current_bid),
                 )
 
-        return ObservationLot(
-            nouveau=nouveau, enchere_a_bouge=a_bouge, enchere_precedente=precedente
-        )
+        return LotObservation(is_new=is_new, bid_moved=moved, previous_bid=previous)
 
-    def derniere_enchere(self, lot_id: int) -> float | None:
-        """Dernier montant d'enchere consigne pour ce lot."""
+    def last_bid(self, lot_id: int) -> float | None:
+        """Last bid amount recorded for this lot."""
         with closing(
             self._cnx.execute(
-                "SELECT montant FROM enchere WHERE lot_id = ? ORDER BY horodatage DESC LIMIT 1",
+                "SELECT amount FROM bid WHERE lot_id = ? ORDER BY recorded_at DESC LIMIT 1",
                 (lot_id,),
             )
-        ) as curseur:
-            ligne = curseur.fetchone()
-        return None if ligne is None or ligne["montant"] is None else float(ligne["montant"])
+        ) as cursor:
+            row = cursor.fetchone()
+        return None if row is None or row["amount"] is None else float(row["amount"])
 
-    def historique_encheres(self, lot_id: int) -> list[tuple[str, float]]:
-        """Suite des montants constates, du plus ancien au plus recent."""
+    def bid_history(self, lot_id: int) -> list[tuple[str, float]]:
+        """Sequence of observed amounts, oldest first."""
         with closing(
             self._cnx.execute(
-                "SELECT horodatage, montant FROM enchere WHERE lot_id = ? ORDER BY horodatage",
+                "SELECT recorded_at, amount FROM bid WHERE lot_id = ? ORDER BY recorded_at",
                 (lot_id,),
             )
-        ) as curseur:
-            return [(str(x["horodatage"]), float(x["montant"])) for x in curseur]
+        ) as cursor:
+            return [(str(x["recorded_at"]), float(x["amount"])) for x in cursor]
 
-    # ------------------------------------------------------------- adjudications
+    # ------------------------------------------------------------- hammer prices
 
-    def enregistrer_adjudication(
-        self, lot_id: int, montant: float, mise_a_prix: float | None, horodatage: datetime
+    def record_hammer_price(
+        self, lot_id: int, amount: float, starting_price: float | None, timestamp: datetime
     ) -> None:
-        """Consigne un prix d'adjudication devenu visible."""
+        """Record a hammer price that has become visible."""
         with self._cnx:
             self._cnx.execute(
-                "INSERT INTO adjudication (lot_id, montant, mise_a_prix, constate_le) "
+                "INSERT INTO hammer_price (lot_id, amount, starting_price, observed_at) "
                 "VALUES (?, ?, ?, ?) ON CONFLICT(lot_id) DO UPDATE SET "
-                "montant = excluded.montant, mise_a_prix = excluded.mise_a_prix",
-                (lot_id, montant, mise_a_prix, horodatage.isoformat()),
+                "amount = excluded.amount, starting_price = excluded.starting_price",
+                (lot_id, amount, starting_price, timestamp.isoformat()),
             )
 
-    def adjudications(self) -> list[tuple[int, float, float | None]]:
-        """Adjudications connues : (lot, montant, mise a prix)."""
+    def hammer_prices(self) -> list[tuple[int, float, float | None]]:
+        """Known hammer prices: (lot, amount, starting price)."""
         with closing(
             self._cnx.execute(
-                "SELECT lot_id, montant, mise_a_prix FROM adjudication ORDER BY lot_id"
+                "SELECT lot_id, amount, starting_price FROM hammer_price ORDER BY lot_id"
             )
-        ) as curseur:
+        ) as cursor:
             return [
                 (
                     int(x["lot_id"]),
-                    float(x["montant"]),
-                    None if x["mise_a_prix"] is None else float(x["mise_a_prix"]),
+                    float(x["amount"]),
+                    None if x["starting_price"] is None else float(x["starting_price"]),
                 )
-                for x in curseur
+                for x in cursor
             ]
 
-    # ---------------------------------------------------------------- cache fiche
+    # ---------------------------------------------------------------- listing cache
 
-    def fiche_en_cache(self, lot_id: int, empreinte: str) -> dict[str, Any] | None:
-        """Fiche memorisee, si et seulement si son empreinte correspond."""
+    def cached_listing(self, lot_id: int, fingerprint: str) -> dict[str, Any] | None:
+        """Memorised listing, if and only if its fingerprint matches."""
         with closing(
             self._cnx.execute(
-                "SELECT empreinte, charge_utile FROM fiche_cache WHERE lot_id = ?", (lot_id,)
+                "SELECT fingerprint, payload FROM listing_cache WHERE lot_id = ?", (lot_id,)
             )
-        ) as curseur:
-            ligne = curseur.fetchone()
-        if ligne is None or ligne["empreinte"] != empreinte:
+        ) as cursor:
+            row = cursor.fetchone()
+        if row is None or row["fingerprint"] != fingerprint:
             return None
-        charge: dict[str, Any] = json.loads(ligne["charge_utile"])
-        return charge
+        cached: dict[str, Any] = json.loads(row["payload"])
+        return cached
 
-    def memoriser_fiche(
-        self, lot_id: int, empreinte: str, charge: Mapping[str, Any], horodatage: datetime
+    def cache_listing(
+        self, lot_id: int, fingerprint: str, payload: Mapping[str, Any], timestamp: datetime
     ) -> None:
-        """Memorise une fiche detaillee pour eviter de la retelecharger."""
+        """Memorise a detailed listing so it is not downloaded again."""
         with self._cnx:
             self._cnx.execute(
-                "INSERT INTO fiche_cache (lot_id, empreinte, charge_utile, mis_a_jour_le) "
+                "INSERT INTO listing_cache (lot_id, fingerprint, payload, updated_at) "
                 "VALUES (?, ?, ?, ?) ON CONFLICT(lot_id) DO UPDATE SET "
-                "empreinte = excluded.empreinte, charge_utile = excluded.charge_utile, "
-                "mis_a_jour_le = excluded.mis_a_jour_le",
+                "fingerprint = excluded.fingerprint, payload = excluded.payload, "
+                "updated_at = excluded.updated_at",
                 (
                     lot_id,
-                    empreinte,
-                    json.dumps(dict(charge), ensure_ascii=False),
-                    horodatage.isoformat(),
+                    fingerprint,
+                    json.dumps(dict(payload), ensure_ascii=False),
+                    timestamp.isoformat(),
                 ),
             )
 
@@ -320,5 +315,5 @@ def _iso(instant: datetime | None) -> str | None:
     return None if instant is None else instant.isoformat()
 
 
-def _booleen(valeur: bool | None) -> int | None:
-    return None if valeur is None else int(valeur)
+def _as_int(value: bool | None) -> int | None:
+    return None if value is None else int(value)

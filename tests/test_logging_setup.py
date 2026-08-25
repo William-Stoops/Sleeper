@@ -1,8 +1,8 @@
-"""Journalisation : format, niveau, et re-entrance.
+"""Logging: format, level, and re-entrance.
 
-Les assertions portent sur le flux d'erreur reel : `configurer` reinstalle le
-handler racine, ce qui rend les captures de pytest sur `logging` inoperantes —
-et c'est exactement le comportement voulu en production.
+Assertions look at the real error stream: `configure` reinstalls the root
+handler, which makes pytest's `logging` captures inoperative — and that is
+exactly the behaviour wanted in production.
 """
 
 from __future__ import annotations
@@ -14,57 +14,58 @@ from collections.abc import Iterator
 import pytest
 import structlog
 
-from sleeper.config import Journalisation
-from sleeper.logging_setup import configurer
+from sleeper.config import LoggingConfig
+from sleeper.logging_setup import configure
 
 
 @pytest.fixture(autouse=True)
-def _restaurer() -> Iterator[None]:
-    """Remet la journalisation dans son etat par defaut apres chaque test."""
+def _restore() -> Iterator[None]:
+    """Put logging back to its default state after each test."""
     yield
     structlog.reset_defaults()
     logging.basicConfig(force=True)
 
 
-def test_format_json_produit_une_ligne_exploitable(capsys: pytest.CaptureFixture[str]) -> None:
-    configurer(Journalisation(niveau="INFO", format="json"))
-    structlog.get_logger("essai").info("run.termine", retenus=8, ecartes=2)
-    charge = json.loads(capsys.readouterr().err.strip().splitlines()[-1])
-    assert charge["event"] == "run.termine"
-    assert (charge["retenus"], charge["ecartes"]) == (8, 2)
-    assert charge["level"] == "info"
+def test_json_format_produces_a_usable_line(capsys: pytest.CaptureFixture[str]) -> None:
+    configure(LoggingConfig(level="INFO", format="json"))
+    structlog.get_logger("essai").info("run.finished", kept=8, rejected=2)
+    payload = json.loads(capsys.readouterr().err.strip().splitlines()[-1])
+    assert payload["event"] == "run.finished"
+    assert (payload["kept"], payload["rejected"]) == (8, 2)
+    assert payload["level"] == "info"
 
 
-def test_format_json_nechappe_pas_les_accents(capsys: pytest.CaptureFixture[str]) -> None:
-    configurer(Journalisation(niveau="INFO", format="json"))
-    structlog.get_logger("essai").info("lot.ecarte", motif="véhicule non roulant")
-    sortie = capsys.readouterr().err
-    assert "véhicule non roulant" in sortie
+def test_json_format_does_not_escape_accents(capsys: pytest.CaptureFixture[str]) -> None:
+    configure(LoggingConfig(level="INFO", format="json"))
+    structlog.get_logger("essai").info("lot.rejected", reason="véhicule non roulant")
+    assert "véhicule non roulant" in capsys.readouterr().err
 
 
-def test_format_console_reste_lisible(capsys: pytest.CaptureFixture[str]) -> None:
-    configurer(Journalisation(niveau="INFO", format="console"))
-    structlog.get_logger("essai").info("run.termine", retenus=8)
-    sortie = capsys.readouterr().err
-    assert "run.termine" in sortie
-    assert not sortie.strip().startswith("{")
+def test_console_format_stays_readable(capsys: pytest.CaptureFixture[str]) -> None:
+    configure(LoggingConfig(level="INFO", format="console"))
+    structlog.get_logger("essai").info("run.finished", kept=8)
+    output = capsys.readouterr().err
+    assert "run.finished" in output
+    assert not output.strip().startswith("{")
 
 
-def test_le_niveau_filtre_les_evenements(capsys: pytest.CaptureFixture[str]) -> None:
-    configurer(Journalisation(niveau="WARNING", format="json"))
-    journal = structlog.get_logger("essai")
-    journal.info("ignore")
-    journal.warning("retenu")
-    sortie = capsys.readouterr().err
-    assert "retenu" in sortie
-    assert "ignore" not in sortie
+def test_the_level_filters_events(capsys: pytest.CaptureFixture[str]) -> None:
+    configure(LoggingConfig(level="WARNING", format="json"))
+    logger = structlog.get_logger("essai")
+    logger.info("ignored")
+    logger.warning("kept")
+    output = capsys.readouterr().err
+    assert "kept" in output
+    assert "ignored" not in output
 
 
-def test_reconfigurer_rebranche_sur_le_flux_courant(capsys: pytest.CaptureFixture[str]) -> None:
-    """Garde-fou : sans cela, un second appel ecrirait sur un flux perime."""
-    configurer(Journalisation(niveau="INFO", format="json"))
-    structlog.get_logger("essai").info("premier")
+def test_reconfiguring_rebinds_to_the_current_stream(
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    """Guard rail: without this, a second call would write to a stale stream."""
+    configure(LoggingConfig(level="INFO", format="json"))
+    structlog.get_logger("essai").info("first")
     capsys.readouterr()
-    configurer(Journalisation(niveau="INFO", format="console"))
+    configure(LoggingConfig(level="INFO", format="console"))
     structlog.get_logger("essai").info("second")
     assert "second" in capsys.readouterr().err

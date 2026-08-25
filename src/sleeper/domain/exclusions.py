@@ -1,19 +1,21 @@
-"""Regles d'exclusion metier.
+"""Business exclusion rules.
 
-Deux sources de verite, dans cet ordre :
+Two sources of truth, in this order:
 
-1. les attributs structures de la fiche (`vehicle_has_a_key`, `vhu_declared`…),
-   qui sont fiables ;
-2. le texte libre de la description, qui ne l'est pas — il est saisi a la main
-   par des agents differents selon la direction regionale, et comporte des
-   fautes de frappe releees en production (« porfessionnels »).
+1. the listing's structured attributes (`vehicle_has_a_key`, `vhu_declared`…),
+   which are reliable;
+2. the free-text description, which is not — it is typed by hand by staff of
+   different regional directorates, and carries typos recorded in production
+   ("porfessionnels").
 
-Chaque regle porte donc des expressions declenchantes ET des contre-expressions
-qui l'annulent. Ce choix est volontairement explicite plutot qu'heuristique :
-« sans choc apparent » ne doit pas ecarter un lot sain, et on veut pouvoir
-lire, tester et enrichir la liste sans deviner ce que fait un analyseur.
+Each rule therefore holds triggering phrases AND counter-phrases that cancel
+it. That choice is deliberately explicit rather than heuristic: "sans choc
+apparent" must not reject a sound lot, and the list has to stay readable,
+testable and extensible without guessing what a parser is up to.
 
-Les formulations reconnues sont documentees dans docs/regles-metier.md.
+Rule codes stay in French: they are part of the output contract
+(`ecartes[].motif`) and of the configuration the operator edits daily.
+Recognised wordings are documented in docs/regles-metier.md.
 """
 
 from __future__ import annotations
@@ -22,137 +24,136 @@ from collections.abc import Iterable, Mapping, Sequence
 from dataclasses import dataclass, replace
 from typing import Final
 
-from sleeper.domain import texte
-from sleeper.domain.codes import GENRES_HORS_CIBLE
+from sleeper.domain import text
+from sleeper.domain.codes import OUT_OF_SCOPE_KINDS
 
-#: Millesime en deca duquel un vehicule releve de la collection, pas du negoce.
-ANNEE_COLLECTION: Final = 1990
+#: Model year below which a vehicle is a collector's item, not stock in trade.
+CLASSIC_CAR_YEAR: Final = 1990
 
 
 @dataclass(frozen=True, slots=True)
-class SignalLot:
-    """Ce qu'une regle a le droit de regarder pour trancher.
+class LotSignals:
+    """Everything a rule is allowed to look at in order to decide.
 
-    Volontairement pauvre : une regle ne voit ni les prix, ni le perimetre, ni
-    l'etat de la vente. Elle ne juge que le bien.
+    Deliberately poor: a rule sees neither prices, nor scope, nor the state of
+    the sale. It judges the goods and nothing else.
     """
 
     description: str
-    kilometrage: int | None
-    a_une_cle: bool | None
-    certificat_immatriculation: bool | None
-    genre: str | None
-    annee_mise_en_circulation: int | None
-    vhu_declare: bool | None
-    immatriculable_a_nouveau: bool | None
-    non_conforme: bool | None
-    #: `True` si la fiche porte au moins un attribut vehicule (genre, marque,
-    #: modele). `None` quand la fiche n'a pas pu etre lue : on ne conclut pas.
-    a_des_attributs_vehicule: bool | None = None
+    mileage: int | None
+    has_key: bool | None
+    registration_certificate: bool | None
+    kind: str | None
+    first_registration_year: int | None
+    declared_end_of_life: bool | None
+    re_registrable: bool | None
+    non_compliant: bool | None
+    #: `True` when the listing carries at least one vehicle attribute (kind,
+    #: make, model). `None` when the listing could not be read: no conclusion.
+    has_vehicle_attributes: bool | None = None
 
 
 @dataclass(frozen=True, slots=True)
-class Regle:
-    """Une regle d'exclusion nommee, testable et extensible."""
+class Rule:
+    """A named exclusion rule: testable and extensible."""
 
     code: str
-    libelle: str
-    expressions: tuple[str, ...] = ()
-    contre_expressions: tuple[str, ...] = ()
+    label: str
+    phrases: tuple[str, ...] = ()
+    counter_phrases: tuple[str, ...] = ()
 
-    def declenche(self, signal: SignalLot) -> bool:
-        """Applique la regle. Le predicat structure passe avant le texte."""
-        if self._verdict_structure(signal) is True:
+    def matches(self, signals: LotSignals) -> bool:
+        """Apply the rule. The structured verdict comes before the text."""
+        if self._structured_verdict(signals) is True:
             return True
-        if any(texte.contient(signal.description, c) for c in self.contre_expressions):
+        if any(text.contains(signals.description, c) for c in self.counter_phrases):
             return False
-        return any(texte.contient(signal.description, e) for e in self.expressions)
+        return any(text.contains(signals.description, p) for p in self.phrases)
 
-    def _verdict_structure(self, signal: SignalLot) -> bool | None:
-        """Verdict issu des attributs fiables. `None` = la regle n'en a pas."""
-        return _VERDICTS_STRUCTURES.get(self.code, _sans_verdict)(signal)
+    def _structured_verdict(self, signals: LotSignals) -> bool | None:
+        """Verdict from the reliable attributes. `None` = the rule has none."""
+        return _STRUCTURED_VERDICTS.get(self.code, _no_verdict)(signals)
 
 
-def _sans_verdict(_: SignalLot) -> bool | None:
+def _no_verdict(_: LotSignals) -> bool | None:
     return None
 
 
-def _hors_categorie_vehicule(signal: SignalLot) -> bool | None:
-    """Une vente « Vehicules » vend aussi du mobilier, de la high-tech, des bijoux.
+def _not_a_vehicle(signals: LotSignals) -> bool | None:
+    """A "Véhicules" sale also sells furniture, consumer electronics, jewellery.
 
-    Ces lots n'ont aucun attribut vehicule. Les ecarter ici leur donne un motif
-    exact, au lieu de les faire tomber sur « kilometrage inconnu », qui serait
-    vrai mais trompeur.
+    Those lots carry no vehicle attribute. Rejecting them here gives them an
+    accurate reason instead of letting them fall on "kilométrage inconnu",
+    which would be true but misleading.
     """
-    if signal.a_des_attributs_vehicule is None:
+    if signals.has_vehicle_attributes is None:
         return None
-    return not signal.a_des_attributs_vehicule
+    return not signals.has_vehicle_attributes
 
 
-def _kilometrage_absent(signal: SignalLot) -> bool | None:
-    """Un compteur a zero n'est pas un kilometrage : c'est une absence de saisie."""
-    if signal.kilometrage:
+def _mileage_missing(signals: LotSignals) -> bool | None:
+    """A zero odometer is not a mileage: it is an unfilled field."""
+    if signals.mileage:
         return False
-    return None if texte.extraire_kilometrage(signal.description) else True
+    return None if text.extract_mileage(signals.description) else True
 
 
-def _sans_cle(signal: SignalLot) -> bool | None:
-    return None if signal.a_une_cle is None else not signal.a_une_cle
+def _no_key(signals: LotSignals) -> bool | None:
+    return None if signals.has_key is None else not signals.has_key
 
 
-def _sans_certificat(signal: SignalLot) -> bool | None:
-    if signal.certificat_immatriculation is None:
+def _no_registration_certificate(signals: LotSignals) -> bool | None:
+    if signals.registration_certificate is None:
         return None
-    return not signal.certificat_immatriculation
+    return not signals.registration_certificate
 
 
-def _non_roulant(signal: SignalLot) -> bool | None:
-    if signal.immatriculable_a_nouveau is False:
+def _not_roadworthy(signals: LotSignals) -> bool | None:
+    if signals.re_registrable is False:
         return True
     return None
 
 
-def _epave(signal: SignalLot) -> bool | None:
-    return True if signal.vhu_declare else None
+def _end_of_life(signals: LotSignals) -> bool | None:
+    return True if signals.declared_end_of_life else None
 
 
-def _genre_hors_cible(signal: SignalLot) -> bool | None:
-    if not signal.genre:
+def _out_of_scope_kind(signals: LotSignals) -> bool | None:
+    if not signals.kind:
         return None
-    return True if signal.genre.strip().upper() in GENRES_HORS_CIBLE else None
+    return True if signals.kind.strip().upper() in OUT_OF_SCOPE_KINDS else None
 
 
-def _collection(signal: SignalLot) -> bool | None:
-    annee = signal.annee_mise_en_circulation
-    if annee is None:
+def _classic_car(signals: LotSignals) -> bool | None:
+    year = signals.first_registration_year
+    if year is None:
         return None
-    return annee < ANNEE_COLLECTION
+    return year < CLASSIC_CAR_YEAR
 
 
-_VERDICTS_STRUCTURES: Final = {
-    "hors_categorie_vehicule": _hors_categorie_vehicule,
-    "kilometrage_inconnu": _kilometrage_absent,
-    "sans_cle": _sans_cle,
-    "sans_certificat_immatriculation": _sans_certificat,
-    "non_roulant": _non_roulant,
-    "epave_ou_pieces": _epave,
-    "genre_hors_cible": _genre_hors_cible,
-    "collection_avant_1990": _collection,
+_STRUCTURED_VERDICTS: Final = {
+    "hors_categorie_vehicule": _not_a_vehicle,
+    "kilometrage_inconnu": _mileage_missing,
+    "sans_cle": _no_key,
+    "sans_certificat_immatriculation": _no_registration_certificate,
+    "non_roulant": _not_roadworthy,
+    "epave_ou_pieces": _end_of_life,
+    "genre_hors_cible": _out_of_scope_kind,
+    "collection_avant_1990": _classic_car,
 }
 
 
-#: L'ordre est significatif : c'est celui dans lequel les motifs sont evalues,
-#: et donc celui qui rend le verdict reproductible pour un lot cumulant
-#: plusieurs defauts.
-REGLES_PAR_DEFAUT: Final[tuple[Regle, ...]] = (
-    Regle(
+#: Order matters: it is the order rules are evaluated in, and therefore what
+#: makes the verdict reproducible for a lot carrying several defects.
+DEFAULT_RULES: Final[tuple[Rule, ...]] = (
+    Rule(
         code="hors_categorie_vehicule",
-        libelle="Lot sans attribut vehicule (mobilier, high-tech, bijoux…)",
+        label="Lot sans attribut véhicule (mobilier, high-tech, bijoux…)",
     ),
-    Regle(
+    Rule(
         code="genre_hors_cible",
-        libelle="Genre de vehicule hors cible (deux-roues, quadricycle, agricole, remorque)",
-        expressions=(
+        label="Genre de véhicule hors cible (deux-roues, quadricycle, agricole, remorque)",
+        phrases=(
             "moto",
             "motocyclette",
             "scooter",
@@ -169,17 +170,17 @@ REGLES_PAR_DEFAUT: Final[tuple[Regle, ...]] = (
             "sans permis",
             "voiturette",
         ),
-        contre_expressions=("porte moto", "remorque non comprise"),
+        counter_phrases=("porte moto", "remorque non comprise"),
     ),
-    Regle(
+    Rule(
         code="collection_avant_1990",
-        libelle="Vehicule de collection anterieur a 1990",
-        expressions=("vehicule de collection", "carte grise de collection"),
+        label="Véhicule de collection antérieur à 1990",
+        phrases=("vehicule de collection", "carte grise de collection"),
     ),
-    Regle(
+    Rule(
         code="sans_cle",
-        libelle="Vehicule sans cle",
-        expressions=(
+        label="Véhicule sans clé",
+        phrases=(
             "sans cle",
             "sans cles",
             "sans clef",
@@ -197,12 +198,12 @@ REGLES_PAR_DEFAUT: Final[tuple[Regle, ...]] = (
             "cle manquante",
             "cles manquantes",
         ),
-        contre_expressions=("avec cle", "avec cles", "avec clef", "presence de cle"),
+        counter_phrases=("avec cle", "avec cles", "avec clef", "presence de cle"),
     ),
-    Regle(
+    Rule(
         code="sans_certificat_immatriculation",
-        libelle="Absence de certificat d'immatriculation",
-        expressions=(
+        label="Absence de certificat d'immatriculation",
+        phrases=(
             "sans carte grise",
             "sans cg",
             "cg absente",
@@ -217,12 +218,12 @@ REGLES_PAR_DEFAUT: Final[tuple[Regle, ...]] = (
             "carte grise non fournie",
             "vehicule non immatricule",
         ),
-        contre_expressions=("avec cg", "avec carte grise", "carte grise fournie"),
+        counter_phrases=("avec cg", "avec carte grise", "carte grise fournie"),
     ),
-    Regle(
+    Rule(
         code="epave_ou_pieces",
-        libelle="Epave ou vente pour pieces",
-        expressions=(
+        label="Épave ou vente pour pièces",
+        phrases=(
             "epave",
             "pour pieces",
             "pieces detachees",
@@ -232,12 +233,12 @@ REGLES_PAR_DEFAUT: Final[tuple[Regle, ...]] = (
             "a detruire",
             "cession pour destruction",
         ),
-        contre_expressions=("pieces jointes", "pieces du dossier"),
+        counter_phrases=("pieces jointes", "pieces du dossier"),
     ),
-    Regle(
+    Rule(
         code="non_roulant",
-        libelle="Vehicule non roulant",
-        expressions=(
+        label="Véhicule non roulant",
+        phrases=(
             "non roulant",
             "ne roule pas",
             "ne demarre pas",
@@ -246,19 +247,19 @@ REGLES_PAR_DEFAUT: Final[tuple[Regle, ...]] = (
             "hors etat de rouler",
             "ne circule plus",
         ),
-        # Une contre-expression ne doit jamais etre un fragment de son propre
-        # declencheur : « roulant » seul annulerait « non roulant ».
-        contre_expressions=(
+        # A counter-phrase must never be a fragment of its own trigger:
+        # "roulant" alone would cancel "non roulant".
+        counter_phrases=(
             "vehicule roulant",
             "en etat de rouler",
             "demarre correctement",
             "demarre et roule",
         ),
     ),
-    Regle(
+    Rule(
         code="moteur_hors_service",
-        libelle="Moteur hors service",
-        expressions=(
+        label="Moteur hors service",
+        phrases=(
             "moteur hors service",
             "moteur hs",
             "moteur casse",
@@ -268,12 +269,12 @@ REGLES_PAR_DEFAUT: Final[tuple[Regle, ...]] = (
             "joint de culasse hs",
             "boite hs",
         ),
-        contre_expressions=("moteur en bon etat", "moteur revise"),
+        counter_phrases=("moteur en bon etat", "moteur revise"),
     ),
-    Regle(
+    Rule(
         code="choc_ou_accident",
-        libelle="Choc, accident ou degats de carrosserie",
-        expressions=(
+        label="Choc, accident ou dégâts de carrosserie",
+        phrases=(
             "accidente",
             "accidentee",
             "vehicule accidente",
@@ -288,7 +289,7 @@ REGLES_PAR_DEFAUT: Final[tuple[Regle, ...]] = (
             "vehicule sinistre",
             "impacts de carrosserie",
         ),
-        contre_expressions=(
+        counter_phrases=(
             "sans choc",
             "aucun choc",
             "non accidente",
@@ -299,10 +300,10 @@ REGLES_PAR_DEFAUT: Final[tuple[Regle, ...]] = (
             "carrosserie en bon etat",
         ),
     ),
-    Regle(
+    Rule(
         code="gage_ou_opposition",
-        libelle="Gage ou opposition",
-        expressions=(
+        label="Gage ou opposition",
+        phrases=(
             "gage",
             "gagee",
             "vehicule gage",
@@ -310,12 +311,12 @@ REGLES_PAR_DEFAUT: Final[tuple[Regle, ...]] = (
             "saisie conservatoire",
             "situation administrative bloquee",
         ),
-        contre_expressions=("sans gage", "non gage", "aucune opposition", "sans opposition"),
+        counter_phrases=("sans gage", "non gage", "aucune opposition", "sans opposition"),
     ),
-    Regle(
+    Rule(
         code="kilometrage_inconnu",
-        libelle="Kilometrage inconnu, non renseigne ou absent",
-        expressions=(
+        label="Kilométrage inconnu, non renseigné ou absent",
+        phrases=(
             "kilometrage inconnu",
             "kilometrage non renseigne",
             "km inconnu",
@@ -329,44 +330,41 @@ REGLES_PAR_DEFAUT: Final[tuple[Regle, ...]] = (
 )
 
 
-class MoteurExclusions:
-    """Applique les regles dans l'ordre et rend le premier motif declenche."""
+class ExclusionEngine:
+    """Apply rules in order and return the first reason that fires."""
 
-    def __init__(self, regles: Sequence[Regle]) -> None:
-        self._regles = tuple(regles)
+    def __init__(self, rules: Sequence[Rule]) -> None:
+        self._rules = tuple(rules)
 
     @property
-    def regles(self) -> tuple[Regle, ...]:
-        return self._regles
+    def rules(self) -> tuple[Rule, ...]:
+        return self._rules
 
-    def motif(self, signal: SignalLot) -> str | None:
-        """Code du motif d'exclusion, ou `None` si le lot est retenu."""
-        for regle in self._regles:
-            if regle.declenche(signal):
-                return regle.code
+    def reason(self, signals: LotSignals) -> str | None:
+        """Code of the exclusion reason, or `None` when the lot is kept."""
+        for rule in self._rules:
+            if rule.matches(signals):
+                return rule.code
         return None
 
-    def libelle(self, code: str) -> str:
-        """Libelle lisible d'un motif, pour la restitution."""
-        for regle in self._regles:
-            if regle.code == code:
-                return regle.libelle
+    def label(self, code: str) -> str:
+        """Human-readable label of a reason, for reporting."""
+        for rule in self._rules:
+            if rule.code == code:
+                return rule.label
         raise KeyError(code)
 
     @classmethod
-    def avec_ajouts(
-        cls, regles: Sequence[Regle], ajouts: Mapping[str, Iterable[str]]
-    ) -> MoteurExclusions:
-        """Enrichit les regles avec les formulations rencontrees en production.
+    def with_extra_phrases(
+        cls, rules: Sequence[Rule], extras: Mapping[str, Iterable[str]]
+    ) -> ExclusionEngine:
+        """Enrich the rules with wordings met in production.
 
-        Une cle inconnue est une erreur : une faute de frappe dans la
-        configuration ne doit pas se traduire par une regle silencieusement
-        inoperante.
+        An unknown key is an error: a typo in the configuration must not turn
+        into a silently inert rule.
         """
-        connues = {r.code for r in regles}
-        if inconnues := set(ajouts) - connues:
-            raise KeyError(f"regle(s) d'exclusion inconnue(s) : {', '.join(sorted(inconnues))}")
-        enrichies = [
-            replace(r, expressions=r.expressions + tuple(ajouts.get(r.code, ()))) for r in regles
-        ]
-        return cls(enrichies)
+        known = {r.code for r in rules}
+        if unknown := set(extras) - known:
+            raise KeyError(f"règle(s) d'exclusion inconnue(s) : {', '.join(sorted(unknown))}")
+        enriched = [replace(r, phrases=r.phrases + tuple(extras.get(r.code, ()))) for r in rules]
+        return cls(enriched)

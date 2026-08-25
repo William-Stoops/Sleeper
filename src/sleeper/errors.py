@@ -1,49 +1,51 @@
-"""Hierarchie d'erreurs de Sleeper.
+"""Sleeper error hierarchy.
 
-Principe directeur du projet : un scraper qui se degrade en silence est pire
-qu'un scraper absent. Chaque mode de defaillance a donc son type, et aucun
-n'est rattrape en produisant une valeur par defaut.
+Guiding principle of this project: a scraper that degrades silently is worse
+than no scraper at all. Every failure mode therefore has its own type, and
+none of them is swallowed into a default value.
+
+Messages are in French: they surface to the operator.
 """
 
 from __future__ import annotations
 
 
 class SleeperError(Exception):
-    """Racine de toutes les erreurs du projet."""
+    """Root of every error raised by this project."""
 
 
 class ConfigurationError(SleeperError):
-    """Configuration absente, malformee ou incoherente. Echec au demarrage."""
+    """Missing, malformed or inconsistent configuration. Fails at startup."""
 
 
-class ReseauError(SleeperError):
-    """Echec de transport apres epuisement des tentatives."""
+class NetworkError(SleeperError):
+    """Transport failure after every retry has been exhausted."""
 
 
-class ProtectionAntiRobotError(SleeperError):
-    """Le site presente un challenge anti-robot (CAPTCHA, WAF).
+class AntiBotChallengeError(SleeperError):
+    """The site is serving an anti-bot challenge (CAPTCHA, WAF).
 
-    Cette erreur est terminale par conception : Sleeper ne resout aucun
-    challenge. Elle remonte jusqu'a l'operateur, qui espace les executions.
+    Terminal by design: Sleeper solves no challenge. It bubbles up to the
+    operator, whose job is to space runs further apart.
     """
 
 
-class SchemaAmontError(SleeperError):
-    """La reponse de l'API ne respecte plus la forme attendue.
+class UpstreamSchemaError(SleeperError):
+    """The API response no longer has the expected shape.
 
-    Levee quand un champ structurant disparait. C'est le garde-fou contre la
-    degradation silencieuse : mieux vaut un run en echec qu'un run vide.
+    Raised when a structural field disappears. This is the guard against
+    silent degradation: a failed run beats an empty one.
     """
 
-    def __init__(self, chemin: str, detail: str) -> None:
-        super().__init__(f"schema amont casse en '{chemin}' : {detail}")
-        self.chemin = chemin
+    def __init__(self, path: str, detail: str) -> None:
+        super().__init__(f"schéma amont cassé en « {path} » : {detail}")
+        self.path = path
         self.detail = detail
 
 
 class SessionError(SleeperError):
-    """Impossible d'obtenir ou de renouveler une session navigateur valide."""
+    """Cannot obtain or renew a valid browser session."""
 
 
-class SortieError(SleeperError):
-    """Le document de sortie ne respecte pas son propre schema JSON."""
+class OutputError(SleeperError):
+    """The output document does not satisfy its own JSON Schema."""

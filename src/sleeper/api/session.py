@@ -1,17 +1,16 @@
-"""Acquisition et mise en cache de la session du site.
+"""Acquisition and caching of the site session.
 
-Le site sert un challenge JavaScript avant toute donnee : un client HTTP nu
-ne recoit que « This website requires JS enabled and cookies ». Un vrai
-navigateur execute le script du site et obtient les cookies de session, comme
-n'importe quel visiteur.
+The site serves a JavaScript challenge before any data: a bare HTTP client
+only ever receives "This website requires JS enabled and cookies". A real
+browser runs the site's own script and obtains the session cookies, exactly
+as any visitor would.
 
-C'est la seule raison d'etre de Playwright dans le run quotidien. Aucun
-challenge n'est resolu par Sleeper : le navigateur fait ce que fait un
-navigateur, et rien de plus. Si le site presente un CAPTCHA, l'acquisition
-echoue et l'operateur en est informe.
+That is the sole reason Playwright takes part in the daily run. Sleeper
+solves no challenge: the browser does what a browser does, and nothing more.
+If the site serves a CAPTCHA, acquisition fails and the operator is told.
 
-La session est mise en cache sur disque et renouvelee a l'expiration, pour
-que le nombre d'ouvertures de navigateur reste marginal.
+The session is cached on disk and renewed on expiry, so that opening a
+browser stays a marginal event.
 """
 
 from __future__ import annotations
@@ -24,147 +23,147 @@ from pathlib import Path
 
 import structlog
 
-from sleeper.config import Reseau
+from sleeper.config import Network
 from sleeper.errors import SessionError
 
 _LOG = structlog.get_logger(__name__)
 
-#: Cookie sans lequel la passerelle refuse de repondre.
-COOKIE_REQUIS = "bot_mitigation_cookie"
+#: Cookie without which the gateway refuses to answer.
+REQUIRED_COOKIE = "bot_mitigation_cookie"
 
-#: Marqueurs d'un challenge non resolvable sans intervention humaine.
-_MARQUEURS_CAPTCHA = ("not a robot", "altcha", "captcha")
+#: Markers of a challenge no machine may resolve on its own.
+_CAPTCHA_MARKERS = ("not a robot", "altcha", "captcha")
 
 
 @dataclass(frozen=True, slots=True)
 class Session:
-    """Une session du site : des cookies, et le client auquel ils ont ete delivres.
+    """A site session: cookies, and the client they were issued to.
 
-    Les deux sont indissociables. Un pare-feu applicatif considere qu'une
-    session presentee par un autre client est une session detournee — et il a
-    raison. On transporte donc le User-Agent avec les cookies.
+    The two are inseparable. A web application firewall treats a session
+    presented by a different client as a hijacked session — and it is right
+    to. The User-Agent therefore travels with the cookies.
     """
 
     cookies: Mapping[str, str] = field(default_factory=dict)
     user_agent: str = ""
 
 
-class SessionNavigateur:
-    """Fournit les cookies du site, en ouvrant un navigateur au besoin."""
+class BrowserSession:
+    """Provides the site cookies, opening a browser when needed."""
 
     def __init__(
         self,
-        reseau: Reseau,
+        network: Network,
         cache: Path,
-        acquerir: Callable[[Reseau], Session] | None = None,
-        maintenant: Callable[[], datetime] = lambda: datetime.now(UTC),
+        acquire: Callable[[Network], Session] | None = None,
+        now: Callable[[], datetime] = lambda: datetime.now(UTC),
     ) -> None:
-        self._reseau = reseau
+        self._network = network
         self._cache = cache
-        self._acquerir = acquerir or _acquerir_par_navigateur
-        self._maintenant = maintenant
+        self._acquire = acquire or _acquire_with_browser
+        self._now = now
         self._session: Session | None = None
-        self._obtenus_a: datetime | None = None
+        self._obtained_at: datetime | None = None
 
     def session(self) -> Session:
-        """Session valide, depuis la memoire, le cache disque, ou un navigateur."""
-        if self._session is not None and not self._perimee(self._obtenus_a):
+        """A valid session, from memory, from the disk cache, or from a browser."""
+        if self._session is not None and not self._expired(self._obtained_at):
             return self._session
-        if (depuis_disque := self._lire_cache()) is not None:
-            self._session, self._obtenus_a = depuis_disque
+        if (from_disk := self._read_cache()) is not None:
+            self._session, self._obtained_at = from_disk
             return self._session
-        return self.renouveler()
+        return self.renew()
 
-    def renouveler(self) -> Session:
-        """Ouvre un navigateur pour obtenir une session neuve."""
-        _LOG.info("session.acquisition", motif="session absente ou expiree")
-        session = self._acquerir(self._reseau)
-        if COOKIE_REQUIS not in session.cookies:
+    def renew(self) -> Session:
+        """Open a browser to obtain a fresh session."""
+        _LOG.info("session.acquiring", reason="session absente ou expirée")
+        session = self._acquire(self._network)
+        if REQUIRED_COOKIE not in session.cookies:
             raise SessionError(
-                f"session incomplete : cookie '{COOKIE_REQUIS}' absent. "
-                "Le site a peut-etre change de protection ; rejouer "
-                "tools/discover_api.py pour verifier."
+                f"session incomplète : cookie « {REQUIRED_COOKIE} » absent. "
+                "Le site a peut-être changé de protection ; rejouer "
+                "tools/discover_api.py pour vérifier."
             )
         self._session = session
-        self._obtenus_a = self._maintenant()
-        self._ecrire_cache(session, self._obtenus_a)
-        _LOG.info("session.acquise", cookies=sorted(session.cookies))
+        self._obtained_at = self._now()
+        self._write_cache(session, self._obtained_at)
+        _LOG.info("session.acquired", cookies=sorted(session.cookies))
         return session
 
-    def _perimee(self, obtenus_a: datetime | None) -> bool:
-        if obtenus_a is None:
+    def _expired(self, obtained_at: datetime | None) -> bool:
+        if obtained_at is None:
             return True
-        age = self._maintenant() - obtenus_a
-        return age >= timedelta(minutes=self._reseau.session_ttl_minutes)
+        age = self._now() - obtained_at
+        return age >= timedelta(minutes=self._network.session_ttl_minutes)
 
-    def _lire_cache(self) -> tuple[Session, datetime] | None:
-        """Relit une session mise en cache, en ignorant tout cache douteux."""
+    def _read_cache(self) -> tuple[Session, datetime] | None:
+        """Re-read a cached session, ignoring anything doubtful."""
         if not self._cache.is_file():
             return None
         try:
-            brut = json.loads(self._cache.read_text(encoding="utf-8"))
-            obtenus_a = datetime.fromisoformat(brut["obtenus_a"])
-            cookies = {str(k): str(v) for k, v in brut["cookies"].items()}
-            session = Session(cookies=cookies, user_agent=str(brut.get("user_agent", "")))
+            raw = json.loads(self._cache.read_text(encoding="utf-8"))
+            obtained_at = datetime.fromisoformat(raw["obtained_at"])
+            cookies = {str(k): str(v) for k, v in raw["cookies"].items()}
+            session = Session(cookies=cookies, user_agent=str(raw.get("user_agent", "")))
         except (OSError, ValueError, KeyError, TypeError, AttributeError):
-            _LOG.warning("session.cache_illisible", chemin=str(self._cache))
+            _LOG.warning("session.cache_unreadable", path=str(self._cache))
             return None
-        if self._perimee(obtenus_a) or COOKIE_REQUIS not in cookies:
+        if self._expired(obtained_at) or REQUIRED_COOKIE not in cookies:
             return None
-        return session, obtenus_a
+        return session, obtained_at
 
-    def _ecrire_cache(self, session: Session, obtenus_a: datetime) -> None:
+    def _write_cache(self, session: Session, obtained_at: datetime) -> None:
         self._cache.parent.mkdir(parents=True, exist_ok=True)
-        charge = {
-            "obtenus_a": obtenus_a.isoformat(),
+        payload = {
+            "obtained_at": obtained_at.isoformat(),
             "user_agent": session.user_agent,
             "cookies": dict(session.cookies),
         }
-        self._cache.write_text(json.dumps(charge, indent=2), encoding="utf-8")
-        # La session vaut authentification implicite : elle ne regarde que son
-        # proprietaire.
+        self._cache.write_text(json.dumps(payload, indent=2), encoding="utf-8")
+        # A session amounts to implicit authentication: it concerns its owner
+        # and nobody else.
         self._cache.chmod(0o600)
 
 
-def _acquerir_par_navigateur(reseau: Reseau) -> Session:  # pragma: no cover
-    """Ouvre la page d'accueil dans Chromium et recupere les cookies poses.
+def _acquire_with_browser(network: Network) -> Session:  # pragma: no cover
+    """Open the home page in Chromium and collect the cookies it is given.
 
-    Playwright n'est requis que pour cette fonction ; il vit dans l'extra
-    `discovery` pour qu'un poste d'exploitation puisse s'en passer une fois la
-    session mise en cache.
+    Playwright is only required by this function; it lives in the `discovery`
+    extra so that an operating machine can do without it once the session is
+    cached.
 
-    Non couverte par les tests : elle pilote un vrai navigateur sur un site
-    reel. Tout ce qui est testable — cache, expiration, cookie requis — vit
-    dans `SessionNavigateur`, qui recoit cette fonction par injection.
+    Not covered by tests: it drives a real browser against a real site.
+    Everything testable — cache, expiry, required cookie — lives in
+    `BrowserSession`, which receives this function by injection.
     """
     try:
-        # Import differé assumé : playwright vit dans l'extra `discovery`,
-        # et un poste d'exploitation doit pouvoir s'en passer.
+        # Deferred import, deliberately: playwright lives in the `discovery`
+        # extra, and an operating machine must be able to do without it.
         from playwright.sync_api import sync_playwright  # noqa: PLC0415
-    except ImportError as exc:  # pragma: no cover - depend de l'installation
+    except ImportError as exc:  # pragma: no cover - depends on the installation
         raise SessionError(
             "playwright est requis pour obtenir une session : "
             "uv sync --extra discovery && uv run playwright install chromium"
         ) from exc
 
-    with sync_playwright() as pilote:
-        navigateur = pilote.chromium.launch(headless=reseau.navigateur_headless)
+    with sync_playwright() as driver:
+        browser = driver.chromium.launch(headless=network.headless_browser)
         try:
-            # On n'usurpe PAS le User-Agent : le navigateur annonce ce qu'il est.
-            # C'est aussi ce qui rend la session utilisable ensuite en HTTP.
-            contexte = navigateur.new_context(locale="fr-FR")
-            page = contexte.new_page()
-            page.goto(f"{reseau.base_url}/ventes", wait_until="networkidle", timeout=60_000)
-            titre = (page.title() or "").lower()
-            if any(marqueur in titre for marqueur in _MARQUEURS_CAPTCHA):
+            # The User-Agent is NOT spoofed: the browser announces what it is.
+            # That is also what keeps the session usable over plain HTTP next.
+            context = browser.new_context(locale="fr-FR")
+            page = context.new_page()
+            page.goto(f"{network.base_url}/ventes", wait_until="networkidle", timeout=60_000)
+            title = (page.title() or "").lower()
+            if any(marker in title for marker in _CAPTCHA_MARKERS):
                 raise SessionError(
-                    "le site presente un CAPTCHA a l'ouverture. Sleeper ne le "
-                    "resout pas : espacer les executions et relancer plus tard."
+                    "le site présente un CAPTCHA à l'ouverture. Sleeper ne le "
+                    "résout pas : espacer les exécutions et relancer plus tard."
                 )
             agent = str(page.evaluate("() => navigator.userAgent"))
             return Session(
-                cookies={c["name"]: c["value"] for c in contexte.cookies()},
+                cookies={c["name"]: c["value"] for c in context.cookies()},
                 user_agent=agent,
             )
         finally:
-            navigateur.close()
+            browser.close()

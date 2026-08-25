@@ -1,15 +1,14 @@
-"""Journalisation structuree.
+"""Structured logging.
 
-Le format `json` est celui de la tache planifiee : chaque evenement est une
-ligne exploitable. Le format `console` sert au diagnostic humain.
+The `json` format is the one for the scheduled task: every event is a usable
+line. The `console` format is for human diagnosis.
 
-Les logs portent un compteur de ce qui a ete vu, retenu, ecarte et pourquoi :
-c'est le seul moyen de constater qu'un run « reussi » n'a en fait rien
-collecte.
+Logs carry a counter of what was seen, kept, rejected and why: that is the
+only way to notice that a "successful" run in fact collected nothing.
 
-`configurer` est idempotente et re-entrante : chaque appel reinstalle le
-handler sur le flux d'erreur COURANT. Sans cela, un processus qui reconfigure
-la journalisation continuerait d'ecrire sur un flux devenu invalide.
+`configure` is idempotent and re-entrant: each call reinstalls the handler on
+the CURRENT error stream. Without that, a process reconfiguring its logging
+would keep writing to a stream that has become invalid.
 """
 
 from __future__ import annotations
@@ -19,17 +18,17 @@ import sys
 
 import structlog
 
-from sleeper.config import Journalisation
+from sleeper.config import LoggingConfig
 
 
-def configurer(journalisation: Journalisation) -> None:
-    """Installe la configuration structlog du processus."""
-    niveau = getattr(logging, journalisation.niveau)
-    logging.basicConfig(format="%(message)s", stream=sys.stderr, level=niveau, force=True)
+def configure(settings: LoggingConfig) -> None:
+    """Install the process-wide structlog configuration."""
+    level = getattr(logging, settings.level)
+    logging.basicConfig(format="%(message)s", stream=sys.stderr, level=level, force=True)
 
-    rendu: structlog.typing.Processor = (
+    renderer: structlog.typing.Processor = (
         structlog.processors.JSONRenderer(ensure_ascii=False)
-        if journalisation.format == "json"
+        if settings.format == "json"
         else structlog.dev.ConsoleRenderer(colors=sys.stderr.isatty())
     )
     structlog.configure(
@@ -39,11 +38,11 @@ def configurer(journalisation: Journalisation) -> None:
             structlog.processors.TimeStamper(fmt="iso", utc=True),
             structlog.processors.StackInfoRenderer(),
             structlog.processors.format_exc_info,
-            rendu,
+            renderer,
         ],
-        wrapper_class=structlog.make_filtering_bound_logger(niveau),
+        wrapper_class=structlog.make_filtering_bound_logger(level),
         logger_factory=structlog.stdlib.LoggerFactory(),
-        # Sans cela, un logger capture au premier appel continuerait d'ecrire
-        # sur le flux de la configuration precedente.
+        # Without this, a logger captured on first use would keep writing to
+        # the stream of the previous configuration.
         cache_logger_on_first_use=False,
     )

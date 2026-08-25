@@ -7,7 +7,7 @@
 >    `[exclusions.formulations_supplementaires]`. C'est la voie normale ;
 > 2. **dans le code** — l'ajouter à la règle concernée, avec un test.
 >
-> Régénérer ensuite : `uv run python tools/generer_doc_regles.py > docs/regles-metier.md`
+> Régénérer ensuite : `uv run python tools/generate_rules_doc.py > docs/regles-metier.md`
 
 ## Comment une règle décide
 
@@ -46,11 +46,11 @@ rend le verdict reproductible d'un run à l'autre.
 
 ### 1. `hors_categorie_vehicule`
 
-**Lot sans attribut vehicule (mobilier, high-tech, bijoux…)**
+**Lot sans attribut véhicule (mobilier, high-tech, bijoux…)**
 
 ### 2. `genre_hors_cible`
 
-**Genre de vehicule hors cible (deux-roues, quadricycle, agricole, remorque)**
+**Genre de véhicule hors cible (deux-roues, quadricycle, agricole, remorque)**
 
 Déclenche sur :
 
@@ -77,7 +77,7 @@ Annulée par :
 
 ### 3. `collection_avant_1990`
 
-**Vehicule de collection anterieur a 1990**
+**Véhicule de collection antérieur à 1990**
 
 Déclenche sur :
 
@@ -86,7 +86,7 @@ Déclenche sur :
 
 ### 4. `sans_cle`
 
-**Vehicule sans cle**
+**Véhicule sans clé**
 
 Déclenche sur :
 
@@ -142,7 +142,7 @@ Annulée par :
 
 ### 6. `epave_ou_pieces`
 
-**Epave ou vente pour pieces**
+**Épave ou vente pour pièces**
 
 Déclenche sur :
 
@@ -162,7 +162,7 @@ Annulée par :
 
 ### 7. `non_roulant`
 
-**Vehicule non roulant**
+**Véhicule non roulant**
 
 Déclenche sur :
 
@@ -203,7 +203,7 @@ Annulée par :
 
 ### 9. `choc_ou_accident`
 
-**Choc, accident ou degats de carrosserie**
+**Choc, accident ou dégâts de carrosserie**
 
 Déclenche sur :
 
@@ -254,7 +254,7 @@ Annulée par :
 
 ### 11. `kilometrage_inconnu`
 
-**Kilometrage inconnu, non renseigne ou absent**
+**Kilométrage inconnu, non renseigné ou absent**
 
 Déclenche sur :
 

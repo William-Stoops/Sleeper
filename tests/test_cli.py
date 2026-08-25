@@ -1,4 +1,7 @@
-"""Interface en ligne de commande. Aucun reseau, aucun navigateur."""
+"""Command-line interface. No network, no browser.
+
+Command names and messages stay French: they are the user interface.
+"""
 
 from __future__ import annotations
 
@@ -11,75 +14,75 @@ import pytest
 from typer.testing import CliRunner
 
 from sleeper import cli
-from sleeper.domain.models import DocumentSortie, ErreurRun, Lot, Run
-from sleeper.errors import ProtectionAntiRobotError
+from sleeper.domain.models import Lot, OutputDocument, Run, RunError
+from sleeper.errors import AntiBotChallengeError
 
 runner = CliRunner()
 
 
-def lot_minimal(**remplacements: Any) -> Lot:
+def minimal_lot(**overrides: Any) -> Lot:
     base: dict[str, Any] = {
         "id": "1",
         "url": "https://exemple/lot/1",
-        "vente_id": "467",
-        "numero": "1",
-        "titre": "DACIA DUSTER",
-        "categorie": "Véhicules",
-        "reserve_aux_professionnels": True,
-        "marque": "DACIA",
-        "modele": "DUSTER",
-        "version": "",
-        "premiere_mise_en_circulation": "2015-12-23",
-        "kilometrage": 110430,
-        "energie": "Gazole",
-        "boite": "Boîte manuelle",
-        "puissance_fiscale": 6,
+        "sale_id": "467",
+        "number": "1",
+        "title": "DACIA DUSTER",
+        "category": "Véhicules",
+        "trade_only": True,
+        "make": "DACIA",
+        "model": "DUSTER",
+        "variant": "",
+        "first_registration": "2015-12-23",
+        "mileage": 110430,
+        "fuel": "Gazole",
+        "gearbox": "Boîte manuelle",
+        "tax_horsepower": 6,
         "vin": "",
         "crit_air": "",
-        "controle_technique": "",
-        "carte_grise": True,
-        "cles": True,
-        "etat_declare": "",
-        "mise_a_prix": 1500.0,
-        "enchere_en_cours": None,
-        "nb_encherisseurs": None,
-        "lieu_retrait": "LILLE",
-        "code_postal": "59000",
-        "departement": "59",
-        "dates_visite": "",
-        "frais_acheteur_pct": None,
-        "tva_recuperable": None,
-        "description_integrale": "",
-        "hors_perimetre": False,
-        "nouveau_depuis_dernier_run": True,
-        "enchere_a_bouge": False,
-        "champs_manquants": [],
+        "inspection": "",
+        "registration_certificate": True,
+        "keys": True,
+        "declared_condition": "",
+        "starting_price": 1500.0,
+        "current_bid": None,
+        "bidder_count": None,
+        "collection_place": "LILLE",
+        "postcode": "59000",
+        "department": "59",
+        "viewing_dates": "",
+        "buyer_fee_pct": None,
+        "vat_reclaimable": None,
+        "full_description": "",
+        "out_of_scope": False,
+        "new_since_last_run": True,
+        "bid_moved": False,
+        "missing_fields": [],
     }
-    base.update(remplacements)
+    base.update(overrides)
     return Lot(**base)
 
 
-def document(lots: list[Lot], erreurs: list[ErreurRun] | None = None) -> DocumentSortie:
-    return DocumentSortie(
+def make_document(lots: list[Lot], errors: list[RunError] | None = None) -> OutputDocument:
+    return OutputDocument(
         run=Run(
-            horodatage=datetime(2026, 8, 25, 4, 30, tzinfo=UTC),
-            duree_secondes=12.0,
-            ventes_scannees=1,
-            lots_vus=len(lots),
-            lots_retenus=len(lots),
-            lots_ecartes=0,
-            erreurs=erreurs or [],
+            timestamp=datetime(2026, 8, 25, 4, 30, tzinfo=UTC),
+            duration_seconds=12.0,
+            sales_scanned=1,
+            lots_seen=len(lots),
+            lots_kept=len(lots),
+            lots_rejected=0,
+            errors=errors or [],
         ),
-        ventes=[],
+        sales=[],
         lots=lots,
-        ecartes=[],
+        rejected=[],
     )
 
 
 @pytest.fixture
-def config_temporaire(tmp_path: Path) -> Path:
-    chemin = tmp_path / "config.toml"
-    chemin.write_text(
+def temp_config(tmp_path: Path) -> Path:
+    path = tmp_path / "config.toml"
+    path.write_text(
         f"""
 [reseau]
 user_agent = "SleeperBot/0.1 (+mailto:test@example.org)"
@@ -91,109 +94,107 @@ departements = ["59", "62"]
 repertoire = "{tmp_path / "sorties"}"
 
 [etat]
-base = "{tmp_path / "etat.sqlite3"}"
+base = "{tmp_path / "state.sqlite3"}"
 """,
         encoding="utf-8",
     )
-    return chemin
+    return path
 
 
-def brancher(monkeypatch: pytest.MonkeyPatch, resultat: DocumentSortie | Exception) -> None:
-    """Court-circuite session, client et collecteur : la CLI seule est testee."""
+def stub_runtime(monkeypatch: pytest.MonkeyPatch, outcome: OutputDocument | Exception) -> None:
+    """Short-circuit session, client and collector: only the CLI is under test."""
 
-    class FauxCollecteur:
+    class FakeCollector:
         def __init__(self, *_: object, **__: object) -> None: ...
 
-        def executer(self) -> DocumentSortie:
-            if isinstance(resultat, Exception):
-                raise resultat
-            return resultat
+        def run(self) -> OutputDocument:
+            if isinstance(outcome, Exception):
+                raise outcome
+            return outcome
 
-    class FauxContexte:
+    class FakeContext:
         def __init__(self, *_: object, **__: object) -> None: ...
 
-        def __enter__(self) -> FauxContexte:
+        def __enter__(self) -> FakeContext:
             return self
 
         def __exit__(self, *_: object) -> None: ...
 
-    monkeypatch.setattr(cli, "Collecteur", FauxCollecteur)
-    monkeypatch.setattr(cli, "ClientDomaine", FauxContexte)
-    monkeypatch.setattr(cli, "EtatSleeper", FauxContexte)
-    monkeypatch.setattr(cli, "SessionNavigateur", lambda *_, **__: None)
+    monkeypatch.setattr(cli, "Collector", FakeCollector)
+    monkeypatch.setattr(cli, "DomaineClient", FakeContext)
+    monkeypatch.setattr(cli, "SleeperState", FakeContext)
+    monkeypatch.setattr(cli, "BrowserSession", lambda *_, **__: None)
 
 
-class TestValiderConfig:
-    def test_config_livree_est_acceptee(self) -> None:
-        resultat = runner.invoke(cli.app, ["valider-config"])
-        assert resultat.exit_code == 0
-        assert "Configuration valide" in resultat.stdout
+class TestValidateConfig:
+    def test_the_shipped_configuration_is_accepted(self) -> None:
+        result = runner.invoke(cli.app, ["valider-config"])
+        assert result.exit_code == 0
+        assert "Configuration valide" in result.stdout
 
-    def test_config_invalide_sort_en_erreur_avec_le_detail(self, tmp_path: Path) -> None:
-        mauvaise = tmp_path / "ko.toml"
-        mauvaise.write_text("[perimetre]\ndepartements = []\n", encoding="utf-8")
-        resultat = runner.invoke(cli.app, ["valider-config", "-c", str(mauvaise)])
-        assert resultat.exit_code == cli.CODE_ERREUR_METIER
-        assert "Configuration invalide" in resultat.stdout
+    def test_an_invalid_configuration_exits_with_the_details(self, tmp_path: Path) -> None:
+        bad = tmp_path / "ko.toml"
+        bad.write_text("[perimetre]\ndepartements = []\n", encoding="utf-8")
+        result = runner.invoke(cli.app, ["valider-config", "-c", str(bad)])
+        assert result.exit_code == cli.EXIT_BUSINESS_ERROR
+        assert "Configuration invalide" in result.stdout
 
-    def test_config_absente_sort_en_erreur(self, tmp_path: Path) -> None:
-        resultat = runner.invoke(cli.app, ["valider-config", "-c", str(tmp_path / "rien.toml")])
-        assert resultat.exit_code == cli.CODE_ERREUR_METIER
-        assert "introuvable" in resultat.stdout
+    def test_a_missing_configuration_exits_in_error(self, tmp_path: Path) -> None:
+        result = runner.invoke(cli.app, ["valider-config", "-c", str(tmp_path / "rien.toml")])
+        assert result.exit_code == cli.EXIT_BUSINESS_ERROR
+        assert "introuvable" in result.stdout
 
 
 class TestSchema:
-    def test_publie_le_schema(self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    def test_publishes_the_schema(self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
         monkeypatch.chdir(tmp_path)
-        resultat = runner.invoke(cli.app, ["schema"])
-        assert resultat.exit_code == 0
+        result = runner.invoke(cli.app, ["schema"])
+        assert result.exit_code == 0
         assert (tmp_path / "schemas" / "sortie-1.0.json").is_file()
 
 
-class TestCollecter:
-    def test_ecrit_le_json_le_digest_et_les_liens_courants(
-        self, config_temporaire: Path, monkeypatch: pytest.MonkeyPatch
+class TestCollect:
+    def test_writes_the_json_the_digest_and_the_current_links(
+        self, temp_config: Path, monkeypatch: pytest.MonkeyPatch
     ) -> None:
-        brancher(monkeypatch, document([lot_minimal()]))
-        resultat = runner.invoke(cli.app, ["collecter", "-c", str(config_temporaire)])
-        assert resultat.exit_code == 0, resultat.stdout
+        stub_runtime(monkeypatch, make_document([minimal_lot()]))
+        result = runner.invoke(cli.app, ["collecter", "-c", str(temp_config)])
+        assert result.exit_code == 0, result.stdout
 
-        sorties = config_temporaire.parent / "sorties"
-        charge = json.loads((sorties / "latest.json").read_text(encoding="utf-8"))
-        assert charge["run"]["lots_retenus"] == 1
-        assert "DACIA DUSTER" in (sorties / "latest.md").read_text(encoding="utf-8")
+        outputs = temp_config.parent / "sorties"
+        payload = json.loads((outputs / "latest.json").read_text(encoding="utf-8"))
+        assert payload["run"]["lots_retenus"] == 1
+        assert "DACIA DUSTER" in (outputs / "latest.md").read_text(encoding="utf-8")
 
-    def test_affiche_le_bilan_du_run(
-        self, config_temporaire: Path, monkeypatch: pytest.MonkeyPatch
+    def test_shows_the_run_summary(
+        self, temp_config: Path, monkeypatch: pytest.MonkeyPatch
     ) -> None:
-        brancher(monkeypatch, document([lot_minimal()]))
-        resultat = runner.invoke(cli.app, ["collecter", "-c", str(config_temporaire)])
-        assert "Lots retenus" in resultat.stdout
+        stub_runtime(monkeypatch, make_document([minimal_lot()]))
+        result = runner.invoke(cli.app, ["collecter", "-c", str(temp_config)])
+        assert "Lots retenus" in result.stdout
 
-    def test_un_lot_incomplet_fait_sortir_en_erreur(
-        self, config_temporaire: Path, monkeypatch: pytest.MonkeyPatch
+    def test_an_incomplete_lot_exits_in_error(
+        self, temp_config: Path, monkeypatch: pytest.MonkeyPatch
     ) -> None:
-        incomplet = lot_minimal(
-            reserve_aux_professionnels=None, champs_manquants=["reserve_aux_professionnels"]
-        )
-        brancher(monkeypatch, document([incomplet]))
-        resultat = runner.invoke(cli.app, ["collecter", "-c", str(config_temporaire)])
-        # Le document est ecrit, mais le code de sortie alerte la tache planifiee.
-        assert resultat.exit_code == cli.CODE_ERREUR_METIER
-        assert (config_temporaire.parent / "sorties" / "latest.json").is_file()
+        incomplete = minimal_lot(trade_only=None, missing_fields=["reserve_aux_professionnels"])
+        stub_runtime(monkeypatch, make_document([incomplete]))
+        result = runner.invoke(cli.app, ["collecter", "-c", str(temp_config)])
+        # The document is still written, but the exit code alerts the scheduler.
+        assert result.exit_code == cli.EXIT_BUSINESS_ERROR
+        assert (temp_config.parent / "sorties" / "latest.json").is_file()
 
-    def test_un_challenge_anti_robot_a_son_propre_code_de_sortie(
-        self, config_temporaire: Path, monkeypatch: pytest.MonkeyPatch
+    def test_an_anti_bot_challenge_has_its_own_exit_code(
+        self, temp_config: Path, monkeypatch: pytest.MonkeyPatch
     ) -> None:
-        brancher(monkeypatch, ProtectionAntiRobotError("captcha présenté"))
-        resultat = runner.invoke(cli.app, ["collecter", "-c", str(config_temporaire)])
-        assert resultat.exit_code == cli.CODE_ANTI_ROBOT
-        assert "Arrêt volontaire" in resultat.stdout or "Arret volontaire" in resultat.stdout
+        stub_runtime(monkeypatch, AntiBotChallengeError("captcha présenté"))
+        result = runner.invoke(cli.app, ["collecter", "-c", str(temp_config)])
+        assert result.exit_code == cli.EXIT_ANTI_BOT
+        assert "Arrêt volontaire" in result.stdout
 
-    def test_les_erreurs_du_run_sont_affichees(
-        self, config_temporaire: Path, monkeypatch: pytest.MonkeyPatch
+    def test_run_errors_are_displayed(
+        self, temp_config: Path, monkeypatch: pytest.MonkeyPatch
     ) -> None:
-        erreur = ErreurRun(etape="lots", cible="467", type="SchemaAmontError", message="cassé")
-        brancher(monkeypatch, document([lot_minimal()], [erreur]))
-        resultat = runner.invoke(cli.app, ["collecter", "-c", str(config_temporaire)])
-        assert "cassé" in resultat.stdout
+        error = RunError(step="lots", target="467", kind="UpstreamSchemaError", message="cassé")
+        stub_runtime(monkeypatch, make_document([minimal_lot()], [error]))
+        result = runner.invoke(cli.app, ["collecter", "-c", str(temp_config)])
+        assert "cassé" in result.stdout

@@ -1,7 +1,7 @@
-"""Configuration : validee au demarrage, jamais en cours de route.
+"""Configuration: validated at startup, never along the way.
 
-Une erreur de configuration doit faire echouer immediatement avec un message
-explicite. Un scan silencieusement vide est le pire resultat possible.
+A configuration error must fail immediately with an explicit message. A
+silently empty scan is the worst possible outcome.
 """
 
 from __future__ import annotations
@@ -10,10 +10,10 @@ from pathlib import Path
 
 import pytest
 
-from sleeper.config import Configuration, charger_configuration
+from sleeper.config import Configuration, load_configuration
 from sleeper.errors import ConfigurationError
 
-MINIMALE = """
+MINIMAL = """
 [reseau]
 user_agent = "SleeperBot/0.1 (+mailto:test@example.org)"
 
@@ -28,101 +28,108 @@ base = "var/etat/sleeper.sqlite3"
 """
 
 
-def ecrire(tmp_path: Path, contenu: str) -> Path:
-    chemin = tmp_path / "config.toml"
-    chemin.write_text(contenu, encoding="utf-8")
-    return chemin
+def write(tmp_path: Path, content: str) -> Path:
+    path = tmp_path / "config.toml"
+    path.write_text(content, encoding="utf-8")
+    return path
 
 
-class TestChargement:
-    def test_charge_une_configuration_minimale_et_applique_les_defauts(
-        self, tmp_path: Path
-    ) -> None:
-        config = charger_configuration(ecrire(tmp_path, MINIMALE))
+class TestLoading:
+    def test_loads_a_minimal_configuration_and_applies_the_defaults(self, tmp_path: Path) -> None:
+        config = load_configuration(write(tmp_path, MINIMAL))
         assert isinstance(config, Configuration)
-        assert config.perimetre.departements == frozenset({"59", "62"})
-        assert config.reseau.concurrence_max == 2
-        assert config.reseau.tentatives_max >= 1
+        assert config.scope.departments == frozenset({"59", "62"})
+        assert config.network.max_concurrency == 2
+        assert config.network.max_attempts >= 1
 
-    def test_le_navigateur_nest_pas_headless_par_defaut(self, tmp_path: Path) -> None:
-        """Garde-fou : en headless, Chromium s'annonce « HeadlessChrome » et le
-        pare-feu du site sert un CAPTCHA. Ce defaut ne doit pas etre inverse
-        par megarde."""
-        defaut = charger_configuration(ecrire(tmp_path, MINIMALE))
-        livree = charger_configuration(Path("config/default.toml"))
-        assert defaut.reseau.navigateur_headless is False
-        assert livree.reseau.navigateur_headless is False
+    def test_the_browser_is_not_headless_by_default(self, tmp_path: Path) -> None:
+        """Guard rail: in headless mode Chromium announces "HeadlessChrome" and
+        the site's firewall serves a CAPTCHA. This default must not be flipped
+        by accident."""
+        default = load_configuration(write(tmp_path, MINIMAL))
+        shipped = load_configuration(Path("config/default.toml"))
+        assert default.network.headless_browser is False
+        assert shipped.network.headless_browser is False
 
-    def test_le_fichier_livre_avec_le_projet_est_valide(self) -> None:
-        config = charger_configuration(Path("config/default.toml"))
-        assert "59" in config.perimetre.departements
-        assert config.perimetre.pays_etrangers >= frozenset({"BE", "LU"})
+    def test_the_file_shipped_with_the_project_is_valid(self) -> None:
+        config = load_configuration(Path("config/default.toml"))
+        assert "59" in config.scope.departments
+        assert config.scope.foreign_countries >= frozenset({"BE", "LU"})
 
-    def test_fichier_absent_echoue_avec_le_chemin(self, tmp_path: Path) -> None:
+    def test_a_missing_file_fails_with_its_path(self, tmp_path: Path) -> None:
         with pytest.raises(ConfigurationError, match="introuvable"):
-            charger_configuration(tmp_path / "nexiste_pas.toml")
+            load_configuration(tmp_path / "nexiste_pas.toml")
 
-    def test_toml_malforme_echoue_explicitement(self, tmp_path: Path) -> None:
+    def test_malformed_toml_fails_explicitly(self, tmp_path: Path) -> None:
         with pytest.raises(ConfigurationError, match="TOML"):
-            charger_configuration(ecrire(tmp_path, "[reseau\nuser_agent = "))
+            load_configuration(write(tmp_path, "[reseau\nuser_agent = "))
 
 
 class TestValidation:
-    def test_perimetre_vide_est_refuse(self, tmp_path: Path) -> None:
-        contenu = MINIMALE.replace('departements = ["59", "62"]', "departements = []")
+    def test_an_empty_scope_is_refused(self, tmp_path: Path) -> None:
+        content = MINIMAL.replace('departements = ["59", "62"]', "departements = []")
         with pytest.raises(ConfigurationError, match="departements"):
-            charger_configuration(ecrire(tmp_path, contenu))
+            load_configuration(write(tmp_path, content))
 
-    def test_departement_invalide_est_refuse(self, tmp_path: Path) -> None:
-        contenu = MINIMALE.replace('["59", "62"]', '["59", "ZZZZ"]')
+    def test_an_invalid_department_is_refused(self, tmp_path: Path) -> None:
+        content = MINIMAL.replace('["59", "62"]', '["59", "ZZZZ"]')
         with pytest.raises(ConfigurationError, match="ZZZZ"):
-            charger_configuration(ecrire(tmp_path, contenu))
+            load_configuration(write(tmp_path, content))
 
-    def test_concurrence_excessive_est_refusee(self, tmp_path: Path) -> None:
-        contenu = MINIMALE + "\nconcurrence_max = 32\n"
-        contenu = MINIMALE.replace("[perimetre]", "concurrence_max = 32\n\n[perimetre]")
+    def test_excessive_concurrency_is_refused(self, tmp_path: Path) -> None:
+        content = MINIMAL.replace("[perimetre]", "concurrence_max = 32\n\n[perimetre]")
         with pytest.raises(ConfigurationError, match="concurrence_max"):
-            charger_configuration(ecrire(tmp_path, contenu))
+            load_configuration(write(tmp_path, content))
 
-    def test_delai_trop_court_est_refuse_par_politesse(self, tmp_path: Path) -> None:
-        contenu = MINIMALE.replace("[perimetre]", "delai_entre_requetes_s = 0.0\n\n[perimetre]")
+    def test_too_short_a_delay_is_refused_out_of_politeness(self, tmp_path: Path) -> None:
+        content = MINIMAL.replace("[perimetre]", "delai_entre_requetes_s = 0.0\n\n[perimetre]")
         with pytest.raises(ConfigurationError, match="delai_entre_requetes_s"):
-            charger_configuration(ecrire(tmp_path, contenu))
+            load_configuration(write(tmp_path, content))
 
-    def test_user_agent_anonyme_est_refuse(self, tmp_path: Path) -> None:
-        contenu = MINIMALE.replace(
+    def test_an_anonymous_user_agent_is_refused(self, tmp_path: Path) -> None:
+        content = MINIMAL.replace(
             'user_agent = "SleeperBot/0.1 (+mailto:test@example.org)"',
             'user_agent = "Mozilla/5.0"',
         )
         with pytest.raises(ConfigurationError, match="identifiable"):
-            charger_configuration(ecrire(tmp_path, contenu))
+            load_configuration(write(tmp_path, content))
 
-    def test_section_inconnue_est_refusee(self, tmp_path: Path) -> None:
+    def test_an_unknown_section_is_refused(self, tmp_path: Path) -> None:
         with pytest.raises(ConfigurationError, match="section_fantome"):
-            charger_configuration(ecrire(tmp_path, MINIMALE + "\n[section_fantome]\nx = 1\n"))
+            load_configuration(write(tmp_path, MINIMAL + "\n[section_fantome]\nx = 1\n"))
 
-    def test_regle_dexclusion_inconnue_est_refusee(self, tmp_path: Path) -> None:
-        contenu = MINIMALE + '\n[exclusions]\nregles_actives = ["regle_fantome"]\n'
+    def test_an_unknown_exclusion_rule_is_refused(self, tmp_path: Path) -> None:
+        content = MINIMAL + '\n[exclusions]\nregles_actives = ["regle_fantome"]\n'
         with pytest.raises(ConfigurationError, match="regle_fantome"):
-            charger_configuration(ecrire(tmp_path, contenu))
+            load_configuration(write(tmp_path, content))
 
 
 class TestDerivations:
-    def test_construit_le_perimetre_du_domaine(self, tmp_path: Path) -> None:
-        config = charger_configuration(ecrire(tmp_path, MINIMALE))
-        assert config.perimetre_domaine().contient("59000", "LILLE") is True
-        assert config.perimetre_domaine().contient("13001", "MARSEILLE") is False
+    def test_builds_the_domain_perimeter(self, tmp_path: Path) -> None:
+        config = load_configuration(write(tmp_path, MINIMAL))
+        assert config.perimeter().contains("59000", "LILLE") is True
+        assert config.perimeter().contains("13001", "MARSEILLE") is False
 
-    def test_construit_le_moteur_dexclusions_avec_les_ajouts(self, tmp_path: Path) -> None:
-        contenu = MINIMALE + (
+    def test_builds_the_exclusion_engine_with_the_extra_phrases(self, tmp_path: Path) -> None:
+        content = MINIMAL + (
             "\n[exclusions.formulations_supplementaires]\n"
             'moteur_hors_service = ["bloc moteur fendu"]\n'
         )
-        moteur = charger_configuration(ecrire(tmp_path, contenu)).moteur_exclusions()
-        expressions = {e for r in moteur.regles for e in r.expressions}
-        assert "bloc moteur fendu" in expressions
+        engine = load_configuration(write(tmp_path, content)).exclusion_engine()
+        phrases = {p for rule in engine.rules for p in rule.phrases}
+        assert "bloc moteur fendu" in phrases
 
-    def test_restreindre_les_regles_actives_reduit_le_moteur(self, tmp_path: Path) -> None:
-        contenu = MINIMALE + '\n[exclusions]\nregles_actives = ["sans_cle"]\n'
-        moteur = charger_configuration(ecrire(tmp_path, contenu)).moteur_exclusions()
-        assert [r.code for r in moteur.regles] == ["sans_cle"]
+    def test_restricting_the_active_rules_shrinks_the_engine(self, tmp_path: Path) -> None:
+        content = MINIMAL + '\n[exclusions]\nregles_actives = ["sans_cle"]\n'
+        engine = load_configuration(write(tmp_path, content)).exclusion_engine()
+        assert [rule.code for rule in engine.rules] == ["sans_cle"]
+
+
+class TestFrenchWireFormat:
+    def test_the_toml_keys_stay_the_documented_french_ones(self, tmp_path: Path) -> None:
+        """Identifiers are English; the configuration file is a user interface."""
+        config = load_configuration(write(tmp_path, MINIMAL))
+        # The French keys of the file feed the English attributes.
+        assert config.network.user_agent.startswith("SleeperBot/")
+        assert config.output.directory == Path("var/sorties")
+        assert config.state.database == Path("var/etat/sleeper.sqlite3")

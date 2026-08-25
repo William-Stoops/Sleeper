@@ -1,9 +1,13 @@
-"""Configuration versionnee, validee au demarrage.
+"""Versioned configuration, validated at startup.
 
-Aucune valeur metier n'est en dur dans le code : perimetre, seuils, regles,
-chemins et cadence vivent ici. Une configuration invalide arrete l'outil avec
-un message explicite — un scan silencieusement vide serait pire, puisqu'il
-donnerait a croire qu'il n'y a rien a acheter.
+No business value is hard-coded: scope, thresholds, rules, paths and pacing
+all live here. An invalid configuration stops the tool with an explicit
+message — a silently empty scan would be worse, since it would suggest there
+is nothing to buy.
+
+**Identifiers are English, the TOML keys are French.** The configuration file
+is a user interface: the operator edits it daily and the documentation
+describes it in French. The keys are therefore pinned as aliases.
 """
 
 from __future__ import annotations
@@ -15,223 +19,231 @@ from typing import Annotated, Final
 
 from pydantic import BaseModel, ConfigDict, Field, ValidationError, field_validator
 
-from sleeper.domain.codes import StatutVente
-from sleeper.domain.exclusions import REGLES_PAR_DEFAUT, MoteurExclusions
-from sleeper.domain.perimetre import Perimetre
+from sleeper.domain.codes import SaleStatus
+from sleeper.domain.exclusions import DEFAULT_RULES, ExclusionEngine
+from sleeper.domain.territory import Perimeter
 from sleeper.errors import ConfigurationError
 
-_DEPARTEMENT = re.compile(r"^(?:\d{2,3}|2A|2B)$")
-_PAYS = re.compile(r"^[A-Z]{2}$")
+_DEPARTMENT = re.compile(r"^(?:\d{2,3}|2A|2B)$")
+_COUNTRY = re.compile(r"^[A-Z]{2}$")
 
-#: Cadence plancher. Le site est un service public sous WAF : une seule
-#: execution par jour, quelques requetes par seconde au maximum.
-DELAI_MINIMUM_S: Final = 0.5
-CONCURRENCE_MAXIMALE: Final = 3
+#: Pacing floor. The site is a public service behind a WAF: one run a day,
+#: a couple of requests per second at most.
+MINIMUM_DELAY_S: Final = 0.5
+MAXIMUM_CONCURRENCY: Final = 3
 
-_CODES_REGLES: Final = frozenset(r.code for r in REGLES_PAR_DEFAUT)
+_RULE_CODES: Final = frozenset(r.code for r in DEFAULT_RULES)
 
 
-def _exiger_regles_connues(codes: set[str]) -> None:
-    """Refuse toute reference a une regle qui n'existe pas.
+def _require_known_rules(codes: set[str]) -> None:
+    """Reject any reference to a rule that does not exist.
 
-    Une faute de frappe dans la configuration ne doit jamais se traduire par
-    une regle silencieusement inoperante.
+    A typo in the configuration must never turn into a silently inert rule.
     """
-    if inconnues := codes - _CODES_REGLES:
+    if unknown := codes - _RULE_CODES:
         raise ValueError(
-            f"regle(s) d'exclusion inconnue(s) : {', '.join(sorted(inconnues))}. "
-            f"Regles disponibles : {', '.join(sorted(_CODES_REGLES))}"
+            f"règle(s) d'exclusion inconnue(s) : {', '.join(sorted(unknown))}. "
+            f"Règles disponibles : {', '.join(sorted(_RULE_CODES))}"
         )
 
 
 class _Section(BaseModel):
-    model_config = ConfigDict(extra="forbid", frozen=True)
+    model_config = ConfigDict(extra="forbid", frozen=True, populate_by_name=True)
 
 
-class Reseau(_Section):
-    """Transport et politesse."""
+class Network(_Section):
+    """Transport and politeness."""
 
     base_url: str = "https://encheres-domaine.gouv.fr"
     user_agent: str
-    concurrence_max: Annotated[int, Field(ge=1, le=CONCURRENCE_MAXIMALE)] = 2
-    delai_entre_requetes_s: Annotated[float, Field(ge=DELAI_MINIMUM_S)] = 1.5
+    max_concurrency: Annotated[int, Field(ge=1, le=MAXIMUM_CONCURRENCY)] = Field(
+        alias="concurrence_max", default=2
+    )
+    delay_between_requests_s: Annotated[float, Field(ge=MINIMUM_DELAY_S)] = Field(
+        alias="delai_entre_requetes_s", default=1.5
+    )
     timeout_s: Annotated[float, Field(gt=0)] = 30.0
-    tentatives_max: Annotated[int, Field(ge=1, le=8)] = 4
+    max_attempts: Annotated[int, Field(ge=1, le=8)] = Field(alias="tentatives_max", default=4)
     backoff_initial_s: Annotated[float, Field(gt=0)] = 1.0
-    backoff_facteur: Annotated[float, Field(ge=1.0)] = 2.0
+    backoff_factor: Annotated[float, Field(ge=1.0)] = Field(alias="backoff_facteur", default=2.0)
     backoff_max_s: Annotated[float, Field(gt=0)] = 30.0
     session_ttl_minutes: Annotated[int, Field(ge=1)] = 45
-    # Faux par defaut, et ce n'est pas un oubli : en mode headless, Chromium
-    # annonce « HeadlessChrome » dans son User-Agent, ce que le pare-feu du
-    # site refuse. Plutot que de masquer ce jeton — ce serait un deguisement —
-    # on ouvre un vrai navigateur. Voir README, « Limites assumees ».
-    navigateur_headless: bool = False
+    # False by default, and that is not an oversight: in headless mode Chromium
+    # announces "HeadlessChrome" in its User-Agent, which the site's firewall
+    # refuses. Rather than masking that token — which would be a disguise — a
+    # real browser window is opened. See README, "Limites assumées".
+    headless_browser: bool = Field(alias="navigateur_headless", default=False)
 
     @field_validator("user_agent")
     @classmethod
-    def _doit_etre_identifiable(cls, valeur: str) -> str:
-        """Un robot qui se fait passer pour un navigateur n'est pas poli."""
-        if "@" not in valeur and "http" not in valeur.lower():
+    def _must_be_identifiable(cls, value: str) -> str:
+        """A robot pretending to be a browser is not being polite."""
+        if "@" not in value and "http" not in value.lower():
             raise ValueError(
-                "user_agent doit etre identifiable : y faire figurer une adresse "
+                "user_agent doit être identifiable : y faire figurer une adresse "
                 "de contact ou une URL, par exemple "
-                "'SleeperBot/0.1 (+mailto:contact@exemple.fr)'"
+                "« SleeperBot/0.1 (+mailto:contact@exemple.fr) »"
             )
-        return valeur
+        return value
 
 
-class PerimetreConfig(_Section):
-    """Liste blanche geographique, fondee sur le lieu de retrait."""
+class ScopeConfig(_Section):
+    """Geographic allow-list, based on the collection point."""
 
-    # frozenset plutot que list : la configuration est gelee, l'appartenance
-    # est la seule operation utile, et l'ordre n'a aucun sens ici.
-    departements: Annotated[frozenset[str], Field(min_length=1)]
-    pays_etrangers: frozenset[str] = frozenset({"BE", "LU"})
-
-    @field_validator("departements", mode="before")
-    @classmethod
-    def _codes_valides(cls, valeurs: object) -> object:
-        if not isinstance(valeurs, list | frozenset | set | tuple):
-            return valeurs
-        propres = [str(v).strip().upper() for v in valeurs]
-        if invalides := [v for v in propres if not _DEPARTEMENT.match(v)]:
-            raise ValueError(f"code(s) departement invalide(s) : {', '.join(invalides)}")
-        return frozenset(propres)
-
-    @field_validator("pays_etrangers", mode="before")
-    @classmethod
-    def _pays_iso(cls, valeurs: object) -> object:
-        if not isinstance(valeurs, list | frozenset | set | tuple):
-            return valeurs
-        propres = [str(v).strip().upper() for v in valeurs]
-        if invalides := [v for v in propres if not _PAYS.match(v)]:
-            raise ValueError(f"code(s) pays non ISO-3166 alpha-2 : {', '.join(invalides)}")
-        return frozenset(propres)
-
-
-class Exclusions(_Section):
-    """Selection et enrichissement des regles metier."""
-
-    regles_actives: list[str] = Field(default_factory=list)
-    formulations_supplementaires: dict[str, list[str]] = Field(default_factory=dict)
-
-    @field_validator("regles_actives")
-    @classmethod
-    def _selection_connue(cls, valeur: list[str]) -> list[str]:
-        _exiger_regles_connues(set(valeur))
-        return valeur
-
-    @field_validator("formulations_supplementaires")
-    @classmethod
-    def _ajouts_connus(cls, valeur: dict[str, list[str]]) -> dict[str, list[str]]:
-        _exiger_regles_connues(set(valeur))
-        return valeur
-
-
-class Filtres(_Section):
-    """Ce que le run balaye avant meme d'appliquer les regles metier."""
-
-    categorie_vehicules: str = "Véhicules"
-    statuts_vente: list[int] = Field(
-        default_factory=lambda: [int(s) for s in StatutVente.ouvertes()]
+    # frozenset rather than list: the configuration is frozen, membership is
+    # the only useful operation, and order carries no meaning here.
+    departments: Annotated[frozenset[str], Field(min_length=1)] = Field(alias="departements")
+    foreign_countries: frozenset[str] = Field(
+        alias="pays_etrangers", default=frozenset({"BE", "LU"})
     )
-    # S'applique a la liste des ventes comme a celle des lots : c'est la
-    # taille de page employee par l'application du site, et le pare-feu
-    # n'accepte pas qu'on s'en ecarte.
-    taille_de_page: Annotated[int, Field(ge=1, le=50)] = 8
+
+    @field_validator("departments", mode="before")
+    @classmethod
+    def _valid_codes(cls, values: object) -> object:
+        if not isinstance(values, list | frozenset | set | tuple):
+            return values
+        cleaned = [str(v).strip().upper() for v in values]
+        if invalid := [v for v in cleaned if not _DEPARTMENT.match(v)]:
+            raise ValueError(f"code(s) département invalide(s) : {', '.join(invalid)}")
+        return frozenset(cleaned)
+
+    @field_validator("foreign_countries", mode="before")
+    @classmethod
+    def _iso_countries(cls, values: object) -> object:
+        if not isinstance(values, list | frozenset | set | tuple):
+            return values
+        cleaned = [str(v).strip().upper() for v in values]
+        if invalid := [v for v in cleaned if not _COUNTRY.match(v)]:
+            raise ValueError(f"code(s) pays non ISO-3166 alpha-2 : {', '.join(invalid)}")
+        return frozenset(cleaned)
 
 
-class Sortie(_Section):
-    """Destination du document produit."""
+class ExclusionsConfig(_Section):
+    """Selection and enrichment of the business rules."""
 
-    repertoire: Path
-    nom_lien_courant: str = "latest.json"
+    active_rules: list[str] = Field(alias="regles_actives", default_factory=list)
+    extra_phrases: dict[str, list[str]] = Field(
+        alias="formulations_supplementaires", default_factory=dict
+    )
+
+    @field_validator("active_rules")
+    @classmethod
+    def _known_selection(cls, value: list[str]) -> list[str]:
+        _require_known_rules(set(value))
+        return value
+
+    @field_validator("extra_phrases")
+    @classmethod
+    def _known_extras(cls, value: dict[str, list[str]]) -> dict[str, list[str]]:
+        _require_known_rules(set(value))
+        return value
+
+
+class FiltersConfig(_Section):
+    """What the run sweeps before business rules even apply."""
+
+    vehicle_category: str = Field(alias="categorie_vehicules", default="Véhicules")
+    sale_statuses: list[int] = Field(
+        alias="statuts_vente",
+        default_factory=lambda: [int(s) for s in SaleStatus.open_statuses()],
+    )
+    # Applies to the sales list as well as the lots list: it is the page size
+    # used by the site's own application, and the firewall does not accept
+    # departures from it.
+    page_size: Annotated[int, Field(ge=1, le=50)] = Field(alias="taille_de_page", default=8)
+
+
+class OutputConfig(_Section):
+    """Destination of the produced document."""
+
+    directory: Path = Field(alias="repertoire")
+    current_link_name: str = Field(alias="nom_lien_courant", default="latest.json")
     digest: bool = True
-    nom_digest: str = "latest.md"
+    digest_name: str = Field(alias="nom_digest", default="latest.md")
 
 
-class Etat(_Section):
-    """Base d'etat persistante."""
+class StateConfig(_Section):
+    """Persistent state database."""
 
-    base: Path
-    conserver_historique_encheres: bool = True
+    database: Path = Field(alias="base")
+    keep_bid_history: bool = Field(alias="conserver_historique_encheres", default=True)
 
 
-class Journalisation(_Section):
-    """Logs structures."""
+class LoggingConfig(_Section):
+    """Structured logging."""
 
-    niveau: str = "INFO"
+    level: str = Field(alias="niveau", default="INFO")
     format: str = "json"
 
-    @field_validator("niveau")
+    @field_validator("level")
     @classmethod
-    def _niveau_connu(cls, valeur: str) -> str:
-        connus = {"DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"}
-        majuscule = valeur.strip().upper()
-        if majuscule not in connus:
-            raise ValueError(f"niveau de journalisation inconnu : {valeur}")
-        return majuscule
+    def _known_level(cls, value: str) -> str:
+        known = {"DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"}
+        upper = value.strip().upper()
+        if upper not in known:
+            raise ValueError(f"niveau de journalisation inconnu : {value}")
+        return upper
 
     @field_validator("format")
     @classmethod
-    def _format_connu(cls, valeur: str) -> str:
-        if valeur not in {"json", "console"}:
-            raise ValueError("format de journalisation attendu : 'json' ou 'console'")
-        return valeur
+    def _known_format(cls, value: str) -> str:
+        if value not in {"json", "console"}:
+            raise ValueError("format de journalisation attendu : « json » ou « console »")
+        return value
 
 
 class Configuration(BaseModel):
-    """Configuration complete de l'outil."""
+    """Full configuration of the tool."""
 
-    model_config = ConfigDict(extra="forbid", frozen=True)
+    model_config = ConfigDict(extra="forbid", frozen=True, populate_by_name=True)
 
-    reseau: Reseau
-    perimetre: PerimetreConfig
-    exclusions: Exclusions = Field(default_factory=Exclusions)
-    filtres: Filtres = Field(default_factory=Filtres)
-    sortie: Sortie
-    etat: Etat
-    journalisation: Journalisation = Field(default_factory=Journalisation)
+    network: Network = Field(alias="reseau")
+    scope: ScopeConfig = Field(alias="perimetre")
+    exclusions: ExclusionsConfig = Field(default_factory=ExclusionsConfig)
+    filters: FiltersConfig = Field(alias="filtres", default_factory=FiltersConfig)
+    output: OutputConfig = Field(alias="sortie")
+    state: StateConfig = Field(alias="etat")
+    logging: LoggingConfig = Field(alias="journalisation", default_factory=LoggingConfig)
 
-    def perimetre_domaine(self) -> Perimetre:
-        """Traduit la configuration en objet du domaine."""
-        return Perimetre(
-            departements=self.perimetre.departements,
-            pays_etrangers=self.perimetre.pays_etrangers,
+    def perimeter(self) -> Perimeter:
+        """Turn the configuration into a domain object."""
+        return Perimeter(
+            departments=self.scope.departments,
+            foreign_countries=self.scope.foreign_countries,
         )
 
-    def moteur_exclusions(self) -> MoteurExclusions:
-        """Assemble le moteur de regles : selection puis enrichissement."""
-        actives = self.exclusions.regles_actives
-        regles = (
-            REGLES_PAR_DEFAUT
-            if not actives
-            else tuple(r for r in REGLES_PAR_DEFAUT if r.code in set(actives))
+    def exclusion_engine(self) -> ExclusionEngine:
+        """Assemble the rule engine: selection, then enrichment."""
+        active = self.exclusions.active_rules
+        rules = (
+            DEFAULT_RULES
+            if not active
+            else tuple(r for r in DEFAULT_RULES if r.code in set(active))
         )
-        return MoteurExclusions.avec_ajouts(regles, self.exclusions.formulations_supplementaires)
+        return ExclusionEngine.with_extra_phrases(rules, self.exclusions.extra_phrases)
 
 
-def charger_configuration(chemin: Path) -> Configuration:
-    """Lit et valide la configuration. Toute anomalie est terminale."""
-    if not chemin.is_file():
-        raise ConfigurationError(f"fichier de configuration introuvable : {chemin}")
+def load_configuration(path: Path) -> Configuration:
+    """Read and validate the configuration. Any anomaly is terminal."""
+    if not path.is_file():
+        raise ConfigurationError(f"fichier de configuration introuvable : {path}")
     try:
-        brut = tomllib.loads(chemin.read_text(encoding="utf-8"))
+        raw = tomllib.loads(path.read_text(encoding="utf-8"))
     except tomllib.TOMLDecodeError as exc:
-        raise ConfigurationError(f"TOML invalide dans {chemin} : {exc}") from exc
+        raise ConfigurationError(f"TOML invalide dans {path} : {exc}") from exc
     except OSError as exc:
-        raise ConfigurationError(f"lecture impossible de {chemin} : {exc}") from exc
+        raise ConfigurationError(f"lecture impossible de {path} : {exc}") from exc
 
     try:
-        return Configuration.model_validate(brut)
+        return Configuration.model_validate(raw)
     except ValidationError as exc:
-        raise ConfigurationError(_expliquer(chemin, exc)) from exc
+        raise ConfigurationError(_explain(path, exc)) from exc
 
 
-def _expliquer(chemin: Path, exc: ValidationError) -> str:
-    """Rend l'erreur pydantic lisible par un operateur, pas par un developpeur."""
-    lignes = [f"configuration invalide dans {chemin} :"]
-    for erreur in exc.errors():
-        emplacement = ".".join(str(p) for p in erreur["loc"]) or "(racine)"
-        lignes.append(f"  - {emplacement} : {erreur['msg']}")
-    return "\n".join(lignes)
+def _explain(path: Path, exc: ValidationError) -> str:
+    """Render the pydantic error for an operator, not for a developer."""
+    lines = [f"configuration invalide dans {path} :"]
+    for error in exc.errors():
+        location = ".".join(str(p) for p in error["loc"]) or "(racine)"
+        lines.append(f"  - {location} : {error['msg']}")
+    return "\n".join(lines)

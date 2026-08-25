@@ -1,8 +1,8 @@
-"""Traduction des reponses de l'API en objets typés.
+"""Translation of API responses into typed objects.
 
-Regle cardinale : si un champ structurant disparait de la source, on echoue
-bruyamment. Un scraper qui renvoie `null` en silence ferait prendre une
-decision d'achat sur des donnees incompletes.
+Cardinal rule: when a structural field disappears from the source, we fail
+loudly. A scraper silently returning `null` would have a buying decision made
+on incomplete data.
 """
 
 from __future__ import annotations
@@ -12,137 +12,149 @@ from typing import Any
 import pytest
 
 from sleeper.api import mapping
-from sleeper.errors import SchemaAmontError
+from sleeper.errors import UpstreamSchemaError
 
 
-class TestLireVentes:
-    def test_lit_la_pagination(self, payload_ventes: dict[str, Any]) -> None:
-        _, pagination = mapping.lire_ventes(payload_ventes)
+class TestReadSales:
+    def test_reads_the_pagination(self, sales_payload: dict[str, Any]) -> None:
+        _, pagination = mapping.read_sales(sales_payload)
         assert pagination.total_count == 11
         assert pagination.total_pages == 2
 
-    def test_lit_les_ventes(self, payload_ventes: dict[str, Any]) -> None:
-        ventes, _ = mapping.lire_ventes(payload_ventes)
-        assert len(ventes) == 8
-        premiere = ventes[0]
-        assert premiere.id == 467
-        assert premiere.direction_regionale == "LA REUNION"
-        assert premiere.nb_lots == 161
-        assert "Véhicules" in premiere.categories
-        assert premiere.statut == 3
+    def test_reads_the_sales(self, sales_payload: dict[str, Any]) -> None:
+        sales, _ = mapping.read_sales(sales_payload)
+        assert len(sales) == 8
+        first = sales[0]
+        assert first.id == 467
+        assert first.regional_directorate == "LA REUNION"
+        assert first.lot_count == 161
+        assert "Véhicules" in first.categories
+        assert first.status == 3
 
-    def test_absorbe_le_professional_only_en_chaine(self, payload_ventes: dict[str, Any]) -> None:
-        # Au niveau vente l'API renvoie "0"/"1" ; au niveau lot, 0/1.
-        ventes, _ = mapping.lire_ventes(payload_ventes)
-        assert {v.reserve_aux_professionnels for v in ventes} == {True, False}
+    def test_absorbs_professional_only_as_a_string(self, sales_payload: dict[str, Any]) -> None:
+        # At sale level the API returns "0"/"1"; at lot level, 0/1.
+        sales, _ = mapping.read_sales(sales_payload)
+        assert {s.trade_only for s in sales} == {True, False}
 
-    def test_lit_les_dates_en_datetime_aware(self, payload_ventes: dict[str, Any]) -> None:
-        ventes, _ = mapping.lire_ventes(payload_ventes)
-        assert ventes[0].date_cloture is not None
-        assert ventes[0].date_cloture.tzinfo is not None
+    def test_reads_dates_as_aware_datetimes(self, sales_payload: dict[str, Any]) -> None:
+        sales, _ = mapping.read_sales(sales_payload)
+        assert sales[0].closes_at is not None
+        assert sales[0].closes_at.tzinfo is not None
 
-    def test_erreur_graphql_est_terminale(self) -> None:
-        with pytest.raises(SchemaAmontError, match="erreur GraphQL"):
-            mapping.lire_ventes({"errors": [{"message": "Cannot query field"}]})
+    def test_a_graphql_error_is_terminal(self) -> None:
+        with pytest.raises(UpstreamSchemaError, match="erreur GraphQL"):
+            mapping.read_sales({"errors": [{"message": "Cannot query field"}]})
 
-    def test_bloc_manquant_est_terminale(self) -> None:
-        with pytest.raises(SchemaAmontError, match="auctionsList"):
-            mapping.lire_ventes({"data": {}})
+    def test_a_missing_block_is_terminal(self) -> None:
+        with pytest.raises(UpstreamSchemaError, match="auctionsList"):
+            mapping.read_sales({"data": {}})
 
-    def test_items_absent_est_terminale(self) -> None:
-        with pytest.raises(SchemaAmontError, match="items"):
-            mapping.lire_ventes({"data": {"auctionsList": {"total_count": 0}}})
+    def test_missing_items_is_terminal(self) -> None:
+        with pytest.raises(UpstreamSchemaError, match="items"):
+            mapping.read_sales({"data": {"auctionsList": {"total_count": 0}}})
 
 
-class TestLireLots:
-    def test_lit_la_pagination(self, payload_lots: dict[str, Any]) -> None:
-        _, pagination = mapping.lire_lots(payload_lots)
+class TestReadLots:
+    def test_reads_the_pagination(self, lots_payload: dict[str, Any]) -> None:
+        _, pagination = mapping.read_lots(lots_payload)
         assert pagination.total_count == 161
         assert pagination.total_pages == 21
 
-    def test_lit_les_champs_decisifs(self, payload_lots: dict[str, Any]) -> None:
-        lots, _ = mapping.lire_lots(payload_lots)
-        premier = lots[0]
-        assert premier.id == 267804
-        assert premier.url_key == "daciadustersecteurest-1"
-        assert premier.reserve_aux_professionnels is True
-        assert premier.mise_a_prix == 1500
-        assert premier.code_postal_retrait == "97470"
-        assert premier.ville_retrait == "SAINT-BENOIT"
-        assert premier.vente_id == 467
+    def test_reads_the_decisive_fields(self, lots_payload: dict[str, Any]) -> None:
+        lots, _ = mapping.read_lots(lots_payload)
+        first = lots[0]
+        assert first.id == 267804
+        assert first.url_key == "daciadustersecteurest-1"
+        assert first.trade_only is True
+        assert first.starting_price == 1500
+        assert first.collection_postcode == "97470"
+        assert first.collection_city == "SAINT-BENOIT"
+        assert first.sale_id == 467
 
-    def test_enchere_en_cours_absente_reste_nulle(self, payload_lots: dict[str, Any]) -> None:
-        lots, _ = mapping.lire_lots(payload_lots)
-        assert lots[0].enchere_en_cours is None
+    def test_a_missing_current_bid_stays_null(self, lots_payload: dict[str, Any]) -> None:
+        lots, _ = mapping.read_lots(lots_payload)
+        assert lots[0].current_bid is None
 
-    def test_enchere_en_cours_presente_est_lue(self, payload_lots: dict[str, Any]) -> None:
-        lots, _ = mapping.lire_lots(payload_lots)
-        avec_enchere = [lot for lot in lots if lot.enchere_en_cours is not None]
-        assert {lot.enchere_en_cours for lot in avec_enchere} == {2000.0, 900.0}
+    def test_a_present_current_bid_is_read(self, lots_payload: dict[str, Any]) -> None:
+        lots, _ = mapping.read_lots(lots_payload)
+        with_bid = [lot for lot in lots if lot.current_bid is not None]
+        assert {lot.current_bid for lot in with_bid} == {2000.0, 900.0}
 
-    def test_description_est_degagee_du_html(self, payload_lots: dict[str, Any]) -> None:
-        lots, _ = mapping.lire_lots(payload_lots)
+    def test_the_description_is_stripped_of_html(self, lots_payload: dict[str, Any]) -> None:
+        lots, _ = mapping.read_lots(lots_payload)
         assert "<p>" not in lots[0].description
         assert lots[0].description.startswith("Lot réservé aux professionnels")
 
-    def test_professional_only_illisible_alimente_les_anomalies(self) -> None:
-        payload = {
-            "data": {
-                "products": {
-                    "total_count": 1,
-                    "page_info": {"total_pages": 1},
-                    "items": [_lot_brut(professional_only="peut-etre")],
-                }
+    def test_an_unreadable_trade_only_feeds_the_anomalies(self) -> None:
+        payload = _lots_payload(_raw_lot(professional_only="peut-etre"))
+        lots, _ = mapping.read_lots(payload)
+        assert lots[0].trade_only is None
+        assert "reserve_aux_professionnels" in lots[0].unreadable_fields
+
+    def test_a_missing_trade_only_is_terminal(self) -> None:
+        raw = _raw_lot()
+        del raw["professional_only"]
+        with pytest.raises(UpstreamSchemaError, match="professional_only"):
+            mapping.read_lots(_lots_payload(raw))
+
+
+class TestHammerPrice:
+    def test_absent_while_the_lot_is_unsold(self, lots_payload: dict[str, Any]) -> None:
+        lots, _ = mapping.read_lots(lots_payload)
+        assert all(lot.hammer_price is None for lot in lots)
+
+    def test_read_as_soon_as_it_appears(self) -> None:
+        lots, _ = mapping.read_lots(_lots_payload(_raw_lot(bid_winner_amount=2400)))
+        assert lots[0].hammer_price == 2400.0
+
+
+class TestReadVehicleAttributes:
+    def test_reads_the_structured_attributes(self, listing_payload: dict[str, Any]) -> None:
+        attributes = mapping.read_vehicle_attributes(listing_payload)
+        assert attributes.make == "DACIA"
+        assert attributes.model == "DUSTER"
+        assert attributes.fuel == "Gazole"
+        assert attributes.gearbox == "Boîte manuelle"
+        assert attributes.kind == "VP"
+        assert attributes.mileage == 110430
+        assert attributes.has_key is True
+        assert attributes.registration_certificate is True
+        assert attributes.roadworthiness_test is False
+        assert attributes.first_registration_year == 2015
+        assert attributes.first_registration == "2015-12-23"
+
+    def test_reports_the_detailed_collection_point(self, listing_payload: dict[str, Any]) -> None:
+        attributes = mapping.read_vehicle_attributes(listing_payload)
+        assert attributes.collection_postcode == "97470"
+        assert attributes.collection_city == "SAINT-BENOIT"
+
+    def test_exposes_no_sensitive_attribute(self, listing_payload: dict[str, Any]) -> None:
+        attributes = mapping.read_vehicle_attributes(listing_payload)
+        assert "biciban" not in attributes.raw_attributes
+        assert "contact_dropoff_location_id" not in attributes.raw_attributes
+
+    def test_recognises_a_vehicle(self, listing_payload: dict[str, Any]) -> None:
+        assert mapping.read_vehicle_attributes(listing_payload).is_a_vehicle is True
+
+    def test_an_empty_product_is_terminal(self) -> None:
+        with pytest.raises(UpstreamSchemaError, match="items"):
+            mapping.read_vehicle_attributes({"data": {"products": {"items": []}}})
+
+
+def _lots_payload(*items: dict[str, Any]) -> dict[str, Any]:
+    return {
+        "data": {
+            "products": {
+                "total_count": len(items),
+                "page_info": {"total_pages": 1},
+                "items": list(items),
             }
         }
-        lots, _ = mapping.lire_lots(payload)
-        assert lots[0].reserve_aux_professionnels is None
-        assert "reserve_aux_professionnels" in lots[0].champs_illisibles
-
-    def test_professional_only_absent_est_terminale(self) -> None:
-        brut = _lot_brut()
-        del brut["professional_only"]
-        payload = {
-            "data": {
-                "products": {"total_count": 1, "page_info": {"total_pages": 1}, "items": [brut]}
-            }
-        }
-        with pytest.raises(SchemaAmontError, match="professional_only"):
-            mapping.lire_lots(payload)
+    }
 
 
-class TestLireAttributsVehicule:
-    def test_lit_les_attributs_structures(self, payload_fiche: dict[str, Any]) -> None:
-        attrs = mapping.lire_attributs(payload_fiche)
-        assert attrs.marque == "DACIA"
-        assert attrs.modele == "DUSTER"
-        assert attrs.energie == "Gazole"
-        assert attrs.boite == "Boîte manuelle"
-        assert attrs.genre == "VP"
-        assert attrs.kilometrage == 110430
-        assert attrs.a_une_cle is True
-        assert attrs.certificat_immatriculation is True
-        assert attrs.controle_technique is False
-        assert attrs.annee_mise_en_circulation == 2015
-        assert attrs.premiere_mise_en_circulation == "2015-12-23"
-
-    def test_signale_le_lieu_de_retrait_detaille(self, payload_fiche: dict[str, Any]) -> None:
-        attrs = mapping.lire_attributs(payload_fiche)
-        assert attrs.code_postal_retrait == "97470"
-        assert attrs.ville_retrait == "SAINT-BENOIT"
-
-    def test_nexpose_aucun_attribut_sensible(self, payload_fiche: dict[str, Any]) -> None:
-        attrs = mapping.lire_attributs(payload_fiche)
-        assert "biciban" not in attrs.attributs_bruts
-        assert "contact_dropoff_location_id" not in attrs.attributs_bruts
-
-    def test_produit_vide_est_terminale(self) -> None:
-        with pytest.raises(SchemaAmontError, match="items"):
-            mapping.lire_attributs({"data": {"products": {"items": []}}})
-
-
-def _lot_brut(**remplacements: Any) -> dict[str, Any]:
-    """Item de lot minimal conforme au schema amont."""
+def _raw_lot(**overrides: Any) -> dict[str, Any]:
+    """A minimal lot item conforming to the upstream schema."""
     base: dict[str, Any] = {
         "id": 1,
         "sku": "SKU1",
@@ -154,6 +166,7 @@ def _lot_brut(**remplacements: Any) -> dict[str, Any]:
         "price_auction": 100,
         "last_bid": None,
         "reserve_price": None,
+        "bid_winner_amount": None,
         "lot_status_label": "Vente en cours",
         "start_date": None,
         "end_date": None,
@@ -162,24 +175,5 @@ def _lot_brut(**remplacements: Any) -> dict[str, Any]:
         "description": {"html": ""},
         "sales_inspector_data": {"cav_name": "LILLE"},
     }
-    base.update(remplacements)
+    base.update(overrides)
     return base
-
-
-class TestPrixDadjudication:
-    def test_absent_tant_que_le_lot_nest_pas_vendu(self, payload_lots: dict[str, Any]) -> None:
-        lots, _ = mapping.lire_lots(payload_lots)
-        assert all(lot.prix_adjudication is None for lot in lots)
-
-    def test_lu_des_quil_apparait(self) -> None:
-        payload = {
-            "data": {
-                "products": {
-                    "total_count": 1,
-                    "page_info": {"total_pages": 1},
-                    "items": [_lot_brut(bid_winner_amount=2400)],
-                }
-            }
-        }
-        lots, _ = mapping.lire_lots(payload)
-        assert lots[0].prix_adjudication == 2400.0

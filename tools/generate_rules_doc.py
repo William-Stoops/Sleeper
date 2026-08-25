@@ -1,20 +1,20 @@
-"""Regenere docs/regles-metier.md depuis le code.
+"""Regenerate docs/regles-metier.md from the code.
 
-La documentation des regles metier est derivee des regles elles-memes : elle
-ne peut donc pas mentir sur ce que l'outil fait reellement. La CI verifie que
-le fichier versionne correspond bien a ce que ce script produit.
+The business-rule documentation derives from the rules themselves, so it
+cannot lie about what the tool actually does. CI checks that the versioned
+file matches what this script produces.
 
-    uv run python tools/generer_doc_regles.py > docs/regles-metier.md
+    uv run python tools/generate_rules_doc.py > docs/regles-metier.md
 """
 
 from __future__ import annotations
 
 from typing import Final
 
-from sleeper.domain.codes import GENRES_HORS_CIBLE
-from sleeper.domain.exclusions import ANNEE_COLLECTION, REGLES_PAR_DEFAUT
+from sleeper.domain.codes import OUT_OF_SCOPE_KINDS
+from sleeper.domain.exclusions import CLASSIC_CAR_YEAR, DEFAULT_RULES
 
-ENTETE: Final = """\
+HEADER: Final = """\
 # Règles métier — formulations reconnues
 
 > **Ce fichier est généré depuis le code** (`src/sleeper/domain/exclusions.py`).
@@ -24,7 +24,7 @@ ENTETE: Final = """\
 >    `[exclusions.formulations_supplementaires]`. C'est la voie normale ;
 > 2. **dans le code** — l'ajouter à la règle concernée, avec un test.
 >
-> Régénérer ensuite : `uv run python tools/generer_doc_regles.py > docs/regles-metier.md`
+> Régénérer ensuite : `uv run python tools/generate_rules_doc.py > docs/regles-metier.md`
 
 ## Comment une règle décide
 
@@ -62,7 +62,7 @@ rend le verdict reproductible d'un run à l'autre.
 ## Les règles
 """
 
-PIED: Final = """\
+FOOTER: Final = """\
 ## Attributs structurés qui priment sur le texte
 
 | Règle | Attribut de la fiche | Verdict |
@@ -123,37 +123,37 @@ avec le code de sortie `1`.
 """
 
 
-def rediger() -> str:
-    """Compose la documentation complete des regles."""
-    morceaux = [ENTETE]
-    for rang, regle in enumerate(REGLES_PAR_DEFAUT, 1):
-        morceaux.append(f"\n### {rang}. `{regle.code}`\n")
-        morceaux.append(f"\n**{regle.libelle}**\n")
-        if regle.expressions:
-            morceaux.append("\nDéclenche sur :\n\n")
-            morceaux.append("\n".join(f"- `{e}`" for e in regle.expressions))
-            morceaux.append("\n")
-        if regle.contre_expressions:
-            morceaux.append("\nAnnulée par :\n\n")
-            morceaux.append("\n".join(f"- `{c}`" for c in regle.contre_expressions))
-            morceaux.append("\n")
-    morceaux.append("\n")
-    morceaux.append(
-        PIED.format(
-            annee=ANNEE_COLLECTION,
-            genres=", ".join(f"`{g}`" for g in sorted(GENRES_HORS_CIBLE)),
+def render() -> str:
+    """Compose the full rule documentation."""
+    parts = [HEADER]
+    for rank, rule in enumerate(DEFAULT_RULES, 1):
+        parts.append(f"\n### {rank}. `{rule.code}`\n")
+        parts.append(f"\n**{rule.label}**\n")
+        if rule.phrases:
+            parts.append("\nDéclenche sur :\n\n")
+            parts.append("\n".join(f"- `{p}`" for p in rule.phrases))
+            parts.append("\n")
+        if rule.counter_phrases:
+            parts.append("\nAnnulée par :\n\n")
+            parts.append("\n".join(f"- `{c}`" for c in rule.counter_phrases))
+            parts.append("\n")
+    parts.append("\n")
+    parts.append(
+        FOOTER.format(
+            annee=CLASSIC_CAR_YEAR,
+            genres=", ".join(f"`{k}`" for k in sorted(OUT_OF_SCOPE_KINDS)),
         )
     )
-    return "".join(morceaux)
+    return "".join(parts)
 
 
 def main() -> int:
-    """Ecrit la documentation sur la sortie standard.
+    """Write the documentation to standard output.
 
-    Le retour a la ligne final est voulu : il aligne la sortie sur ce
-    qu'attendent les garde-fous de pre-commit.
+    The trailing newline is deliberate: it aligns the output with what the
+    pre-commit guards expect.
     """
-    print(rediger().rstrip("\n"))
+    print(render().rstrip("\n"))
     return 0
 
 

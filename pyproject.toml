@@ -37,6 +37,9 @@ build-backend = "hatchling.build"
 [tool.hatch.build.targets.wheel]
 packages = ["src/sleeper"]
 
+[tool.hatch.build.targets.wheel.force-include]
+"src/sleeper/py.typed" = "sleeper/py.typed"
+
 [tool.ruff]
 line-length = 100
 target-version = "py312"
@@ -62,8 +65,8 @@ ignore = ["PLR0913"]
 
 [tool.ruff.lint.per-file-ignores]
 "tests/*" = ["PLR2004"]
-# Gabarit Markdown embarque : la largeur du tableau n'est pas negociable.
-"tools/generer_doc_regles.py" = ["E501"]
+# Embedded Markdown template: the table width is not negotiable.
+"tools/generate_rules_doc.py" = ["E501"]
 
 [tool.mypy]
 python_version = "3.12"

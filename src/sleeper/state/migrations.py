@@ -1,13 +1,16 @@
-"""Migrations du schema d'etat.
+"""State schema migrations.
 
-Chaque migration est un couple (version, instructions SQL) applique une seule
-fois, dans l'ordre, sous transaction. On n'edite jamais une migration deja
-publiee : on en ajoute une.
+Each migration is a (version, SQL) pair applied exactly once, in order, inside
+a transaction. A published migration is never edited: another one is added.
 
-L'historique des encheres a une valeur propre au-dela du run quotidien — il
-doit permettre, dans six mois, de repondre a « a quel pourcentage de la mise
-a prix les lots du Domaine partent-ils reellement ? ». Le schema est concu
-pour cette question autant que pour la detection des nouveautes.
+Version 1 is the initial schema. It was rewritten once, before any real run,
+to move table and column names to English; from the first production run
+onwards the rule above applies without exception.
+
+The bid history has value of its own beyond the daily run — in six months it
+must answer "at what percentage of the starting price do Domaine lots actually
+sell?". The schema is designed for that question as much as for detecting new
+lots.
 """
 
 from __future__ import annotations
@@ -18,58 +21,58 @@ MIGRATIONS: Final[tuple[tuple[int, str], ...]] = (
     (
         1,
         """
-        CREATE TABLE vente (
-            id                   INTEGER PRIMARY KEY,
-            intitule             TEXT    NOT NULL,
-            direction_regionale  TEXT    NOT NULL,
-            statut               INTEGER NOT NULL,
-            nb_lots              INTEGER NOT NULL,
-            date_ouverture       TEXT,
-            date_cloture         TEXT,
-            vue_la_premiere_fois TEXT    NOT NULL,
-            vue_la_derniere_fois TEXT    NOT NULL,
-            cloturee_le          TEXT
+        CREATE TABLE sale (
+            id                    INTEGER PRIMARY KEY,
+            title                 TEXT    NOT NULL,
+            regional_directorate  TEXT    NOT NULL,
+            status                INTEGER NOT NULL,
+            lot_count             INTEGER NOT NULL,
+            opens_at              TEXT,
+            closes_at             TEXT,
+            first_seen_at         TEXT    NOT NULL,
+            last_seen_at          TEXT    NOT NULL,
+            closed_at             TEXT
         );
 
         CREATE TABLE lot (
-            id                         INTEGER PRIMARY KEY,
-            vente_id                   INTEGER NOT NULL,
-            url                        TEXT    NOT NULL,
-            titre                      TEXT    NOT NULL,
-            reserve_aux_professionnels INTEGER,
-            mise_a_prix                REAL,
-            code_postal                TEXT    NOT NULL DEFAULT '',
-            departement                TEXT    NOT NULL DEFAULT '',
-            vue_la_premiere_fois       TEXT    NOT NULL,
-            vue_la_derniere_fois       TEXT    NOT NULL
+            id              INTEGER PRIMARY KEY,
+            sale_id         INTEGER NOT NULL,
+            url             TEXT    NOT NULL,
+            title           TEXT    NOT NULL,
+            trade_only      INTEGER,
+            starting_price  REAL,
+            postcode        TEXT    NOT NULL DEFAULT '',
+            department      TEXT    NOT NULL DEFAULT '',
+            first_seen_at   TEXT    NOT NULL,
+            last_seen_at    TEXT    NOT NULL
         );
-        CREATE INDEX idx_lot_vente ON lot (vente_id);
-        CREATE INDEX idx_lot_departement ON lot (departement);
+        CREATE INDEX idx_lot_sale ON lot (sale_id);
+        CREATE INDEX idx_lot_department ON lot (department);
 
-        -- Une ligne par CHANGEMENT d'enchere, pas une par execution : c'est
-        -- ce qui rend deux runs identiques silencieux.
-        CREATE TABLE enchere (
-            lot_id     INTEGER NOT NULL,
-            horodatage TEXT    NOT NULL,
-            montant    REAL,
-            PRIMARY KEY (lot_id, horodatage)
+        -- One row per bid CHANGE, not one per run: that is what keeps two
+        -- identical runs silent.
+        CREATE TABLE bid (
+            lot_id       INTEGER NOT NULL,
+            recorded_at  TEXT    NOT NULL,
+            amount       REAL,
+            PRIMARY KEY (lot_id, recorded_at)
         );
-        CREATE INDEX idx_enchere_lot ON enchere (lot_id, horodatage);
+        CREATE INDEX idx_bid_lot ON bid (lot_id, recorded_at);
 
-        CREATE TABLE adjudication (
-            lot_id      INTEGER PRIMARY KEY,
-            montant     REAL NOT NULL,
-            mise_a_prix REAL,
-            constate_le TEXT NOT NULL
+        CREATE TABLE hammer_price (
+            lot_id          INTEGER PRIMARY KEY,
+            amount          REAL NOT NULL,
+            starting_price  REAL,
+            observed_at     TEXT NOT NULL
         );
 
-        -- Cache des fiches detaillees : les attributs vehicule ne changent
-        -- pas, inutile de retelecharger une fiche inchangee.
-        CREATE TABLE fiche_cache (
-            lot_id        INTEGER PRIMARY KEY,
-            empreinte     TEXT NOT NULL,
-            charge_utile  TEXT NOT NULL,
-            mis_a_jour_le TEXT NOT NULL
+        -- Cache of detailed listings: vehicle attributes do not change, so
+        -- re-downloading an unchanged listing is pointless.
+        CREATE TABLE listing_cache (
+            lot_id       INTEGER PRIMARY KEY,
+            fingerprint  TEXT NOT NULL,
+            payload      TEXT NOT NULL,
+            updated_at   TEXT NOT NULL
         );
         """,
     ),

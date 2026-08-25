@@ -46,7 +46,7 @@ jobs:
         run: uv run pytest --cov --cov-report=term-missing
 
       - name: Aucune donnée personnelle dans les fixtures
-        run: uv run python tools/verifier_fixtures.py
+        run: uv run python tools/check_fixtures.py
 
       - name: La configuration livrée est valide
         run: uv run sleeper valider-config
@@ -77,5 +77,5 @@ jobs:
 
       - name: La doc des règles métier suit le code
         run: |
-          uv run python tools/generer_doc_regles.py > docs/regles-metier.md
+          uv run python tools/generate_rules_doc.py > docs/regles-metier.md
           git diff --exit-code docs/

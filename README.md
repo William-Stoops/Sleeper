@@ -37,9 +37,9 @@ ventes ouvertes → lots de chaque vente → fiche détaillée (si besoin)
 
 | | |
 |---|---|
-| **Balaye** | toutes les ventes en cours (`statut 3`) et à venir (`statut 2`) comportant la catégorie « Véhicules » |
+| **Balaye** | toutes les ventes en cours (statut 3) et à venir (statut 2) comportant la catégorie « Véhicules » |
 | **Extrait** | pour chaque lot : mention professionnels, mise à prix, enchère en cours, marque, modèle, kilométrage, énergie, boîte, VIN, carte grise, clés, contrôle technique, lieu de retrait, dates de visite, description intégrale |
-| **Filtre** | sur le **lieu de retrait** (jamais le siège de la vente) et sur dix règles d'exclusion métier |
+| **Filtre** | sur le **lieu de retrait** (jamais le siège de la vente) et sur onze règles d'exclusion métier |
 | **Mémorise** | dans SQLite : nouveautés, historique des enchères, ventes clôturées, cache des fiches |
 | **Produit** | un JSON horodaté validé contre son JSON Schema, plus un digest Markdown |
 
@@ -401,14 +401,14 @@ et changer de format de sortie sans toucher au scraping.
 src/sleeper/
 ├── domain/        ← LE MÉTIER, sans aucune dépendance technique
 │   ├── models.py      contrat de sortie (Pydantic v2), source du JSON Schema
-│   ├── texte.py       normalisation FR + extractions (VIN, km, CT, Crit'Air…)
-│   ├── exclusions.py  les dix règles, leurs déclencheurs et contre-expressions
-│   ├── perimetre.py   code postal → département, y compris Corse et outre-mer
+│   ├── text.py        normalisation FR + extractions (VIN, km, CT, Crit'Air…)
+│   ├── exclusions.py  les onze règles, déclencheurs et contre-expressions
+│   ├── territory.py   code postal → département, y compris Corse et outre-mer
 │   └── codes.py       grammaire de la source (statuts, booléens, genres)
 ├── api/           ← LE TRANSPORT
 │   ├── operations.py  requêtes GraphQL figées, identiques à celles du site
 │   ├── session.py     acquisition et cache de la session navigateur
-│   ├── client.py      httpx, cadenceur, reprises, refus du challenge
+│   ├── client.py      httpx, limiteur de débit, reprises, refus du challenge
 │   └── mapping.py     JSON → objets typés, échec bruyant si le schéma casse
 ├── state/         ← LA MÉMOIRE
 │   ├── migrations.py  schéma SQLite versionné
@@ -422,8 +422,33 @@ src/sleeper/
 └── cli.py         ← trois commandes
 ```
 
-Le pipeline ne connaît pas `ClientDomaine` : il dépend d'un `Protocol` à une
+Le pipeline ne connaît pas `DomaineClient` : il dépend d'un `Protocol` à une
 méthode. C'est ce qui permet de rejouer un run complet sur des fixtures.
+
+### Langue du code
+
+**Le code est en anglais** — noms de fichiers, de classes, de fonctions, de
+variables, commentaires et docstrings compris. C'est la langue par défaut de
+l'écosystème Python, et la seule qui évite les hybrides du genre
+`extraire_vin`.
+
+**Reste en français tout ce qu'un humain lit ou édite** :
+
+| Quoi | Pourquoi |
+|---|---|
+| Sorties de la CLI, messages d'erreur, digest | interface opérateur |
+| Cette documentation, les commentaires de `config/default.toml` | idem |
+| Les **clés du JSON de sortie** (`reserve_aux_professionnels`, `mise_a_prix`…) | contrat avec le système aval, spécifié en français |
+| Les **clés du fichier de configuration** (`[reseau]`, `departements`…) | interface éditée quotidiennement |
+| Les **codes de règles** (`sans_cle`, `epave_ou_pieces`…) | ils apparaissent dans la sortie et dans la config |
+
+Les deux contrats sont tenus par des **alias Pydantic** : les attributs sont
+anglais, la forme sérialisée reste française. Un test verrouille cette
+correspondance dans les deux sens.
+
+**La base SQLite est en anglais**, tables et colonnes comprises
+(`sale`, `lot`, `bid`, `hammer_price`, `listing_cache`) : c'est un détail
+d'implémentation interne, jamais lu par l'opérateur.
 
 ### Ajouter une destination de sortie
 
@@ -457,8 +482,8 @@ uv run pre-commit install
 | `uv run mypy` | typage strict, **zéro `# type: ignore`** |
 | `uv run ruff check src tests tools` | lint |
 | `uv run ruff format src tests tools` | format |
-| `uv run python tools/verifier_fixtures.py` | aucune donnée personnelle dans les fixtures |
-| `uv run python tools/generer_doc_regles.py > docs/regles-metier.md` | régénérer la doc des règles |
+| `uv run python tools/check_fixtures.py` | aucune donnée personnelle dans les fixtures |
+| `uv run python tools/generate_rules_doc.py > docs/regles-metier.md` | régénérer la doc des règles |
 
 La CI GitHub Actions rejoue l'ensemble sur Linux, macOS et Windows, en Python
 3.12 et 3.13, et vérifie en plus que le JSON Schema publié et la documentation
@@ -469,7 +494,7 @@ des règles suivent bien le code.
 Les fixtures sont de **vraies réponses de l'API**, capturées le 2026-08-25 puis
 **expurgées des données personnelles** — l'API renvoie l'IBAN du compte de
 l'État ainsi que le nom, le courriel et le téléphone d'agents publics.
-`tools/verifier_fixtures.py` refuse tout versionnement qui en réintroduirait,
+`tools/check_fixtures.py` refuse tout versionnement qui en réintroduirait,
 et il tourne en pre-commit comme en CI.
 
 ### Rejouer la reconnaissance de l'API

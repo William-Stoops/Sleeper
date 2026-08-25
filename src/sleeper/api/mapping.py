@@ -1,17 +1,17 @@
-"""Traduction des reponses de l'API Magento en objets typés du domaine.
+"""Translation of Magento API responses into typed objects.
 
-Cette couche est le point ou le contrat amont rencontre le notre. Elle
-applique une discipline stricte :
+This layer is where the upstream contract meets ours. It applies a strict
+discipline:
 
-* un champ STRUCTURANT absent leve `SchemaAmontError` — c'est une casse du
-  contrat amont, pas une donnee manquante ;
-* un champ present mais illisible alimente `champs_illisibles`, ce qui
-  remontera dans `champs_manquants` puis dans `run.erreurs` ;
-* un champ present et explicitement nul reste nul, sans bruit : c'est une
-  absence legitime au sens du contrat de sortie.
+* a missing STRUCTURAL field raises `UpstreamSchemaError` — that is a broken
+  upstream contract, not missing data;
+* a field that is present but unreadable feeds `unreadable_fields`, which
+  surfaces in `champs_manquants` and then in `run.erreurs`;
+* a field that is present and explicitly null stays null, quietly: that is a
+  legitimate absence under the output contract.
 
-Les attributs porteurs de donnees personnelles ou bancaires sont ecartes des
-la lecture : ils ne sont necessaires a aucune decision d'achat.
+Attributes carrying personal or banking data are dropped at read time: no
+buying decision needs them.
 """
 
 from __future__ import annotations
@@ -21,318 +21,318 @@ from dataclasses import dataclass, field
 from datetime import datetime
 from typing import Any, Final
 
-from sleeper.domain import texte
-from sleeper.domain.codes import ATTRIBUTS_SENSIBLES, vers_booleen
-from sleeper.errors import SchemaAmontError
+from sleeper.domain import text
+from sleeper.domain.codes import SENSITIVE_ATTRIBUTES, to_bool
+from sleeper.errors import UpstreamSchemaError
 
-_ANNEE_MIN: Final = 1900
+_MIN_YEAR: Final = 1900
 
 
 @dataclass(frozen=True, slots=True)
 class Pagination:
-    """Etat de pagination renvoye par la source."""
+    """Pagination state returned by the source."""
 
     total_count: int
     total_pages: int
 
 
 @dataclass(frozen=True, slots=True)
-class VenteSource:
-    """Une vente telle que la source la decrit."""
+class SaleSource:
+    """A sale as the source describes it."""
 
     id: int
-    intitule: str
+    title: str
     description: str
-    statut: int
-    statut_libelle: str
-    type_libelle: str
-    date_ouverture: datetime | None
-    date_cloture: datetime | None
-    direction_regionale: str
-    nb_lots: int
+    status: int
+    status_label: str
+    type_label: str
+    opens_at: datetime | None
+    closes_at: datetime | None
+    regional_directorate: str
+    lot_count: int
     categories: tuple[str, ...]
-    reserve_aux_professionnels: bool | None
+    trade_only: bool | None
 
 
 @dataclass(frozen=True, slots=True)
 class LotSource:
-    """Un lot tel que la liste des lots d'une vente le decrit."""
+    """A lot as the sale's lot list describes it."""
 
     id: int
     sku: str
     url_key: str
-    numero: str
-    titre: str
-    vente_id: int
-    reserve_aux_professionnels: bool | None
-    mise_a_prix: float | None
-    enchere_en_cours: float | None
-    prix_reserve: float | None
-    #: Montant d'adjudication, publie par la source une fois le lot vendu.
-    prix_adjudication: float | None
-    statut_libelle: str
-    date_ouverture: datetime | None
-    date_cloture: datetime | None
-    ville_retrait: str
-    code_postal_retrait: str
+    number: str
+    title: str
+    sale_id: int
+    trade_only: bool | None
+    starting_price: float | None
+    current_bid: float | None
+    reserve_price: float | None
+    #: Hammer price, published by the source once the lot has been sold.
+    hammer_price: float | None
+    status_label: str
+    opens_at: datetime | None
+    closes_at: datetime | None
+    collection_city: str
+    collection_postcode: str
     description: str
-    direction_regionale: str
-    champs_illisibles: tuple[str, ...] = ()
+    regional_directorate: str
+    unreadable_fields: tuple[str, ...] = ()
 
 
 @dataclass(frozen=True, slots=True)
-class AttributsVehicule:
-    """Attributs vehicule d'une fiche de lot."""
+class VehicleAttributes:
+    """Vehicle attributes of a lot listing."""
 
-    marque: str
-    modele: str
-    energie: str
-    boite: str
-    carrosserie: str
-    genre: str
-    kilometrage: int | None
-    a_une_cle: bool | None
-    certificat_immatriculation: bool | None
-    controle_technique: bool | None
-    premiere_mise_en_circulation: str
-    annee_mise_en_circulation: int | None
-    tva: str
-    vhu_declare: bool | None
-    non_conforme: bool | None
-    immatriculable_a_nouveau: bool | None
-    compteur_modifie: bool | None
-    fourriere_administrative: bool | None
-    ville_retrait: str
-    code_postal_retrait: str
+    make: str
+    model: str
+    fuel: str
+    gearbox: str
+    body_type: str
+    kind: str
+    mileage: int | None
+    has_key: bool | None
+    registration_certificate: bool | None
+    roadworthiness_test: bool | None
+    first_registration: str
+    first_registration_year: int | None
+    vat: str
+    declared_end_of_life: bool | None
+    non_compliant: bool | None
+    re_registrable: bool | None
+    odometer_altered: bool | None
+    impounded: bool | None
+    collection_city: str
+    collection_postcode: str
     description: str
-    attributs_bruts: Mapping[str, str] = field(default_factory=dict)
-    champs_illisibles: tuple[str, ...] = ()
+    raw_attributes: Mapping[str, str] = field(default_factory=dict)
+    unreadable_fields: tuple[str, ...] = ()
 
     @property
-    def est_un_vehicule(self) -> bool:
-        """Vrai si la fiche porte au moins un attribut vehicule identifiant."""
-        return bool(self.genre or self.marque or self.modele)
+    def is_a_vehicle(self) -> bool:
+        """True when the listing carries at least one identifying vehicle attribute."""
+        return bool(self.kind or self.make or self.model)
 
 
-def _bloc_donnees(payload: Mapping[str, Any], chemin: str) -> Mapping[str, Any]:
-    """Ouvre l'enveloppe GraphQL, en refusant de travailler sur une reponse en erreur."""
-    if erreurs := payload.get("errors"):
-        premier = erreurs[0].get("message", "sans message") if erreurs else "sans message"
-        raise SchemaAmontError(chemin, f"erreur GraphQL renvoyee par la source : {premier}")
-    donnees = payload.get("data")
-    if not isinstance(donnees, Mapping):
-        raise SchemaAmontError(chemin, "bloc 'data' absent de la reponse")
-    return donnees
+def _data_block(payload: Mapping[str, Any], path: str) -> Mapping[str, Any]:
+    """Open the GraphQL envelope, refusing to work on a failed response."""
+    if errors := payload.get("errors"):
+        first = errors[0].get("message", "sans message") if errors else "sans message"
+        raise UpstreamSchemaError(path, f"erreur GraphQL renvoyée par la source : {first}")
+    data = payload.get("data")
+    if not isinstance(data, Mapping):
+        raise UpstreamSchemaError(path, "bloc « data » absent de la réponse")
+    return data
 
 
-def _exiger(source: Mapping[str, Any], cle: str, chemin: str) -> Any:
-    """Recupere une cle STRUCTURANTE. Son absence casse le contrat amont."""
-    if cle not in source:
-        raise SchemaAmontError(f"{chemin}.{cle}", "champ structurant absent de la reponse")
-    return source[cle]
+def _require(source: Mapping[str, Any], key: str, path: str) -> Any:
+    """Fetch a STRUCTURAL key. Its absence breaks the upstream contract."""
+    if key not in source:
+        raise UpstreamSchemaError(f"{path}.{key}", "champ structurant absent de la réponse")
+    return source[key]
 
 
-def _texte(valeur: Any) -> str:
-    """Rend une chaine propre, jamais `None` : le contrat de sortie veut `\"\"`."""
-    return "" if valeur is None else str(valeur).strip()
+def _as_text(value: Any) -> str:
+    """Return a clean string, never `None`: the output contract wants `\"\"`."""
+    return "" if value is None else str(value).strip()
 
 
-def _nombre(valeur: Any) -> float | None:
-    """Convertit un montant. Une valeur illisible vaut absence, pas zero."""
-    if valeur is None or valeur == "":
+def _as_number(value: Any) -> float | None:
+    """Convert an amount. An unreadable value means absence, not zero."""
+    if value is None or value == "":
         return None
     try:
-        return float(valeur)
+        return float(value)
     except (TypeError, ValueError):
         return None
 
 
-def _entier(valeur: Any) -> int | None:
-    nombre = _nombre(valeur)
-    return None if nombre is None else int(nombre)
+def _as_int(value: Any) -> int | None:
+    number = _as_number(value)
+    return None if number is None else int(number)
 
 
-def _horodatage(valeur: Any) -> datetime | None:
-    """Lit un horodatage ISO 8601. Une valeur illisible vaut absence."""
-    if not valeur:
+def _as_datetime(value: Any) -> datetime | None:
+    """Read an ISO 8601 timestamp. An unreadable value means absence."""
+    if not value:
         return None
     try:
-        return datetime.fromisoformat(str(valeur).replace("Z", "+00:00"))
+        return datetime.fromisoformat(str(value).replace("Z", "+00:00"))
     except ValueError:
         return None
 
 
-def _pagination(bloc: Mapping[str, Any], chemin: str) -> Pagination:
-    infos = bloc.get("page_info") or {}
+def _tolerant_bool(value: Any) -> bool | None:
+    """Read an upstream boolean without ever raising: `None` when unreadable."""
+    try:
+        return to_bool(value)
+    except ValueError:
+        return None
+
+
+def _pagination(block: Mapping[str, Any], path: str) -> Pagination:
+    info = block.get("page_info") or {}
     return Pagination(
-        total_count=int(_exiger(bloc, "total_count", chemin) or 0),
-        total_pages=int(infos.get("total_pages") or 0),
+        total_count=int(_require(block, "total_count", path) or 0),
+        total_pages=int(info.get("total_pages") or 0),
     )
 
 
-def lire_ventes(payload: Mapping[str, Any]) -> tuple[tuple[VenteSource, ...], Pagination]:
-    """Traduit une page de la liste des ventes."""
-    chemin = "data.auctionsList"
-    donnees = _bloc_donnees(payload, chemin)
-    bloc = donnees.get("auctionsList")
-    if not isinstance(bloc, Mapping):
-        raise SchemaAmontError(chemin, "bloc absent : l'operation getAuctions a change")
-    items = _exiger(bloc, "items", chemin)
+def read_sales(payload: Mapping[str, Any]) -> tuple[tuple[SaleSource, ...], Pagination]:
+    """Translate one page of the sales list."""
+    path = "data.auctionsList"
+    data = _data_block(payload, path)
+    block = data.get("auctionsList")
+    if not isinstance(block, Mapping):
+        raise UpstreamSchemaError(path, "bloc absent : l'opération getAuctions a changé")
+    items = _require(block, "items", path)
     if not isinstance(items, Sequence):
-        raise SchemaAmontError(f"{chemin}.items", "liste attendue")
-    ventes = tuple(_vente(item, f"{chemin}.items[{i}]") for i, item in enumerate(items))
-    return ventes, _pagination(bloc, chemin)
+        raise UpstreamSchemaError(f"{path}.items", "liste attendue")
+    sales = tuple(_sale(item, f"{path}.items[{i}]") for i, item in enumerate(items))
+    return sales, _pagination(block, path)
 
 
-def _vente(item: Mapping[str, Any], chemin: str) -> VenteSource:
+def _sale(item: Mapping[str, Any], path: str) -> SaleSource:
     categories = tuple(
-        _texte(c.get("name")) for c in (item.get("categories") or []) if c.get("name")
+        _as_text(c.get("name")) for c in (item.get("categories") or []) if c.get("name")
     )
-    return VenteSource(
-        id=int(_exiger(item, "dnid_auction_id", chemin)),
-        intitule=_texte(item.get("name")),
-        description=_texte(item.get("description")),
-        statut=int(_exiger(item, "auction_auto_status", chemin)),
-        statut_libelle=_texte(item.get("status_text")),
-        type_libelle=_texte(item.get("type_text")),
-        date_ouverture=_horodatage(item.get("start_date")),
-        date_cloture=_horodatage(item.get("end_date")),
-        direction_regionale=_texte(item.get("sales_inspector_label")),
-        nb_lots=_entier(item.get("auction_number_of_lots")) or 0,
+    return SaleSource(
+        id=int(_require(item, "dnid_auction_id", path)),
+        title=_as_text(item.get("name")),
+        description=_as_text(item.get("description")),
+        status=int(_require(item, "auction_auto_status", path)),
+        status_label=_as_text(item.get("status_text")),
+        type_label=_as_text(item.get("type_text")),
+        opens_at=_as_datetime(item.get("start_date")),
+        closes_at=_as_datetime(item.get("end_date")),
+        regional_directorate=_as_text(item.get("sales_inspector_label")),
+        lot_count=_as_int(item.get("auction_number_of_lots")) or 0,
         categories=categories,
-        reserve_aux_professionnels=_booleen_tolerant(item.get("professional_only")),
+        trade_only=_tolerant_bool(item.get("professional_only")),
     )
 
 
-def _booleen_tolerant(valeur: Any) -> bool | None:
-    """Interprete un booleen amont sans jamais lever : `None` si illisible."""
-    try:
-        return vers_booleen(valeur)
-    except ValueError:
-        return None
-
-
-def lire_lots(payload: Mapping[str, Any]) -> tuple[tuple[LotSource, ...], Pagination]:
-    """Traduit une page de lots d'une vente."""
-    chemin = "data.products"
-    donnees = _bloc_donnees(payload, chemin)
-    bloc = donnees.get("products")
-    if not isinstance(bloc, Mapping):
-        raise SchemaAmontError(chemin, "bloc absent : l'operation getAuctionLots a change")
-    items = _exiger(bloc, "items", chemin)
+def read_lots(payload: Mapping[str, Any]) -> tuple[tuple[LotSource, ...], Pagination]:
+    """Translate one page of a sale's lots."""
+    path = "data.products"
+    data = _data_block(payload, path)
+    block = data.get("products")
+    if not isinstance(block, Mapping):
+        raise UpstreamSchemaError(path, "bloc absent : l'opération getAuctionLots a changé")
+    items = _require(block, "items", path)
     if not isinstance(items, Sequence):
-        raise SchemaAmontError(f"{chemin}.items", "liste attendue")
-    lots = tuple(_lot(item, f"{chemin}.items[{i}]") for i, item in enumerate(items))
-    return lots, _pagination(bloc, chemin)
+        raise UpstreamSchemaError(f"{path}.items", "liste attendue")
+    lots = tuple(_lot(item, f"{path}.items[{i}]") for i, item in enumerate(items))
+    return lots, _pagination(block, path)
 
 
-def _lot(item: Mapping[str, Any], chemin: str) -> LotSource:
-    # `professional_only` est l'information la plus importante du projet :
-    # sa disparition du schema est une casse, pas une donnee manquante.
-    brut_pro = _exiger(item, "professional_only", chemin)
-    reserve = _booleen_tolerant(brut_pro)
-    illisibles: list[str] = []
-    if reserve is None and brut_pro not in (None, ""):
-        illisibles.append("reserve_aux_professionnels")
+def _lot(item: Mapping[str, Any], path: str) -> LotSource:
+    # `professional_only` is the single most important field of this project:
+    # its disappearance from the schema is a breakage, not missing data.
+    raw_trade_only = _require(item, "professional_only", path)
+    trade_only = _tolerant_bool(raw_trade_only)
+    unreadable: list[str] = []
+    if trade_only is None and raw_trade_only not in (None, ""):
+        unreadable.append("reserve_aux_professionnels")
 
-    retrait = item.get("dropoff_location") or {}
-    court = texte.depuis_html((item.get("short_description") or {}).get("html"))
-    longue = texte.depuis_html((item.get("description") or {}).get("html"))
+    collection = item.get("dropoff_location") or {}
+    short = text.from_html((item.get("short_description") or {}).get("html"))
+    long = text.from_html((item.get("description") or {}).get("html"))
     return LotSource(
-        id=int(_exiger(item, "id", chemin)),
-        sku=_texte(item.get("sku")),
-        url_key=_texte(_exiger(item, "url_key", chemin)),
-        numero=_texte(item.get("lot_number")),
-        titre=_texte(item.get("name")),
-        vente_id=int(_exiger(item, "auction", chemin)),
-        reserve_aux_professionnels=reserve,
-        mise_a_prix=_nombre(_exiger(item, "price_auction", chemin)),
-        enchere_en_cours=_nombre(item.get("last_bid")),
-        prix_reserve=_nombre(item.get("reserve_price")),
-        prix_adjudication=_nombre(item.get("bid_winner_amount")),
-        statut_libelle=_texte(item.get("lot_status_label")),
-        date_ouverture=_horodatage(item.get("start_date")),
-        date_cloture=_horodatage(item.get("end_date")),
-        ville_retrait=_texte(retrait.get("city")),
-        code_postal_retrait=_texte(retrait.get("postcode")),
-        description=" ".join(x for x in (court, longue) if x),
-        direction_regionale=_texte((item.get("sales_inspector_data") or {}).get("cav_name")),
-        champs_illisibles=tuple(illisibles),
+        id=int(_require(item, "id", path)),
+        sku=_as_text(item.get("sku")),
+        url_key=_as_text(_require(item, "url_key", path)),
+        number=_as_text(item.get("lot_number")),
+        title=_as_text(item.get("name")),
+        sale_id=int(_require(item, "auction", path)),
+        trade_only=trade_only,
+        starting_price=_as_number(_require(item, "price_auction", path)),
+        current_bid=_as_number(item.get("last_bid")),
+        reserve_price=_as_number(item.get("reserve_price")),
+        hammer_price=_as_number(item.get("bid_winner_amount")),
+        status_label=_as_text(item.get("lot_status_label")),
+        opens_at=_as_datetime(item.get("start_date")),
+        closes_at=_as_datetime(item.get("end_date")),
+        collection_city=_as_text(collection.get("city")),
+        collection_postcode=_as_text(collection.get("postcode")),
+        description=" ".join(x for x in (short, long) if x),
+        regional_directorate=_as_text((item.get("sales_inspector_data") or {}).get("cav_name")),
+        unreadable_fields=tuple(unreadable),
     )
 
 
-def _valeur_attribut(attribut: Mapping[str, Any]) -> str:
-    """Rend la valeur d'un attribut, qu'elle soit saisie ou choisie dans une liste."""
-    saisie = (attribut.get("entered_attribute_value") or {}).get("value")
-    if saisie not in (None, ""):
-        return _texte(saisie)
-    options = (attribut.get("selected_attribute_options") or {}).get("attribute_option") or []
-    return " / ".join(_texte(o.get("label")) for o in options if o.get("label"))
+def _attribute_value(attribute: Mapping[str, Any]) -> str:
+    """Return an attribute's value, whether typed in or picked from a list."""
+    entered = (attribute.get("entered_attribute_value") or {}).get("value")
+    if entered not in (None, ""):
+        return _as_text(entered)
+    options = (attribute.get("selected_attribute_options") or {}).get("attribute_option") or []
+    return " / ".join(_as_text(o.get("label")) for o in options if o.get("label"))
 
 
-def lire_attributs(payload: Mapping[str, Any]) -> AttributsVehicule:
-    """Traduit la fiche detaillee d'un lot en attributs vehicule."""
-    chemin = "data.products.items[0]"
-    donnees = _bloc_donnees(payload, chemin)
-    bloc = donnees.get("products")
-    if not isinstance(bloc, Mapping):
-        raise SchemaAmontError(chemin, "bloc absent : l'operation getProductPageMain a change")
-    items = bloc.get("items")
+def read_vehicle_attributes(payload: Mapping[str, Any]) -> VehicleAttributes:
+    """Translate a lot's detailed listing into vehicle attributes."""
+    path = "data.products.items[0]"
+    data = _data_block(payload, path)
+    block = data.get("products")
+    if not isinstance(block, Mapping):
+        raise UpstreamSchemaError(path, "bloc absent : l'opération getProductPageMain a changé")
+    items = block.get("items")
     if not items:
-        raise SchemaAmontError("data.products.items", "fiche vide : lot introuvable")
+        raise UpstreamSchemaError("data.products.items", "fiche vide : lot introuvable")
     item = items[0]
 
-    bruts = {
-        a["attribute_metadata"]["code"]: _valeur_attribut(a)
+    raw = {
+        a["attribute_metadata"]["code"]: _attribute_value(a)
         for a in (item.get("custom_attributes") or [])
-        if a.get("attribute_metadata", {}).get("code") not in ATTRIBUTS_SENSIBLES
+        if a.get("attribute_metadata", {}).get("code") not in SENSITIVE_ATTRIBUTES
     }
-    retrait = item.get("dropoff_location") or item.get("dropoff_location_fo") or {}
-    mec = bruts.get("date_first_registration", "")
-    illisibles = tuple(
-        nom
-        for nom, code in (("kilometrage", "vehicle_mileage"), ("cles", "vehicle_has_a_key"))
-        if code in bruts and _valeur_illisible(bruts[code], code)
+    collection = item.get("dropoff_location") or item.get("dropoff_location_fo") or {}
+    registration = raw.get("date_first_registration", "")
+    unreadable = tuple(
+        name
+        for name, code in (("kilometrage", "vehicle_mileage"), ("cles", "vehicle_has_a_key"))
+        if code in raw and _is_unreadable(raw[code], code)
     )
-    return AttributsVehicule(
-        marque=bruts.get("vehicle_brand", ""),
-        modele=bruts.get("vehicle_model", ""),
-        energie=bruts.get("vehicle_energy_type", ""),
-        boite=bruts.get("gearbox_type", ""),
-        carrosserie=bruts.get("body_type", ""),
-        genre=bruts.get("kind", ""),
-        kilometrage=_entier(bruts.get("vehicle_mileage")),
-        a_une_cle=_booleen_tolerant(bruts.get("vehicle_has_a_key")),
-        certificat_immatriculation=_booleen_tolerant(bruts.get("registration_certificate")),
-        controle_technique=_booleen_tolerant(bruts.get("technical_control")),
-        premiere_mise_en_circulation=mec[:10],
-        annee_mise_en_circulation=_annee(mec),
-        tva=bruts.get("tax_class_id", ""),
-        vhu_declare=_booleen_tolerant(bruts.get("vhu_declared")),
-        non_conforme=_booleen_tolerant(bruts.get("not_conforme")),
-        immatriculable_a_nouveau=_booleen_tolerant(bruts.get("registrable_again")),
-        compteur_modifie=_booleen_tolerant(bruts.get("counter_change")),
-        fourriere_administrative=_booleen_tolerant(bruts.get("administrative_pound")),
-        ville_retrait=_texte(retrait.get("city")),
-        code_postal_retrait=_texte(retrait.get("postcode")),
-        description=texte.depuis_html((item.get("short_description") or {}).get("html")),
-        attributs_bruts=bruts,
-        champs_illisibles=illisibles,
+    return VehicleAttributes(
+        make=raw.get("vehicle_brand", ""),
+        model=raw.get("vehicle_model", ""),
+        fuel=raw.get("vehicle_energy_type", ""),
+        gearbox=raw.get("gearbox_type", ""),
+        body_type=raw.get("body_type", ""),
+        kind=raw.get("kind", ""),
+        mileage=_as_int(raw.get("vehicle_mileage")),
+        has_key=_tolerant_bool(raw.get("vehicle_has_a_key")),
+        registration_certificate=_tolerant_bool(raw.get("registration_certificate")),
+        roadworthiness_test=_tolerant_bool(raw.get("technical_control")),
+        first_registration=registration[:10],
+        first_registration_year=_year(registration),
+        vat=raw.get("tax_class_id", ""),
+        declared_end_of_life=_tolerant_bool(raw.get("vhu_declared")),
+        non_compliant=_tolerant_bool(raw.get("not_conforme")),
+        re_registrable=_tolerant_bool(raw.get("registrable_again")),
+        odometer_altered=_tolerant_bool(raw.get("counter_change")),
+        impounded=_tolerant_bool(raw.get("administrative_pound")),
+        collection_city=_as_text(collection.get("city")),
+        collection_postcode=_as_text(collection.get("postcode")),
+        description=text.from_html((item.get("short_description") or {}).get("html")),
+        raw_attributes=raw,
+        unreadable_fields=unreadable,
     )
 
 
-def _valeur_illisible(valeur: str, code: str) -> bool:
-    """Detecte une valeur presente mais inexploitable pour l'attribut vise."""
-    if not valeur:
+def _is_unreadable(value: str, code: str) -> bool:
+    """Detect a value that is present but unusable for the target attribute."""
+    if not value:
         return False
     if code == "vehicle_mileage":
-        return _nombre(valeur) is None
-    return _booleen_tolerant(valeur) is None
+        return _as_number(value) is None
+    return _tolerant_bool(value) is None
 
 
-def _annee(horodatage: str) -> int | None:
-    """Extrait l'annee d'une date de premiere mise en circulation."""
-    date = _horodatage(horodatage)
-    if date is None or date.year < _ANNEE_MIN:
+def _year(timestamp: str) -> int | None:
+    """Extract the year from a first-registration date."""
+    date = _as_datetime(timestamp)
+    if date is None or date.year < _MIN_YEAR:
         return None
     return date.year

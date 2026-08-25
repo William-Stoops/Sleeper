@@ -129,7 +129,7 @@ Attributs exploités :
 | `administrative_pound` | Fourrière administrative | signal |
 | `tax_class_id` | TVA | `tva_recuperable` |
 
-**Attributs délibérément écartés** (`domain/codes.ATTRIBUTS_SENSIBLES`) :
+**Attributs délibérément écartés** (`domain/codes.SENSITIVE_ATTRIBUTES`) :
 `biciban` (IBAN du compte de l'État), `contact_dropoff_location_id`,
 `bid_winner_user`, `id_remitting_entity`. Ils portent des données bancaires ou
 personnelles et ne servent à aucune décision d'achat.
@@ -224,13 +224,13 @@ uv run --extra discovery python tools/discover_api.py --out var/discovery
 
 Le script visite désormais `/categorie/vehicules`, ce qui capture la requête
 que l'application émet pour une catégorie. Reporter ensuite la forme exacte du
-filtre dans `pipeline._lots_de_vente`.
+filtre dans `pipeline.Collector._sale_lots`.
 
 ## 7. Pièges relevés, à ne pas réintroduire
 
 1. **`professional_only` change de type selon le niveau.** `String` `"0"`/`"1"`
    sur une vente, `Int` `0`/`1` sur un lot. Absorbé une fois pour toutes par
-   `domain/codes.vers_booleen`.
+   `domain/codes.to_bool`.
 2. **La mention « pro » d'une vente ne prédit pas celle de ses lots.** La vente
    467 est `professional_only = "0"` alors que **tous** ses lots véhicules sont
    `professional_only = 1`. Seul le niveau lot fait foi.
@@ -269,7 +269,7 @@ vente précise.
 Si une opération a changé, extraire le nouveau texte de `captures.json`,
 remplacer la constante correspondante dans `operations.py`, régénérer
 `tests/fixtures/api/operations_reference.json`, puis **relancer
-`tools/verifier_fixtures.py`** avant de versionner : les captures fraîches
+`tools/check_fixtures.py`** avant de versionner : les captures fraîches
 contiennent des données personnelles.
 
 ## 9. Versions du contrat de sortie

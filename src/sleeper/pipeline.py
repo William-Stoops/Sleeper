@@ -1,18 +1,18 @@
-"""Orchestration d'un run.
+"""Orchestration of a run.
 
-Le flux est lineaire et volontairement lisible :
+The flow is linear and deliberately readable:
 
-    ventes ouvertes -> lots de chaque vente -> fiche detaillee (si besoin)
-    -> regles d'exclusion -> perimetre -> etat -> document
+    open sales -> lots of each sale -> detailed listing (when needed)
+    -> exclusion rules -> scope -> state -> document
 
-Trois principes gouvernent la gestion d'erreur :
+Three principles govern error handling:
 
-* une anomalie sur UN lot n'interrompt pas le run, mais elle est consignee
-  dans `run.erreurs` — jamais avalee ;
-* une casse du contrat amont sur une vente interrompt cette vente, pas les
-  autres, et remonte de la meme facon ;
-* un challenge anti-robot interrompt TOUT le run, sans reprise : insister
-  reviendrait a chercher a le contourner.
+* an anomaly on ONE lot does not interrupt the run, but it is recorded in
+  `run.erreurs` — never swallowed;
+* a broken upstream contract on one sale interrupts that sale, not the others,
+  and surfaces the same way;
+* an anti-bot challenge interrupts the WHOLE run, with no retry: insisting
+  would amount to trying to get around it.
 """
 
 from __future__ import annotations
@@ -27,527 +27,524 @@ from typing import Any, Protocol
 import structlog
 
 from sleeper.api import mapping, operations
-from sleeper.api.mapping import AttributsVehicule, LotSource, VenteSource
+from sleeper.api.mapping import LotSource, SaleSource, VehicleAttributes
 from sleeper.config import Configuration
-from sleeper.domain import texte
-from sleeper.domain.exclusions import MoteurExclusions, SignalLot
+from sleeper.domain import text
+from sleeper.domain.exclusions import ExclusionEngine, LotSignals
 from sleeper.domain.models import (
-    CHAMP_CRITIQUE,
-    DocumentSortie,
-    ErreurRun,
+    CRITICAL_FIELD,
     Lot,
-    LotEcarte,
+    OutputDocument,
+    RejectedLot,
     Run,
-    Vente,
+    RunError,
+    Sale,
 )
-from sleeper.domain.perimetre import Perimetre, departement_depuis_code_postal
-from sleeper.errors import ProtectionAntiRobotError, SleeperError
-from sleeper.state.store import EtatSleeper
+from sleeper.domain.territory import Perimeter, department_from_postcode
+from sleeper.errors import AntiBotChallengeError, SleeperError
+from sleeper.state.store import SleeperState
 
 _LOG = structlog.get_logger(__name__)
 
+#: Safety net: a sale should never exceed this order of magnitude. Beyond it,
+#: we suspect pagination that never terminates.
+MAX_PAGES = 200
 
-class PasserelleGraphQL(Protocol):
-    """Ce dont le pipeline a besoin, et rien de plus.
 
-    Le pipeline ignore qu'il existe un navigateur, des cookies ou des
-    reprises : il envoie une operation, il recoit un payload. C'est ce qui
-    permet de le rejouer entierement sur des fixtures.
+class GraphQLGateway(Protocol):
+    """What the pipeline needs, and nothing more.
+
+    The pipeline knows nothing of browsers, cookies or retries: it sends an
+    operation, it receives a payload. That is what makes it entirely
+    replayable over fixtures.
     """
 
-    def interroger(self, requete: str, variables: Mapping[str, Any]) -> dict[str, Any]:
-        """Execute une operation GraphQL et rend son payload."""
+    def query(self, request: str, variables: Mapping[str, Any]) -> dict[str, Any]:
+        """Run a GraphQL operation and return its payload."""
         ...
 
 
-#: Garde-fou : une vente ne devrait jamais depasser cet ordre de grandeur.
-#: Au-dela, on suspecte une pagination qui ne se termine pas.
-PAGES_MAX = 200
-
-
 @dataclass(slots=True)
-class Compteurs:
-    """Ce qui a ete vu, retenu, ecarte — et pourquoi."""
+class Counters:
+    """What was seen, kept, rejected — and why."""
 
-    ventes_scannees: int = 0
-    lots_vus: int = 0
-    lots_retenus: int = 0
-    lots_ecartes: int = 0
-    motifs: dict[str, int] = field(default_factory=dict)
+    sales_scanned: int = 0
+    lots_seen: int = 0
+    lots_kept: int = 0
+    lots_rejected: int = 0
+    reasons: dict[str, int] = field(default_factory=dict)
 
-    def ecarter(self, motif: str) -> None:
-        self.lots_ecartes += 1
-        self.motifs[motif] = self.motifs.get(motif, 0) + 1
+    def reject(self, reason: str) -> None:
+        self.lots_rejected += 1
+        self.reasons[reason] = self.reasons.get(reason, 0) + 1
 
 
-class Collecteur:
-    """Execute un run complet et rend le document de sortie."""
+class Collector:
+    """Runs a full sweep and returns the output document."""
 
     def __init__(
         self,
         config: Configuration,
-        client: PasserelleGraphQL,
-        etat: EtatSleeper,
-        horloge: Callable[[], datetime] | None = None,
+        gateway: GraphQLGateway,
+        state: SleeperState,
+        clock: Callable[[], datetime] | None = None,
     ) -> None:
         self._config = config
-        self._client = client
-        self._etat = etat
-        # Une seule source de temps : injectable, donc le run est reproductible
-        # en test sans figer l'horloge du processus.
-        self._horloge = horloge or (lambda: datetime.now(UTC))
-        self._debut = self._horloge()
-        self._perimetre: Perimetre = config.perimetre_domaine()
-        self._exclusions: MoteurExclusions = config.moteur_exclusions()
-        self._compteurs = Compteurs()
-        self._erreurs: list[ErreurRun] = []
+        self._gateway = gateway
+        self._state = state
+        # A single source of time: injectable, so the run is reproducible in
+        # tests without freezing the process clock.
+        self._clock = clock or (lambda: datetime.now(UTC))
+        self._started_at = self._clock()
+        self._perimeter: Perimeter = config.perimeter()
+        self._exclusions: ExclusionEngine = config.exclusion_engine()
+        self._counters = Counters()
+        self._errors: list[RunError] = []
 
     # ------------------------------------------------------------------ public
 
-    def executer(self) -> DocumentSortie:
-        """Balaye les ventes ouvertes et compose le document du run."""
-        ventes: list[Vente] = []
+    def run(self) -> OutputDocument:
+        """Sweep the open sales and compose the run document."""
+        sales: list[Sale] = []
         lots: list[Lot] = []
-        ecartes: list[LotEcarte] = []
-        vues: set[int] = set()
+        rejected: list[RejectedLot] = []
+        seen: set[int] = set()
 
-        for source in self._ventes_de_vehicules():
-            vues.add(source.id)
-            self._compteurs.ventes_scannees += 1
-            retenus, sortis = self._traiter_vente(source)
-            lots.extend(retenus)
-            ecartes.extend(sortis)
-            ventes.append(self._vente(source, retenus, sortis))
+        for source in self._vehicle_sales():
+            seen.add(source.id)
+            self._counters.sales_scanned += 1
+            kept, dropped = self._process_sale(source)
+            lots.extend(kept)
+            rejected.extend(dropped)
+            sales.append(self._sale(source, kept, dropped))
 
-        self._etat.cloturer_ventes_absentes(vues, self._debut)
-        return self._document(ventes, lots, ecartes)
+        self._state.close_absent_sales(seen, self._started_at)
+        return self._document(sales, lots, rejected)
 
-    # ------------------------------------------------------------------ ventes
+    # ------------------------------------------------------------------- sales
 
-    def _ventes_de_vehicules(self) -> Iterator[VenteSource]:
-        """Ventes ouvertes comportant la categorie vehicules."""
-        cible = self._config.filtres.categorie_vehicules
-        statuts = [str(s) for s in self._config.filtres.statuts_vente]
-        for page in range(1, PAGES_MAX + 1):
+    def _vehicle_sales(self) -> Iterator[SaleSource]:
+        """Open sales that carry the vehicle category."""
+        target = self._config.filters.vehicle_category
+        statuses = [str(s) for s in self._config.filters.sale_statuses]
+        for page in range(1, MAX_PAGES + 1):
             variables = {
                 "currentPage": page,
-                "pageSize": self._config.filtres.taille_de_page,
+                "pageSize": self._config.filters.page_size,
                 "sort": {"end_date": "ASC"},
-                "filter": {"auction_auto_status": {"in": statuts}},
+                "filter": {"auction_auto_status": {"in": statuses}},
             }
-            charge = self._client.interroger(operations.LISTE_VENTES, variables)
-            ventes, pagination = mapping.lire_ventes(charge)
-            for vente in ventes:
-                if cible in vente.categories:
-                    yield vente
+            payload = self._gateway.query(operations.SALES_LIST, variables)
+            sales, pagination = mapping.read_sales(payload)
+            for sale in sales:
+                if target in sale.categories:
+                    yield sale
                 else:
-                    _LOG.debug("vente.ignoree", vente=vente.id, categories=vente.categories)
+                    _LOG.debug("sale.skipped", sale=sale.id, categories=sale.categories)
             if page >= max(pagination.total_pages, 1):
                 return
 
-    def _traiter_vente(self, source: VenteSource) -> tuple[list[Lot], list[LotEcarte]]:
-        """Traite tous les lots d'une vente. Une casse amont arrete cette vente seule."""
-        self._etat.enregistrer_vente(
-            vente_id=source.id,
-            intitule=source.intitule,
-            direction_regionale=source.direction_regionale,
-            statut=source.statut,
-            nb_lots=source.nb_lots,
-            date_ouverture=source.date_ouverture,
-            date_cloture=source.date_cloture,
-            horodatage=self._debut,
+    def _process_sale(self, source: SaleSource) -> tuple[list[Lot], list[RejectedLot]]:
+        """Process every lot of a sale. An upstream breakage stops this sale only."""
+        self._state.record_sale(
+            sale_id=source.id,
+            title=source.title,
+            regional_directorate=source.regional_directorate,
+            status=source.status,
+            lot_count=source.lot_count,
+            opens_at=source.opens_at,
+            closes_at=source.closes_at,
+            timestamp=self._started_at,
         )
         try:
-            bruts = list(self._lots_de_vente(source.id))
-        except ProtectionAntiRobotError:
+            raw_lots = list(self._sale_lots(source.id))
+        except AntiBotChallengeError:
             raise
         except SleeperError as exc:
-            self._consigner("lots", f"vente {source.id}", exc)
+            self._record_anomaly("lots", f"vente {source.id}", exc)
             return [], []
 
-        fiches = self._fiches(bruts)
-        retenus: list[Lot] = []
-        ecartes: list[LotEcarte] = []
-        for brut in bruts:
-            self._compteurs.lots_vus += 1
-            resultat = self._traiter_lot(brut, fiches.get(brut.id))
-            if isinstance(resultat, LotEcarte):
-                ecartes.append(resultat)
+        listings = self._listings(raw_lots)
+        kept: list[Lot] = []
+        rejected: list[RejectedLot] = []
+        for raw in raw_lots:
+            self._counters.lots_seen += 1
+            outcome = self._process_lot(raw, listings.get(raw.id))
+            if isinstance(outcome, RejectedLot):
+                rejected.append(outcome)
             else:
-                retenus.append(resultat)
-        return retenus, ecartes
+                kept.append(outcome)
+        return kept, rejected
 
-    def _lots_de_vente(self, vente_id: int) -> Iterator[LotSource]:
-        """Parcourt les pages de lots d'une vente."""
-        for page in range(1, PAGES_MAX + 1):
+    def _sale_lots(self, sale_id: int) -> Iterator[LotSource]:
+        """Walk the pages of a sale's lots."""
+        for page in range(1, MAX_PAGES + 1):
             variables = {
                 "currentPage": page,
-                "pageSize": self._config.filtres.taille_de_page,
+                "pageSize": self._config.filters.page_size,
                 "sort": {"lot_number": "ASC"},
-                "filter": {"auction": {"eq": str(vente_id)}},
+                "filter": {"auction": {"eq": str(sale_id)}},
             }
-            charge = self._client.interroger(operations.LOTS_DE_VENTE, variables)
-            lots, pagination = mapping.lire_lots(charge)
+            payload = self._gateway.query(operations.SALE_LOTS, variables)
+            lots, pagination = mapping.read_lots(payload)
             yield from lots
             if page >= max(pagination.total_pages, 1):
                 return
 
-    # ------------------------------------------------------------------ fiches
+    # ---------------------------------------------------------------- listings
 
-    def _fiches(self, bruts: list[LotSource]) -> dict[int, AttributsVehicule]:
-        """Recupere les fiches detaillees manquantes, en respectant la cadence."""
-        charges: dict[int, AttributsVehicule] = {}
-        a_charger: list[LotSource] = []
+    def _listings(self, raw_lots: list[LotSource]) -> dict[int, VehicleAttributes]:
+        """Fetch the missing detailed listings, honouring the pacing."""
+        found: dict[int, VehicleAttributes] = {}
+        to_fetch: list[LotSource] = []
 
-        for brut in bruts:
-            attributs = self._depuis_cache(brut)
-            if attributs is None:
-                a_charger.append(brut)
+        for raw in raw_lots:
+            attributes = self._from_cache(raw)
+            if attributes is None:
+                to_fetch.append(raw)
             else:
-                charges[brut.id] = attributs
+                found[raw.id] = attributes
 
-        if a_charger:
-            _LOG.info("fiches.telechargement", a_charger=len(a_charger), en_cache=len(charges))
-            with ThreadPoolExecutor(max_workers=self._config.reseau.concurrence_max) as pool:
-                resultats = list(pool.map(self._fiche, a_charger))
-            for brut, attributs in zip(a_charger, resultats, strict=True):
-                if attributs is None:
+        if to_fetch:
+            _LOG.info("listings.fetching", to_fetch=len(to_fetch), cached=len(found))
+            with ThreadPoolExecutor(max_workers=self._config.network.max_concurrency) as pool:
+                results = list(pool.map(self._listing, to_fetch))
+            for raw, attributes in zip(to_fetch, results, strict=True):
+                if attributes is None:
                     continue
-                charges[brut.id] = attributs
-                self._etat.memoriser_fiche(
-                    brut.id, _empreinte(brut), _memo_depuis_attributs(attributs), self._debut
+                found[raw.id] = attributes
+                self._state.cache_listing(
+                    raw.id, _fingerprint(raw), _to_memo(attributes), self._started_at
                 )
-        return charges
+        return found
 
-    def _depuis_cache(self, brut: LotSource) -> AttributsVehicule | None:
-        """Fiche memorisee et encore exploitable, `None` s'il faut la retelecharger."""
-        memo = self._etat.fiche_en_cache(brut.id, _empreinte(brut))
+    def _from_cache(self, raw: LotSource) -> VehicleAttributes | None:
+        """Memorised and still usable listing, `None` when it must be refetched."""
+        memo = self._state.cached_listing(raw.id, _fingerprint(raw))
         if memo is None:
             return None
-        attributs = _attributs_depuis_memo(memo)
-        if attributs is None:
-            # Cache ecrit par une version anterieure du modele : on le traite
-            # comme absent plutot que de faire tomber le run.
-            _LOG.warning("fiche.cache_perime", lot=brut.id)
-        return attributs
+        attributes = _from_memo(memo)
+        if attributes is None:
+            # Cache written by an earlier version of the model: treat it as
+            # absent rather than bringing the run down.
+            _LOG.warning("listing.stale_cache", lot=raw.id)
+        return attributes
 
-    def _fiche(self, brut: LotSource) -> AttributsVehicule | None:
-        """Telecharge une fiche. Un echec unitaire ne fait pas tomber le run."""
+    def _listing(self, raw: LotSource) -> VehicleAttributes | None:
+        """Download one listing. A single failure does not fell the run."""
         try:
-            charge = self._client.interroger(
-                operations.FICHE_LOT_PRINCIPALE, {"urlKey": brut.url_key}
-            )
-            return mapping.lire_attributs(charge)
-        except ProtectionAntiRobotError:
+            payload = self._gateway.query(operations.LOT_MAIN, {"urlKey": raw.url_key})
+            return mapping.read_vehicle_attributes(payload)
+        except AntiBotChallengeError:
             raise
         except SleeperError as exc:
-            self._consigner("fiche", f"lot {brut.id}", exc)
+            self._record_anomaly("fiche", f"lot {raw.id}", exc)
             return None
 
     # -------------------------------------------------------------------- lots
 
-    def _traiter_lot(self, brut: LotSource, attributs: AttributsVehicule | None) -> Lot | LotEcarte:
-        """Applique les regles metier a un lot et le transforme en sortie."""
-        signal = _signal(brut, attributs)
-        if motif := self._exclusions.motif(signal):
-            self._compteurs.ecarter(motif)
-            _LOG.debug("lot.ecarte", lot=brut.id, motif=motif)
-            return LotEcarte(
-                id=str(brut.id),
-                url=_url_lot(self._config, brut),
-                titre=brut.titre,
-                motif=motif,
+    def _process_lot(
+        self, raw: LotSource, attributes: VehicleAttributes | None
+    ) -> Lot | RejectedLot:
+        """Apply the business rules to a lot and turn it into output."""
+        signals = _signals(raw, attributes)
+        if reason := self._exclusions.reason(signals):
+            self._counters.reject(reason)
+            _LOG.debug("lot.rejected", lot=raw.id, reason=reason)
+            return RejectedLot(
+                id=str(raw.id),
+                url=_lot_url(self._config, raw),
+                title=raw.title,
+                reason=reason,
             )
 
-        self._consigner_adjudication(brut)
-        observation = self._etat.observer_lot(
-            lot_id=brut.id,
-            vente_id=brut.vente_id,
-            url=_url_lot(self._config, brut),
-            titre=brut.titre,
-            reserve_aux_professionnels=brut.reserve_aux_professionnels,
-            mise_a_prix=brut.mise_a_prix,
-            enchere_en_cours=brut.enchere_en_cours,
-            code_postal=brut.code_postal_retrait,
-            departement=departement_depuis_code_postal(brut.code_postal_retrait) or "",
-            horodatage=self._debut,
+        self._record_hammer_price(raw)
+        observation = self._state.observe_lot(
+            lot_id=raw.id,
+            sale_id=raw.sale_id,
+            url=_lot_url(self._config, raw),
+            title=raw.title,
+            trade_only=raw.trade_only,
+            starting_price=raw.starting_price,
+            current_bid=raw.current_bid,
+            postcode=raw.collection_postcode,
+            department=department_from_postcode(raw.collection_postcode) or "",
+            timestamp=self._started_at,
         )
-        lot = _construire_lot(
+        lot = _build_lot(
             config=self._config,
-            brut=brut,
-            attributs=attributs,
-            perimetre=self._perimetre,
-            nouveau=observation.nouveau,
-            enchere_a_bouge=observation.enchere_a_bouge,
+            raw=raw,
+            attributes=attributes,
+            perimeter=self._perimeter,
+            is_new=observation.is_new,
+            bid_moved=observation.bid_moved,
         )
-        if CHAMP_CRITIQUE in lot.champs_manquants:
-            self._signaler_incomplet(brut.id)
-        self._compteurs.lots_retenus += 1
+        if CRITICAL_FIELD in lot.missing_fields:
+            self._flag_incomplete(raw.id)
+        self._counters.lots_kept += 1
         return lot
 
-    def _consigner_adjudication(self, brut: LotSource) -> None:
-        """Enregistre le prix d'adjudication des qu'il devient visible.
+    def _record_hammer_price(self, raw: LotSource) -> None:
+        """Record the hammer price as soon as it becomes visible.
 
-        C'est la donnee qui, dans six mois, dira a quel pourcentage de la mise
-        a prix les lots du Domaine partent reellement. On la consigne meme si
-        le lot n'interesse plus l'achat.
+        This is the datum that, in six months, will tell at what percentage of
+        the starting price Domaine lots actually sell. It is recorded even
+        when the lot is of no further buying interest.
         """
-        if brut.prix_adjudication is None:
+        if raw.hammer_price is None:
             return
-        self._etat.enregistrer_adjudication(
-            brut.id, brut.prix_adjudication, brut.mise_a_prix, self._debut
+        self._state.record_hammer_price(
+            raw.id, raw.hammer_price, raw.starting_price, self._started_at
         )
 
-    def _signaler_incomplet(self, lot_id: int) -> None:
-        """Remonte l'illisibilite du champ le plus important du projet."""
-        self._erreurs.append(
-            ErreurRun(
-                etape="lot",
-                cible=str(lot_id),
-                type="ChampCritiqueIllisible",
+    def _flag_incomplete(self, lot_id: int) -> None:
+        """Surface the unreadability of the single most important field."""
+        self._errors.append(
+            RunError(
+                step="lot",
+                target=str(lot_id),
+                kind="ChampCritiqueIllisible",
                 message=(
-                    "la mention « reserve aux professionnels » n'a pas pu etre lue ; "
-                    "le lot est livre incomplet, ne pas decider dessus"
+                    "la mention « réservé aux professionnels » n'a pas pu être lue ; "
+                    "le lot est livré incomplet, ne pas décider dessus"
                 ),
             )
         )
 
-    # --------------------------------------------------------------- assemblage
+    # --------------------------------------------------------------- assembling
 
-    def _vente(self, source: VenteSource, retenus: list[Lot], ecartes: list[LotEcarte]) -> Vente:
-        """Compose la vente, en deduisant son lieu du lieu de retrait de ses lots."""
-        lieu, code_postal = _lieu_dominant(retenus)
-        departement = departement_depuis_code_postal(code_postal) or ""
-        return Vente(
+    def _sale(self, source: SaleSource, kept: list[Lot], rejected: list[RejectedLot]) -> Sale:
+        """Compose the sale, deriving its place from its lots' collection points."""
+        place, postcode = _dominant_place(kept)
+        department = department_from_postcode(postcode) or ""
+        return Sale(
             id=str(source.id),
-            url=f"{self._config.reseau.base_url}/vente/{source.id}",
-            intitule=source.intitule,
+            url=f"{self._config.network.base_url}/vente/{source.id}",
+            title=source.title,
             dnid=str(source.id),
-            date_ouverture=source.date_ouverture,
-            date_cloture=source.date_cloture,
-            lieu_retrait=lieu,
-            code_postal=code_postal,
-            departement=departement,
-            dans_perimetre=self._perimetre.contient(code_postal, lieu),
-            nb_lots=source.nb_lots or len(retenus) + len(ecartes),
+            opens_at=source.opens_at,
+            closes_at=source.closes_at,
+            collection_place=place,
+            postcode=postcode,
+            department=department,
+            in_scope=self._perimeter.contains(postcode, place),
+            lot_count=source.lot_count or len(kept) + len(rejected),
         )
 
     def _document(
-        self, ventes: list[Vente], lots: list[Lot], ecartes: list[LotEcarte]
-    ) -> DocumentSortie:
-        duree = (self._horloge() - self._debut).total_seconds()
+        self, sales: list[Sale], lots: list[Lot], rejected: list[RejectedLot]
+    ) -> OutputDocument:
+        duration = (self._clock() - self._started_at).total_seconds()
         _LOG.info(
-            "run.termine",
-            ventes=self._compteurs.ventes_scannees,
-            lots_vus=self._compteurs.lots_vus,
-            retenus=self._compteurs.lots_retenus,
-            ecartes=self._compteurs.lots_ecartes,
-            motifs=self._compteurs.motifs,
-            erreurs=len(self._erreurs),
-            duree_s=round(duree, 1),
+            "run.finished",
+            sales=self._counters.sales_scanned,
+            lots_seen=self._counters.lots_seen,
+            kept=self._counters.lots_kept,
+            rejected=self._counters.lots_rejected,
+            reasons=self._counters.reasons,
+            errors=len(self._errors),
+            duration_s=round(duration, 1),
         )
-        return DocumentSortie(
+        return OutputDocument(
             run=Run(
-                horodatage=self._debut,
-                duree_secondes=max(duree, 0.0),
-                ventes_scannees=self._compteurs.ventes_scannees,
-                lots_vus=self._compteurs.lots_vus,
-                lots_retenus=self._compteurs.lots_retenus,
-                lots_ecartes=self._compteurs.lots_ecartes,
-                erreurs=self._erreurs,
+                timestamp=self._started_at,
+                duration_seconds=max(duration, 0.0),
+                sales_scanned=self._counters.sales_scanned,
+                lots_seen=self._counters.lots_seen,
+                lots_kept=self._counters.lots_kept,
+                lots_rejected=self._counters.lots_rejected,
+                errors=self._errors,
             ),
-            ventes=ventes,
+            sales=sales,
             lots=lots,
-            ecartes=ecartes,
+            rejected=rejected,
         )
 
-    def _consigner(self, etape: str, cible: str, exc: Exception) -> None:
-        """Consigne une anomalie : dans les logs ET dans le document de sortie."""
-        _LOG.warning("run.anomalie", etape=etape, cible=cible, erreur=str(exc))
-        self._erreurs.append(
-            ErreurRun(etape=etape, cible=cible, type=type(exc).__name__, message=str(exc))
+    def _record_anomaly(self, step: str, target: str, exc: Exception) -> None:
+        """Record an anomaly: in the logs AND in the output document."""
+        _LOG.warning("run.anomaly", step=step, target=target, error=str(exc))
+        self._errors.append(
+            RunError(step=step, target=target, kind=type(exc).__name__, message=str(exc))
         )
 
 
 # --------------------------------------------------------------------- helpers
 
 
-def _empreinte(brut: LotSource) -> str:
-    """Empreinte d'un lot : change si sa fiche a des chances d'avoir change."""
-    graine = f"{brut.url_key}|{brut.titre}|{brut.description}"
-    return hashlib.sha256(graine.encode("utf-8")).hexdigest()[:32]
+def _fingerprint(raw: LotSource) -> str:
+    """Fingerprint of a lot: changes when its listing plausibly changed."""
+    seed = f"{raw.url_key}|{raw.title}|{raw.description}"
+    return hashlib.sha256(seed.encode("utf-8")).hexdigest()[:32]
 
 
-def _url_lot(config: Configuration, brut: LotSource) -> str:
-    return f"{config.reseau.base_url}/lot/{brut.url_key}.html"
+def _lot_url(config: Configuration, raw: LotSource) -> str:
+    return f"{config.network.base_url}/lot/{raw.url_key}.html"
 
 
-def _signal(brut: LotSource, attributs: AttributsVehicule | None) -> SignalLot:
-    """Reunit ce que les regles metier ont le droit de regarder."""
-    return SignalLot(
-        description=brut.description,
-        kilometrage=attributs.kilometrage if attributs else None,
-        a_une_cle=attributs.a_une_cle if attributs else None,
-        certificat_immatriculation=attributs.certificat_immatriculation if attributs else None,
-        genre=attributs.genre if attributs else None,
-        annee_mise_en_circulation=attributs.annee_mise_en_circulation if attributs else None,
-        vhu_declare=attributs.vhu_declare if attributs else None,
-        immatriculable_a_nouveau=attributs.immatriculable_a_nouveau if attributs else None,
-        non_conforme=attributs.non_conforme if attributs else None,
-        a_des_attributs_vehicule=attributs.est_un_vehicule if attributs else None,
+def _signals(raw: LotSource, attributes: VehicleAttributes | None) -> LotSignals:
+    """Gather what the business rules are allowed to look at."""
+    return LotSignals(
+        description=raw.description,
+        mileage=attributes.mileage if attributes else None,
+        has_key=attributes.has_key if attributes else None,
+        registration_certificate=attributes.registration_certificate if attributes else None,
+        kind=attributes.kind if attributes else None,
+        first_registration_year=attributes.first_registration_year if attributes else None,
+        declared_end_of_life=attributes.declared_end_of_life if attributes else None,
+        re_registrable=attributes.re_registrable if attributes else None,
+        non_compliant=attributes.non_compliant if attributes else None,
+        has_vehicle_attributes=attributes.is_a_vehicle if attributes else None,
     )
 
 
-def _lieu_dominant(lots: list[Lot]) -> tuple[str, str]:
-    """Lieu de retrait le plus represente parmi les lots d'une vente."""
-    compte: dict[tuple[str, str], int] = {}
+def _dominant_place(lots: list[Lot]) -> tuple[str, str]:
+    """Most frequent collection point among a sale's lots."""
+    counts: dict[tuple[str, str], int] = {}
     for lot in lots:
-        cle = (lot.lieu_retrait, lot.code_postal)
-        compte[cle] = compte.get(cle, 0) + 1
-    if not compte:
+        key = (lot.collection_place, lot.postcode)
+        counts[key] = counts.get(key, 0) + 1
+    if not counts:
         return "", ""
-    return max(compte.items(), key=lambda item: item[1])[0]
+    return max(counts.items(), key=lambda item: item[1])[0]
 
 
-def _tva_recuperable(libelle: str) -> bool | None:
-    """Interprete l'attribut TVA. `None` quand la source ne tranche pas."""
-    aplati = texte.normaliser(libelle)
-    if not aplati:
+def _vat_reclaimable(label: str) -> bool | None:
+    """Interpret the VAT attribute. `None` when the source does not decide."""
+    flattened = text.normalize(label)
+    if not flattened:
         return None
-    if aplati in {"aucun", "aucune", "0", "exonere", "exoneree"}:
+    if flattened in {"aucun", "aucune", "0", "exonere", "exoneree"}:
         return False
-    if "tva" in aplati or any(c.isdigit() for c in aplati):
+    if "tva" in flattened or any(c.isdigit() for c in flattened):
         return True
     return None
 
 
-def _construire_lot(
+def _build_lot(
     *,
     config: Configuration,
-    brut: LotSource,
-    attributs: AttributsVehicule | None,
-    perimetre: Perimetre,
-    nouveau: bool,
-    enchere_a_bouge: bool,
+    raw: LotSource,
+    attributes: VehicleAttributes | None,
+    perimeter: Perimeter,
+    is_new: bool,
+    bid_moved: bool,
 ) -> Lot:
-    """Assemble le lot du contrat de sortie a partir de toutes ses sources."""
-    lieu, code_postal, description = _contexte(brut, attributs)
+    """Assemble the output-contract lot from all of its sources."""
+    place, postcode, description = _context(raw, attributes)
     return Lot(
-        id=str(brut.id),
-        url=_url_lot(config, brut),
-        vente_id=str(brut.vente_id),
-        numero=brut.numero,
-        titre=brut.titre,
-        categorie=config.filtres.categorie_vehicules,
-        reserve_aux_professionnels=brut.reserve_aux_professionnels,
-        **_champs_vehicule(brut, attributs, description),
-        mise_a_prix=brut.mise_a_prix,
-        enchere_en_cours=brut.enchere_en_cours,
-        # La source ne publie ni le nombre d'encherisseurs ni les frais
-        # acheteur par lot : `null` signifie ici « absent de la source ».
-        nb_encherisseurs=None,
-        frais_acheteur_pct=None,
-        lieu_retrait=lieu,
-        code_postal=code_postal,
-        departement=departement_depuis_code_postal(code_postal) or "",
-        dates_visite=texte.extraire_dates_visite(description) or "",
-        description_integrale=description,
-        hors_perimetre=not perimetre.contient(code_postal, lieu),
-        nouveau_depuis_dernier_run=nouveau,
-        enchere_a_bouge=enchere_a_bouge,
-        champs_manquants=_champs_manquants(brut, attributs),
+        id=str(raw.id),
+        url=_lot_url(config, raw),
+        sale_id=str(raw.sale_id),
+        number=raw.number,
+        title=raw.title,
+        category=config.filters.vehicle_category,
+        trade_only=raw.trade_only,
+        **_vehicle_fields(raw, attributes, description),
+        starting_price=raw.starting_price,
+        current_bid=raw.current_bid,
+        # The source publishes neither the number of bidders nor per-lot buyer
+        # fees: `null` here means "absent from the source".
+        bidder_count=None,
+        buyer_fee_pct=None,
+        collection_place=place,
+        postcode=postcode,
+        department=department_from_postcode(postcode) or "",
+        viewing_dates=text.extract_viewing_dates(description) or "",
+        full_description=description,
+        out_of_scope=not perimeter.contains(postcode, place),
+        new_since_last_run=is_new,
+        bid_moved=bid_moved,
+        missing_fields=_missing_fields(raw, attributes),
     )
 
 
-def _contexte(brut: LotSource, attributs: AttributsVehicule | None) -> tuple[str, str, str]:
-    """Lieu, code postal et description, la liste primant sur la fiche detaillee."""
-    code_postal = brut.code_postal_retrait or (attributs.code_postal_retrait if attributs else "")
-    lieu = brut.ville_retrait or (attributs.ville_retrait if attributs else "")
-    description = brut.description or (attributs.description if attributs else "")
-    return lieu, code_postal, description
+def _context(raw: LotSource, attributes: VehicleAttributes | None) -> tuple[str, str, str]:
+    """Place, postcode and description; the list wins over the detailed listing."""
+    postcode = raw.collection_postcode or (attributes.collection_postcode if attributes else "")
+    place = raw.collection_city or (attributes.collection_city if attributes else "")
+    description = raw.description or (attributes.description if attributes else "")
+    return place, postcode, description
 
 
-def _champs_manquants(brut: LotSource, attributs: AttributsVehicule | None) -> list[str]:
-    """Champs presents dans la source mais inexploitables, ou fiche absente."""
-    manquants = list(brut.champs_illisibles)
-    if attributs is None:
-        manquants.append("fiche_detaillee")
+def _missing_fields(raw: LotSource, attributes: VehicleAttributes | None) -> list[str]:
+    """Fields present in the source but unusable, or a missing listing."""
+    missing = list(raw.unreadable_fields)
+    if attributes is None:
+        missing.append("fiche_detaillee")
     else:
-        manquants.extend(attributs.champs_illisibles)
-    return sorted(set(manquants))
+        missing.extend(attributes.unreadable_fields)
+    return sorted(set(missing))
 
 
-def _champs_vehicule(
-    brut: LotSource, attributs: AttributsVehicule | None, description: str
+def _vehicle_fields(
+    raw: LotSource, attributes: VehicleAttributes | None, description: str
 ) -> dict[str, Any]:
-    """Caracteristiques du vehicule : attributs structures, puis texte libre."""
+    """Vehicle characteristics: structured attributes first, then free text."""
     return {
-        "marque": attributs.marque if attributs else "",
-        "modele": attributs.modele if attributs else "",
-        "version": _version(brut.titre, attributs),
-        "premiere_mise_en_circulation": (
-            attributs.premiere_mise_en_circulation if attributs else ""
+        "make": attributes.make if attributes else "",
+        "model": attributes.model if attributes else "",
+        "variant": _variant(raw.title, attributes),
+        "first_registration": attributes.first_registration if attributes else "",
+        "mileage": _mileage(attributes, description),
+        "fuel": attributes.fuel if attributes else "",
+        "gearbox": attributes.gearbox if attributes else "",
+        "tax_horsepower": text.extract_tax_horsepower(description),
+        "vin": text.extract_vin(description) or "",
+        "crit_air": text.extract_crit_air(description) or "",
+        "inspection": (
+            text.extract_inspection_date(description) or _inspection_from_attribute(attributes)
         ),
-        "kilometrage": _kilometrage(attributs, description),
-        "energie": attributs.energie if attributs else "",
-        "boite": attributs.boite if attributs else "",
-        "puissance_fiscale": texte.extraire_puissance_fiscale(description),
-        "vin": texte.extraire_vin(description) or "",
-        "crit_air": texte.extraire_crit_air(description) or "",
-        "controle_technique": (
-            texte.extraire_controle_technique(description) or _ct_structure(attributs)
-        ),
-        "carte_grise": attributs.certificat_immatriculation if attributs else None,
-        "cles": attributs.a_une_cle if attributs else None,
-        "etat_declare": texte.extraire_etat_declare(description) or "",
-        "tva_recuperable": _tva_recuperable(attributs.tva if attributs else ""),
+        "registration_certificate": attributes.registration_certificate if attributes else None,
+        "keys": attributes.has_key if attributes else None,
+        "declared_condition": text.extract_declared_condition(description) or "",
+        "vat_reclaimable": _vat_reclaimable(attributes.vat if attributes else ""),
     }
 
 
-def _version(titre: str, attributs: AttributsVehicule | None) -> str:
-    """Ce qui reste du titre une fois la marque et le modele retires."""
-    if attributs is None:
+def _variant(title: str, attributes: VehicleAttributes | None) -> str:
+    """What is left of the title once make and model have been removed."""
+    if attributes is None:
         return ""
-    reste = titre
-    for mot in (attributs.marque, attributs.modele):
-        if mot:
-            reste = reste.replace(mot, "").replace(mot.title(), "")
-    return " ".join(reste.split())
+    rest = title
+    for word in (attributes.make, attributes.model):
+        if word:
+            rest = rest.replace(word, "").replace(word.title(), "")
+    return " ".join(rest.split())
 
 
-def _kilometrage(attributs: AttributsVehicule | None, description: str) -> int | None:
-    """Kilometrage structure s'il existe, sinon celui annonce dans la description."""
-    if attributs and attributs.kilometrage:
-        return attributs.kilometrage
-    return texte.extraire_kilometrage(description)
+def _mileage(attributes: VehicleAttributes | None, description: str) -> int | None:
+    """Structured mileage when there is one, otherwise the one in the description."""
+    if attributes and attributes.mileage:
+        return attributes.mileage
+    return text.extract_mileage(description)
 
 
-def _ct_structure(attributs: AttributsVehicule | None) -> str:
-    """Mention de controle technique deduite de l'attribut booleen."""
-    if attributs is None or attributs.controle_technique is None:
+def _inspection_from_attribute(attributes: VehicleAttributes | None) -> str:
+    """Roadworthiness mention derived from the boolean attribute."""
+    if attributes is None or attributes.roadworthiness_test is None:
         return ""
-    return "présent" if attributs.controle_technique else "absent"
+    return "présent" if attributes.roadworthiness_test else "absent"
 
 
-def _memo_depuis_attributs(attributs: AttributsVehicule) -> dict[str, Any]:
-    """Forme serialisable d'une fiche, pour le cache SQLite."""
+def _to_memo(attributes: VehicleAttributes) -> dict[str, Any]:
+    """Serialisable form of a listing, for the SQLite cache."""
     return {
-        champ: getattr(attributs, champ)
-        for champ in AttributsVehicule.__dataclass_fields__
-        if champ != "attributs_bruts"
+        name: getattr(attributes, name)
+        for name in VehicleAttributes.__dataclass_fields__
+        if name != "raw_attributes"
     }
 
 
-def _attributs_depuis_memo(memo: Mapping[str, Any]) -> AttributsVehicule | None:
-    """Reconstruit une fiche depuis le cache.
+def _from_memo(memo: Mapping[str, Any]) -> VehicleAttributes | None:
+    """Rebuild a listing from the cache.
 
-    Rend `None` si la forme memorisee ne correspond plus au modele courant —
-    cas d'un cache ecrit par une version anterieure. L'appelant retelecharge.
+    Returns `None` when the memorised shape no longer matches the current
+    model — a cache written by an earlier version. The caller refetches.
     """
-    donnees = dict(memo)
-    donnees["champs_illisibles"] = tuple(donnees.get("champs_illisibles") or ())
-    donnees["attributs_bruts"] = {}
+    data = dict(memo)
+    data["unreadable_fields"] = tuple(data.get("unreadable_fields") or ())
+    data["raw_attributes"] = {}
     try:
-        return AttributsVehicule(**donnees)
+        return VehicleAttributes(**data)
     except TypeError:
         return None

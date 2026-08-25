@@ -1,128 +1,131 @@
-"""Digest Markdown : ce qu'on lit le matin, en trente secondes.
+"""Markdown digest: what gets read in the morning, in thirty seconds.
 
-Quatre questions, dans cet ordre d'interet : qu'est-ce qui est nouveau, sur
-quoi les encheres ont bouge, quels lots sont reserves aux professionnels, et
-qu'est-ce qui a mal tourne pendant le run.
+Four questions, in order of interest: what is new, where bids have moved,
+which lots are trade-only, and what went wrong during the run.
+
+The rendered text is French: it is read by the operator.
 """
 
 from __future__ import annotations
 
 from collections.abc import Iterable, Sequence
 
-from sleeper.domain.models import DocumentSortie, ErreurRun, Lot, LotEcarte, Run
+from sleeper.domain.models import Lot, OutputDocument, RejectedLot, Run, RunError
 
-#: Au-dela, le digest cesse d'etre lisible d'un coup d'oeil ; le JSON reste
-#: la source complete.
-LIMITE_PAR_SECTION = 40
-
-
-def _euros(montant: float | None) -> str:
-    return "—" if montant is None else f"{montant:,.0f} €".replace(",", " ")
+#: Beyond this, the digest stops being readable at a glance; the JSON remains
+#: the complete source.
+SECTION_LIMIT = 40
 
 
-def _mention_pro(lot: Lot) -> str:
-    if lot.reserve_aux_professionnels is True:
+def _euros(amount: float | None) -> str:
+    return "—" if amount is None else f"{amount:,.0f} €".replace(",", " ")
+
+
+def _access(lot: Lot) -> str:
+    if lot.trade_only is True:
         return "**PRO**"
-    if lot.reserve_aux_professionnels is False:
+    if lot.trade_only is False:
         return "tous publics"
     return "⚠️ inconnu"
 
 
-def _ligne(lot: Lot) -> str:
-    lieu = f"{lot.departement or '??'} {lot.lieu_retrait}".strip()
-    hors = " · *hors périmètre*" if lot.hors_perimetre else ""
-    km = "—" if lot.kilometrage is None else f"{lot.kilometrage:,} km".replace(",", " ")
+def _row(lot: Lot) -> str:
+    place = f"{lot.department or '??'} {lot.collection_place}".strip()
+    outside = " · *hors périmètre*" if lot.out_of_scope else ""
+    mileage = "—" if lot.mileage is None else f"{lot.mileage:,} km".replace(",", " ")
     return (
-        f"| [{lot.titre or lot.id}]({lot.url}) | {_mention_pro(lot)} | {km} | "
-        f"{_euros(lot.mise_a_prix)} | {_euros(lot.enchere_en_cours)} | {lieu}{hors} |"
+        f"| [{lot.title or lot.id}]({lot.url}) | {_access(lot)} | {mileage} | "
+        f"{_euros(lot.starting_price)} | {_euros(lot.current_bid)} | {place}{outside} |"
     )
 
 
-def _tableau(lots: Sequence[Lot]) -> list[str]:
-    entete = [
+def _table(lots: Sequence[Lot]) -> list[str]:
+    header = [
         "| Lot | Accès | Km | Mise à prix | Enchère | Retrait |",
         "|---|---|---|---|---|---|",
     ]
-    corps = [_ligne(lot) for lot in lots[:LIMITE_PAR_SECTION]]
-    if len(lots) > LIMITE_PAR_SECTION:
-        corps.append(f"| … et {len(lots) - LIMITE_PAR_SECTION} autres | | | | | |")
-    return entete + corps
+    body = [_row(lot) for lot in lots[:SECTION_LIMIT]]
+    if len(lots) > SECTION_LIMIT:
+        body.append(f"| … et {len(lots) - SECTION_LIMIT} autres | | | | | |")
+    return header + body
 
 
-def _section(titre: str, lots: Sequence[Lot], vide: str) -> list[str]:
-    lignes = [f"## {titre} ({len(lots)})", ""]
-    lignes.extend(_tableau(lots) if lots else [f"_{vide}_"])
-    lignes.append("")
-    return lignes
+def _section(title: str, lots: Sequence[Lot], empty: str) -> list[str]:
+    lines = [f"## {title} ({len(lots)})", ""]
+    lines.extend(_table(lots) if lots else [f"_{empty}_"])
+    lines.append("")
+    return lines
 
 
-def _incomplets(lots: Iterable[Lot]) -> list[Lot]:
-    return [lot for lot in lots if lot.incomplet]
+def _incomplete(lots: Iterable[Lot]) -> list[Lot]:
+    return [lot for lot in lots if lot.is_incomplete]
 
 
-def _entete(run: Run, incomplets: Sequence[Lot]) -> list[str]:
-    """Titre, compteurs, et avertissement d'incompletude s'il y a lieu."""
-    lignes = [
-        f"# Enchères du Domaine — {run.horodatage:%d/%m/%Y %H:%M}",
+def _header(run: Run, incomplete: Sequence[Lot]) -> list[str]:
+    """Title, counters, and the incompleteness warning when there is one."""
+    lines = [
+        f"# Enchères du Domaine — {run.timestamp:%d/%m/%Y %H:%M}",
         "",
-        f"{run.ventes_scannees} vente(s) balayée(s) · {run.lots_vus} lot(s) vu(s) · "
-        f"**{run.lots_retenus} retenu(s)** · {run.lots_ecartes} écarté(s) · "
-        f"{run.duree_secondes:.0f} s",
+        f"{run.sales_scanned} vente(s) balayée(s) · {run.lots_seen} lot(s) vu(s) · "
+        f"**{run.lots_kept} retenu(s)** · {run.lots_rejected} écarté(s) · "
+        f"{run.duration_seconds:.0f} s",
         "",
     ]
-    if incomplets:
-        lignes += [
-            f"> ⚠️ **{len(incomplets)} lot(s) incomplet(s)** : la mention "
+    if incomplete:
+        lines += [
+            f"> ⚠️ **{len(incomplete)} lot(s) incomplet(s)** : la mention "
             "« réservé aux professionnels » n'a pas pu être lue. Ces lots ne sont "
             "pas exploitables en l'état — voir `champs_manquants` dans le JSON.",
             "",
         ]
-    return lignes
+    return lines
 
 
-def _ecartes(ecartes: Sequence[LotEcarte]) -> list[str]:
-    """Repartition des lots ecartes par motif."""
-    lignes = [f"## Écartés ({len(ecartes)})", ""]
-    if not ecartes:
-        return [*lignes, "_aucun lot écarté_", ""]
-    compte: dict[str, int] = {}
-    for ecarte in ecartes:
-        compte[ecarte.motif] = compte.get(ecarte.motif, 0) + 1
-    lignes += ["| Motif | Lots |", "|---|---|"]
-    lignes += [
-        f"| {motif} | {nombre} |" for motif, nombre in sorted(compte.items(), key=lambda x: -x[1])
+def _rejected(rejected: Sequence[RejectedLot]) -> list[str]:
+    """Breakdown of rejected lots by reason."""
+    lines = [f"## Écartés ({len(rejected)})", ""]
+    if not rejected:
+        return [*lines, "_aucun lot écarté_", ""]
+    counts: dict[str, int] = {}
+    for lot in rejected:
+        counts[lot.reason] = counts.get(lot.reason, 0) + 1
+    lines += ["| Motif | Lots |", "|---|---|"]
+    lines += [
+        f"| {reason} | {count} |" for reason, count in sorted(counts.items(), key=lambda x: -x[1])
     ]
-    return [*lignes, ""]
+    return [*lines, ""]
 
 
-def _erreurs(erreurs: Sequence[ErreurRun]) -> list[str]:
-    """Anomalies du run, affichees telles quelles."""
-    lignes = [f"## Erreurs du run ({len(erreurs)})", ""]
-    if not erreurs:
-        return [*lignes, "_run sans erreur_", ""]
-    lignes += ["| Étape | Cible | Type | Message |", "|---|---|---|---|"]
-    lignes += [f"| {e.etape} | {e.cible} | {e.type} | {e.message} |" for e in erreurs]
-    return [*lignes, ""]
+def _errors(errors: Sequence[RunError]) -> list[str]:
+    """Run anomalies, shown as they are."""
+    lines = [f"## Erreurs du run ({len(errors)})", ""]
+    if not errors:
+        return [*lines, "_run sans erreur_", ""]
+    lines += ["| Étape | Cible | Type | Message |", "|---|---|---|---|"]
+    lines += [f"| {e.step} | {e.target} | {e.kind} | {e.message} |" for e in errors]
+    return [*lines, ""]
 
 
-def rediger(document: DocumentSortie) -> str:
-    """Compose le digest Markdown d'un run."""
+def render(document: OutputDocument) -> str:
+    """Compose the Markdown digest of a run."""
     lots = document.lots
-    nouveaux = [lot for lot in lots if lot.nouveau_depuis_dernier_run]
-    bouges = [lot for lot in lots if lot.enchere_a_bouge]
-    pros = [lot for lot in lots if lot.reserve_aux_professionnels is True]
-    incomplets = _incomplets(lots)
+    new = [lot for lot in lots if lot.new_since_last_run]
+    moved = [lot for lot in lots if lot.bid_moved]
+    trade_only = [lot for lot in lots if lot.trade_only is True]
+    incomplete = _incomplete(lots)
 
-    lignes = _entete(document.run, incomplets)
-    lignes += _section("Nouveaux lots", nouveaux, "aucun nouveau lot depuis le dernier run")
-    lignes += _section("Enchères qui ont bougé", bouges, "aucun mouvement d'enchère")
-    lignes += _section("Réservés aux professionnels", pros, "aucun lot réservé aux professionnels")
+    lines = _header(document.run, incomplete)
+    lines += _section("Nouveaux lots", new, "aucun nouveau lot depuis le dernier run")
+    lines += _section("Enchères qui ont bougé", moved, "aucun mouvement d'enchère")
+    lines += _section(
+        "Réservés aux professionnels", trade_only, "aucun lot réservé aux professionnels"
+    )
 
-    # Les lots incomplets ont leur propre tableau : les compter dans le bandeau
-    # ne suffit pas, il faut pouvoir aller les regarder un par un.
-    if incomplets:
-        lignes += _section("Lots incomplets — à vérifier à la main", incomplets, "")
+    # Incomplete lots get their own table: counting them in the banner is not
+    # enough, they must be individually reachable.
+    if incomplete:
+        lines += _section("Lots incomplets — à vérifier à la main", incomplete, "")
 
-    lignes += _ecartes(document.ecartes)
-    lignes += _erreurs(document.run.erreurs)
-    return "\n".join(lignes)
+    lines += _rejected(document.rejected)
+    lines += _errors(document.run.errors)
+    return "\n".join(lines)

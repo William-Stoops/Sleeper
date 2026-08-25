@@ -1,9 +1,13 @@
-"""Serialisation et validation du document de sortie.
+"""Serialisation and validation of the output document.
 
-Le schema JSON est derive des modeles pydantic, publie dans `schemas/`, et le
-document est valide contre CE fichier avant toute ecriture. Le detour par le
-fichier est volontaire : il fait echouer le run si le schema publie et les
-modeles divergent, plutot que de livrer un document conforme a lui-meme.
+The JSON Schema derives from the pydantic models, is published under
+`schemas/`, and the document is validated against THAT FILE before anything is
+written. Going through the file is deliberate: it fails the run when the
+published schema and the models have drifted apart, rather than delivering a
+document that is only consistent with itself.
+
+Serialisation always uses `by_alias=True`: identifiers are English, the wire
+format stays the French contract specified for the downstream system.
 """
 
 from __future__ import annotations
@@ -14,58 +18,58 @@ from typing import Any, Final
 
 import jsonschema
 
-from sleeper.domain.models import DocumentSortie
-from sleeper.errors import SortieError
+from sleeper.domain.models import OutputDocument
+from sleeper.errors import OutputError
 
-#: Version du contrat de sortie. Toute evolution incrementale est documentee
-#: dans docs/api.md et donne lieu a un nouveau fichier de schema.
-VERSION_SCHEMA: Final = "1.0"
+#: Version of the output contract. Any change is documented in docs/api.md and
+#: gives rise to a new schema file.
+SCHEMA_VERSION: Final = "1.0"
 
-REPERTOIRE_SCHEMAS: Final = Path("schemas")
-NOM_SCHEMA: Final = f"sortie-{VERSION_SCHEMA}.json"
+SCHEMA_DIRECTORY: Final = Path("schemas")
+SCHEMA_NAME: Final = f"sortie-{SCHEMA_VERSION}.json"
 
 
-def schema_courant() -> dict[str, Any]:
-    """Schema JSON derive des modeles, source de verite."""
-    schema = DocumentSortie.model_json_schema(mode="serialization")
+def current_schema() -> dict[str, Any]:
+    """JSON Schema derived from the models: the source of truth."""
+    schema = OutputDocument.model_json_schema(by_alias=True, mode="serialization")
     schema["$schema"] = "https://json-schema.org/draft/2020-12/schema"
-    schema["$id"] = f"https://github.com/William-Stoops/Sleeper/schemas/{NOM_SCHEMA}"
+    schema["$id"] = f"https://github.com/William-Stoops/Sleeper/schemas/{SCHEMA_NAME}"
     return schema
 
 
-def publier_schema(repertoire: Path = REPERTOIRE_SCHEMAS) -> Path:
-    """Ecrit le schema JSON sur disque et rend son chemin."""
-    repertoire.mkdir(parents=True, exist_ok=True)
-    chemin = repertoire / NOM_SCHEMA
-    chemin.write_text(
-        json.dumps(schema_courant(), ensure_ascii=False, indent=2) + "\n", encoding="utf-8"
+def publish_schema(directory: Path = SCHEMA_DIRECTORY) -> Path:
+    """Write the JSON Schema to disk and return its path."""
+    directory.mkdir(parents=True, exist_ok=True)
+    path = directory / SCHEMA_NAME
+    path.write_text(
+        json.dumps(current_schema(), ensure_ascii=False, indent=2) + "\n", encoding="utf-8"
     )
-    return chemin
+    return path
 
 
-def serialiser(document: DocumentSortie) -> bytes:
-    """Rend le document en JSON UTF-8 indente, avec ses accents intacts."""
-    charge = document.model_dump(mode="json")
-    return (json.dumps(charge, ensure_ascii=False, indent=2) + "\n").encode("utf-8")
+def serialize(document: OutputDocument) -> bytes:
+    """Render the document as indented UTF-8 JSON, accents intact."""
+    payload = document.model_dump(mode="json", by_alias=True)
+    return (json.dumps(payload, ensure_ascii=False, indent=2) + "\n").encode("utf-8")
 
 
-def valider(document: DocumentSortie, repertoire: Path = REPERTOIRE_SCHEMAS) -> None:
-    """Valide le document contre le schema PUBLIE. Echoue bruyamment sinon."""
-    chemin = repertoire / NOM_SCHEMA
-    if not chemin.is_file():
-        raise SortieError(
-            f"schema de sortie absent : {chemin}. "
-            "Le regenerer avec « sleeper schema » avant d'ecrire un document."
+def validate(document: OutputDocument, directory: Path = SCHEMA_DIRECTORY) -> None:
+    """Validate the document against the PUBLISHED schema. Fails loudly otherwise."""
+    path = directory / SCHEMA_NAME
+    if not path.is_file():
+        raise OutputError(
+            f"schéma de sortie absent : {path}. "
+            "Le régénérer avec « sleeper schema » avant d'écrire un document."
         )
     try:
-        schema = json.loads(chemin.read_text(encoding="utf-8"))
+        schema = json.loads(path.read_text(encoding="utf-8"))
     except (OSError, ValueError) as exc:
-        raise SortieError(f"schema de sortie illisible : {chemin} ({exc})") from exc
+        raise OutputError(f"schéma de sortie illisible : {path} ({exc})") from exc
 
     try:
-        jsonschema.validate(document.model_dump(mode="json"), schema)
+        jsonschema.validate(document.model_dump(mode="json", by_alias=True), schema)
     except jsonschema.ValidationError as exc:
-        emplacement = "/".join(str(p) for p in exc.absolute_path) or "(racine)"
-        raise SortieError(
-            f"document non conforme au schema {VERSION_SCHEMA} en '{emplacement}' : {exc.message}"
+        location = "/".join(str(p) for p in exc.absolute_path) or "(racine)"
+        raise OutputError(
+            f"document non conforme au schéma {SCHEMA_VERSION} en « {location} » : {exc.message}"
         ) from exc

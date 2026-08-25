@@ -1,51 +1,54 @@
-"""Regles d'exclusion metier.
+"""Business exclusion rules.
 
-Chaque regle est couverte par de vraies formulations. Les agents du Domaine
-ecrivent librement : on teste donc les variantes, mais aussi les tournures
-voisines qui ne doivent PAS declencher.
+Every rule is covered by real wordings. Domaine staff write freely, so the
+variants are tested — and so are the neighbouring turns of phrase that must
+NOT fire.
+
+Rule codes stay French: they are part of the output contract and of the
+configuration the operator edits.
 """
 
 from __future__ import annotations
 
 import pytest
 
-from sleeper.domain.exclusions import REGLES_PAR_DEFAUT, MoteurExclusions, SignalLot
+from sleeper.domain.exclusions import DEFAULT_RULES, ExclusionEngine, LotSignals
 
 
-def signal(
+def signals(
     description: str = "",
     *,
-    kilometrage: int | None = None,
-    a_une_cle: bool | None = None,
-    certificat_immatriculation: bool | None = None,
-    genre: str | None = None,
-    annee_mise_en_circulation: int | None = None,
-    vhu_declare: bool | None = None,
-    immatriculable_a_nouveau: bool | None = None,
-    non_conforme: bool | None = None,
-    a_des_attributs_vehicule: bool | None = None,
-) -> SignalLot:
-    """Construit un signal de lot minimal, tout le reste etant inconnu."""
-    return SignalLot(
+    mileage: int | None = None,
+    has_key: bool | None = None,
+    registration_certificate: bool | None = None,
+    kind: str | None = None,
+    first_registration_year: int | None = None,
+    declared_end_of_life: bool | None = None,
+    re_registrable: bool | None = None,
+    non_compliant: bool | None = None,
+    has_vehicle_attributes: bool | None = None,
+) -> LotSignals:
+    """Build a minimal lot signal, everything else being unknown."""
+    return LotSignals(
         description=description,
-        kilometrage=kilometrage,
-        a_une_cle=a_une_cle,
-        certificat_immatriculation=certificat_immatriculation,
-        genre=genre,
-        annee_mise_en_circulation=annee_mise_en_circulation,
-        vhu_declare=vhu_declare,
-        immatriculable_a_nouveau=immatriculable_a_nouveau,
-        non_conforme=non_conforme,
-        a_des_attributs_vehicule=a_des_attributs_vehicule,
+        mileage=mileage,
+        has_key=has_key,
+        registration_certificate=registration_certificate,
+        kind=kind,
+        first_registration_year=first_registration_year,
+        declared_end_of_life=declared_end_of_life,
+        re_registrable=re_registrable,
+        non_compliant=non_compliant,
+        has_vehicle_attributes=has_vehicle_attributes,
     )
 
 
 @pytest.fixture
-def moteur() -> MoteurExclusions:
-    return MoteurExclusions(REGLES_PAR_DEFAUT)
+def engine() -> ExclusionEngine:
+    return ExclusionEngine(DEFAULT_RULES)
 
 
-class TestKilometrageInconnu:
+class TestUnknownMileage:
     @pytest.mark.parametrize(
         "description",
         [
@@ -54,22 +57,22 @@ class TestKilometrageInconnu:
             "compteur non fonctionnel, km inconnu",
         ],
     )
-    def test_ecarte_quand_aucun_kilometrage_nest_lisible(
-        self, moteur: MoteurExclusions, description: str
+    def test_rejects_when_no_mileage_is_readable(
+        self, engine: ExclusionEngine, description: str
     ) -> None:
-        assert moteur.motif(signal(description)) == "kilometrage_inconnu"
+        assert engine.reason(signals(description)) == "kilometrage_inconnu"
 
-    def test_conserve_quand_lattribut_structure_le_porte(self, moteur: MoteurExclusions) -> None:
-        assert moteur.motif(signal("DACIA DUSTER", kilometrage=110430)) is None
+    def test_keeps_when_the_structured_attribute_carries_it(self, engine: ExclusionEngine) -> None:
+        assert engine.reason(signals("DACIA DUSTER", mileage=110430)) is None
 
-    def test_conserve_quand_le_texte_le_porte(self, moteur: MoteurExclusions) -> None:
-        assert moteur.motif(signal("RENAULT Kangoo, 15500 km.")) is None
+    def test_keeps_when_the_text_carries_it(self, engine: ExclusionEngine) -> None:
+        assert engine.reason(signals("RENAULT Kangoo, 15500 km.")) is None
 
-    def test_un_kilometrage_a_zero_nest_pas_un_kilometrage(self, moteur: MoteurExclusions) -> None:
-        assert moteur.motif(signal("DACIA DUSTER", kilometrage=0)) == "kilometrage_inconnu"
+    def test_a_zero_odometer_is_not_a_mileage(self, engine: ExclusionEngine) -> None:
+        assert engine.reason(signals("DACIA DUSTER", mileage=0)) == "kilometrage_inconnu"
 
 
-class TestSansCle:
+class TestNoKey:
     @pytest.mark.parametrize(
         "description",
         [
@@ -80,17 +83,17 @@ class TestSansCle:
             "110000 km, sans clés",
         ],
     )
-    def test_variantes(self, moteur: MoteurExclusions, description: str) -> None:
-        assert moteur.motif(signal(description, kilometrage=1)) == "sans_cle"
+    def test_variants(self, engine: ExclusionEngine, description: str) -> None:
+        assert engine.reason(signals(description, mileage=1)) == "sans_cle"
 
-    def test_attribut_structure_prime(self, moteur: MoteurExclusions) -> None:
-        assert moteur.motif(signal("120000 km", a_une_cle=False)) == "sans_cle"
+    def test_the_structured_attribute_wins(self, engine: ExclusionEngine) -> None:
+        assert engine.reason(signals("120000 km", has_key=False)) == "sans_cle"
 
-    def test_mention_positive_ne_declenche_pas(self, moteur: MoteurExclusions) -> None:
-        assert moteur.motif(signal("Avec CG et clé, 120000 km", a_une_cle=True)) is None
+    def test_a_positive_mention_does_not_fire(self, engine: ExclusionEngine) -> None:
+        assert engine.reason(signals("Avec CG et clé, 120000 km", has_key=True)) is None
 
 
-class TestSansCertificatImmatriculation:
+class TestNoRegistrationCertificate:
     @pytest.mark.parametrize(
         "description",
         [
@@ -101,83 +104,83 @@ class TestSansCertificatImmatriculation:
             "pas de carte grise",
         ],
     )
-    def test_variantes(self, moteur: MoteurExclusions, description: str) -> None:
-        assert moteur.motif(signal(f"{description}, 90000 km")) == "sans_certificat_immatriculation"
-
-    def test_attribut_structure_prime(self, moteur: MoteurExclusions) -> None:
+    def test_variants(self, engine: ExclusionEngine, description: str) -> None:
         assert (
-            moteur.motif(signal("90000 km", certificat_immatriculation=False))
+            engine.reason(signals(f"{description}, 90000 km")) == "sans_certificat_immatriculation"
+        )
+
+    def test_the_structured_attribute_wins(self, engine: ExclusionEngine) -> None:
+        assert (
+            engine.reason(signals("90000 km", registration_certificate=False))
             == "sans_certificat_immatriculation"
         )
 
-    def test_mention_positive_ne_declenche_pas(self, moteur: MoteurExclusions) -> None:
-        assert moteur.motif(signal("Avec CG et clé, 90000 km")) is None
+    def test_a_positive_mention_does_not_fire(self, engine: ExclusionEngine) -> None:
+        assert engine.reason(signals("Avec CG et clé, 90000 km")) is None
 
 
-class TestNonRoulant:
+class TestNotRoadworthy:
     @pytest.mark.parametrize(
         "description",
         ["véhicule non roulant", "véhicule non-roulant", "ne roule pas", "état non roulant"],
     )
-    def test_variantes(self, moteur: MoteurExclusions, description: str) -> None:
-        assert moteur.motif(signal(f"{description}, 90000 km")) == "non_roulant"
+    def test_variants(self, engine: ExclusionEngine, description: str) -> None:
+        assert engine.reason(signals(f"{description}, 90000 km")) == "non_roulant"
 
-    def test_vehicule_roulant_ne_declenche_pas(self, moteur: MoteurExclusions) -> None:
-        assert moteur.motif(signal("véhicule roulant, 90000 km")) is None
+    def test_a_roadworthy_vehicle_does_not_fire(self, engine: ExclusionEngine) -> None:
+        assert engine.reason(signals("véhicule roulant, 90000 km")) is None
 
-    def test_non_immatriculable_a_nouveau_declenche(self, moteur: MoteurExclusions) -> None:
-        assert moteur.motif(signal("90000 km", immatriculable_a_nouveau=False)) == "non_roulant"
+    def test_not_re_registrable_fires(self, engine: ExclusionEngine) -> None:
+        assert engine.reason(signals("90000 km", re_registrable=False)) == "non_roulant"
 
 
-class TestEpaveOuPieces:
+class TestEndOfLife:
     @pytest.mark.parametrize(
         "description",
         ["épave", "vendu pour pièces", "vendu pour pieces détachées", "véhicule hors d'usage"],
     )
-    def test_variantes(self, moteur: MoteurExclusions, description: str) -> None:
-        assert moteur.motif(signal(f"{description}, 90000 km")) == "epave_ou_pieces"
+    def test_variants(self, engine: ExclusionEngine, description: str) -> None:
+        assert engine.reason(signals(f"{description}, 90000 km")) == "epave_ou_pieces"
 
-    def test_vhu_declare_declenche(self, moteur: MoteurExclusions) -> None:
-        assert moteur.motif(signal("90000 km", vhu_declare=True)) == "epave_ou_pieces"
+    def test_declared_end_of_life_fires(self, engine: ExclusionEngine) -> None:
+        assert engine.reason(signals("90000 km", declared_end_of_life=True)) == "epave_ou_pieces"
 
 
-class TestChocOuAccident:
+class TestCrashDamage:
     @pytest.mark.parametrize(
         "description",
         ["véhicule accidenté", "choc avant", "dégâts de carrosserie", "carrosserie endommagée"],
     )
-    def test_variantes(self, moteur: MoteurExclusions, description: str) -> None:
-        assert moteur.motif(signal(f"{description}, 90000 km")) == "choc_ou_accident"
+    def test_variants(self, engine: ExclusionEngine, description: str) -> None:
+        assert engine.reason(signals(f"{description}, 90000 km")) == "choc_ou_accident"
 
     @pytest.mark.parametrize(
         "description", ["sans choc apparent", "aucun dégât de carrosserie", "non accidenté"]
     )
-    def test_les_tournures_negatives_nannulent_pas_a_tort(
-        self, moteur: MoteurExclusions, description: str
-    ) -> None:
-        assert moteur.motif(signal(f"{description}, 90000 km")) is None
+    def test_negative_wordings_do_not_fire(self, engine: ExclusionEngine, description: str) -> None:
+        assert engine.reason(signals(f"{description}, 90000 km")) is None
 
 
-class TestMoteurHorsService:
+class TestDeadEngine:
     @pytest.mark.parametrize(
         "description", ["moteur hors service", "moteur HS", "moteur cassé", "moteur à refaire"]
     )
-    def test_variantes(self, moteur: MoteurExclusions, description: str) -> None:
-        assert moteur.motif(signal(f"{description}, 90000 km")) == "moteur_hors_service"
+    def test_variants(self, engine: ExclusionEngine, description: str) -> None:
+        assert engine.reason(signals(f"{description}, 90000 km")) == "moteur_hors_service"
 
 
-class TestGageOuOpposition:
+class TestLienOrSeizure:
     @pytest.mark.parametrize(
         "description", ["véhicule gagé", "gage en cours", "opposition sur le véhicule"]
     )
-    def test_variantes(self, moteur: MoteurExclusions, description: str) -> None:
-        assert moteur.motif(signal(f"{description}, 90000 km")) == "gage_ou_opposition"
+    def test_variants(self, engine: ExclusionEngine, description: str) -> None:
+        assert engine.reason(signals(f"{description}, 90000 km")) == "gage_ou_opposition"
 
 
-class TestGenreHorsCible:
-    @pytest.mark.parametrize("genre", ["MTL", "MTT1", "QM", "REM", "TRA"])
-    def test_genre_de_carte_grise(self, moteur: MoteurExclusions, genre: str) -> None:
-        assert moteur.motif(signal("90000 km", genre=genre)) == "genre_hors_cible"
+class TestOutOfScopeKind:
+    @pytest.mark.parametrize("kind", ["MTL", "MTT1", "QM", "REM", "TRA"])
+    def test_registration_document_kind(self, engine: ExclusionEngine, kind: str) -> None:
+        assert engine.reason(signals("90000 km", kind=kind)) == "genre_hors_cible"
 
     @pytest.mark.parametrize(
         "description",
@@ -190,69 +193,71 @@ class TestGenreHorsCible:
             "voiture sans permis AIXAM",
         ],
     )
-    def test_reperage_textuel(self, moteur: MoteurExclusions, description: str) -> None:
-        assert moteur.motif(signal(f"{description}, 90000 km")) == "genre_hors_cible"
+    def test_textual_detection(self, engine: ExclusionEngine, description: str) -> None:
+        assert engine.reason(signals(f"{description}, 90000 km")) == "genre_hors_cible"
 
-    def test_un_utilitaire_reste_dans_la_cible(self, moteur: MoteurExclusions) -> None:
-        assert moteur.motif(signal("Utilitaire RENAULT Kangoo, 15500 km", genre="CTTE")) is None
+    def test_a_van_stays_in_scope(self, engine: ExclusionEngine) -> None:
+        assert engine.reason(signals("Utilitaire RENAULT Kangoo, 15500 km", kind="CTTE")) is None
 
 
-class TestCollection:
-    def test_avant_1990_est_ecarte(self, moteur: MoteurExclusions) -> None:
+class TestClassicCar:
+    def test_before_1990_is_rejected(self, engine: ExclusionEngine) -> None:
         assert (
-            moteur.motif(signal("90000 km", annee_mise_en_circulation=1972))
+            engine.reason(signals("90000 km", first_registration_year=1972))
             == "collection_avant_1990"
         )
 
-    def test_1990_est_conserve(self, moteur: MoteurExclusions) -> None:
-        assert moteur.motif(signal("90000 km", annee_mise_en_circulation=1990)) is None
+    def test_1990_is_kept(self, engine: ExclusionEngine) -> None:
+        assert engine.reason(signals("90000 km", first_registration_year=1990)) is None
 
 
-class TestOrdreEtExtensibilite:
-    def test_le_premier_motif_declenche_gagne_et_il_est_deterministe(
-        self, moteur: MoteurExclusions
+class TestNotAVehicle:
+    def test_a_lot_without_vehicle_attributes_gets_the_right_reason(
+        self, engine: ExclusionEngine
     ) -> None:
-        # Un lot cumulant plusieurs defauts doit toujours rendre le meme motif.
-        cumul = signal("épave sans clé, moteur HS", kilometrage=1)
-        assert moteur.motif(cumul) == moteur.motif(cumul) == "sans_cle"
+        # A "Véhicules" sale also sells furniture and consumer electronics.
+        sofa = signals("Canapé d'angle en cuir", has_vehicle_attributes=False)
+        assert engine.reason(sofa) == "hors_categorie_vehicule"
 
-    def test_une_formulation_ajoutee_par_configuration_est_prise_en_compte(self) -> None:
-        etendu = MoteurExclusions.avec_ajouts(
-            REGLES_PAR_DEFAUT, {"moteur_hors_service": ("bloc moteur fendu",)}
+    def test_a_vehicle_passes_the_rule(self, engine: ExclusionEngine) -> None:
+        car = signals("DACIA DUSTER", mileage=110430, has_vehicle_attributes=True)
+        assert engine.reason(car) is None
+
+    def test_an_unreadable_listing_allows_no_conclusion(self, engine: ExclusionEngine) -> None:
+        # Listing missing: we do not pretend to know whether it is a vehicle.
+        # The lot falls through to the other rules, here the mileage one.
+        unknown = signals("Lot 42", has_vehicle_attributes=None)
+        assert engine.reason(unknown) == "kilometrage_inconnu"
+
+    def test_the_rule_runs_before_the_mileage_one(self, engine: ExclusionEngine) -> None:
+        sofa = signals("Canapé d'angle", has_vehicle_attributes=False)
+        assert engine.reason(sofa) != "kilometrage_inconnu"
+
+
+class TestOrderAndExtensibility:
+    def test_the_first_matching_reason_wins_and_is_deterministic(
+        self, engine: ExclusionEngine
+    ) -> None:
+        # A lot with several defects must always return the same reason.
+        several = signals("épave sans clé, moteur HS", mileage=1)
+        assert engine.reason(several) == engine.reason(several) == "sans_cle"
+
+    def test_a_phrase_added_by_configuration_is_taken_into_account(self) -> None:
+        extended = ExclusionEngine.with_extra_phrases(
+            DEFAULT_RULES, {"moteur_hors_service": ("bloc moteur fendu",)}
         )
-        assert etendu.motif(signal("bloc moteur fendu, 90000 km")) == "moteur_hors_service"
+        assert extended.reason(signals("bloc moteur fendu, 90000 km")) == "moteur_hors_service"
 
-    def test_une_regle_desactivee_ne_declenche_plus(self) -> None:
-        sans_km = MoteurExclusions(
-            tuple(r for r in REGLES_PAR_DEFAUT if r.code != "kilometrage_inconnu")
+    def test_a_disabled_rule_no_longer_fires(self) -> None:
+        without_mileage = ExclusionEngine(
+            tuple(r for r in DEFAULT_RULES if r.code != "kilometrage_inconnu")
         )
-        assert sans_km.motif(signal("DACIA DUSTER sans kilométrage")) is None
+        assert without_mileage.reason(signals("DACIA DUSTER sans kilométrage")) is None
 
-    def test_un_ajout_sur_une_regle_inconnue_est_une_erreur(self) -> None:
+    def test_an_extra_phrase_on_an_unknown_rule_is_an_error(self) -> None:
         with pytest.raises(KeyError, match="regle_fantome"):
-            MoteurExclusions.avec_ajouts(REGLES_PAR_DEFAUT, {"regle_fantome": ("peu importe",)})
+            ExclusionEngine.with_extra_phrases(DEFAULT_RULES, {"regle_fantome": ("peu importe",)})
 
-
-class TestHorsCategorieVehicule:
-    def test_un_lot_sans_attribut_vehicule_est_ecarte_avec_le_bon_motif(
-        self, moteur: MoteurExclusions
-    ) -> None:
-        # Une vente « Véhicules » vend aussi du mobilier et de la high-tech.
-        canape = signal("Canapé d'angle en cuir", a_des_attributs_vehicule=False)
-        assert moteur.motif(canape) == "hors_categorie_vehicule"
-
-    def test_un_vehicule_passe_la_regle(self, moteur: MoteurExclusions) -> None:
-        auto = signal("DACIA DUSTER", kilometrage=110430, a_des_attributs_vehicule=True)
-        assert moteur.motif(auto) is None
-
-    def test_une_fiche_illisible_ne_permet_pas_de_conclure(self, moteur: MoteurExclusions) -> None:
-        # Fiche absente : on ne prétend pas savoir si c'est un véhicule.
-        # Le lot retombe sur les autres règles, ici le kilométrage.
-        inconnu = signal("Lot 42", a_des_attributs_vehicule=None)
-        assert moteur.motif(inconnu) == "kilometrage_inconnu"
-
-    def test_la_regle_passe_avant_le_kilometrage(self, moteur: MoteurExclusions) -> None:
-        # Sans elle, un canapé serait écarté pour « kilométrage inconnu » :
-        # vrai, mais trompeur dans le tableau des motifs.
-        canape = signal("Canapé d'angle", a_des_attributs_vehicule=False)
-        assert moteur.motif(canape) != "kilometrage_inconnu"
+    def test_the_label_of_an_unknown_reason_is_an_error(self, engine: ExclusionEngine) -> None:
+        with pytest.raises(KeyError):
+            engine.label("regle_fantome")

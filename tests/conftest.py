@@ -1,4 +1,4 @@
-"""Fixtures partagees. Aucun test ne touche le reseau."""
+"""Shared fixtures. No test touches the network."""
 
 from __future__ import annotations
 
@@ -11,27 +11,27 @@ import pytest
 FIXTURES = Path(__file__).parent / "fixtures" / "api"
 
 
-def charger(nom: str) -> dict[str, Any]:
-    """Charge une reponse d'API reelle, capturee puis expurgee des donnees personnelles."""
-    donnees: dict[str, Any] = json.loads((FIXTURES / nom).read_text(encoding="utf-8"))
-    return donnees
+def load(name: str) -> dict[str, Any]:
+    """Load a real API response, captured then stripped of personal data."""
+    payload: dict[str, Any] = json.loads((FIXTURES / name).read_text(encoding="utf-8"))
+    return payload
 
 
 @pytest.fixture
-def payload_ventes() -> dict[str, Any]:
-    return charger("auctions_list_page1.json")
+def sales_payload() -> dict[str, Any]:
+    return load("auctions_list_page1.json")
 
 
 @pytest.fixture
-def payload_lots() -> dict[str, Any]:
-    return charger("auction_lots_467_page1.json")
+def lots_payload() -> dict[str, Any]:
+    return load("auction_lots_467_page1.json")
 
 
 @pytest.fixture
-def payload_fiche() -> dict[str, Any]:
-    return charger("product_main_dacia_duster.json")
+def listing_payload() -> dict[str, Any]:
+    return load("product_main_dacia_duster.json")
 
 
 @pytest.fixture
-def payload_enchere() -> dict[str, Any]:
-    return charger("product_side_dacia_duster.json")
+def bidding_payload() -> dict[str, Any]:
+    return load("product_side_dacia_duster.json")

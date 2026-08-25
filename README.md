@@ -633,7 +633,23 @@ n'accordera est un run perdu, pas un run lent.
 > **« En production »**. En « Test », Google fait expirer le jeton de
 > rafraîchissement au bout de **7 jours** : l'outil s'arrêterait de publier
 > chaque semaine. `drive.file` n'est pas un scope sensible, la mise en
-> production ne demande aucune vérification.
+> production ne demande aucune vérification manuelle.
+
+La publication exige deux URL publiques. Celles de ce projet sont servies par
+GitHub Pages depuis la branche `gh-pages`, dont les sources sont dans
+[`site/`](site/) :
+
+| Champ du formulaire Google | Valeur |
+|---|---|
+| Page d'accueil | `https://william-stoops.github.io/Sleeper/` |
+| Règles de confidentialité | `https://william-stoops.github.io/Sleeper/confidentialite.html` |
+| Domaine autorisé | `github.io` |
+
+**Vérifié sur un compte Gmail personnel :** le scope `drive.file` permet bien
+d'écrire dans un dossier que vous avez créé vous-même dans l'interface Drive,
+et le remplacement se fait **en place** — `latest.json` garde le même
+identifiant d'un run à l'autre, donc le lien reste valable et peut être mis en
+favori.
 
 > 🔐 **Ni les identifiants ni le jeton n'entrent dans le dépôt.** Seuls leurs
 > chemins sont configuration, et `.gitignore` refuse les fichiers eux-mêmes.

@@ -39,7 +39,12 @@ from sleeper.domain.models import (
     RunError,
     Sale,
 )
-from sleeper.domain.territory import Perimeter, department_from_postcode
+from sleeper.domain.territory import (
+    Perimeter,
+    ResolvedScope,
+    ScopeStatus,
+    department_from_postcode,
+)
 from sleeper.errors import AntiBotChallengeError, SleeperError
 from sleeper.state.store import SleeperState
 
@@ -75,6 +80,7 @@ class Counters:
     lots_seen: int = 0
     lots_kept: int = 0
     lots_rejected: int = 0
+    scope_unknown: int = 0
     reasons: dict[str, int] = field(default_factory=dict)
 
     def reject(self, reason: str) -> None:
@@ -123,7 +129,7 @@ class Collector:
                 announced_lots=source.lot_count,
                 title=source.title[:70],
             )
-            kept, dropped = self._process_sale(source)
+            kept, dropped, sale_place = self._process_sale(source)
             _LOG.info(
                 "sale.finished",
                 sale=source.id,
@@ -133,7 +139,7 @@ class Collector:
             )
             lots.extend(kept)
             rejected.extend(dropped)
-            sales.append(self._sale(source, kept, dropped))
+            sales.append(self._sale(source, sale_place, len(kept) + len(dropped)))
 
         self._state.close_absent_sales(seen, self._started_at)
         return self._document(sales, lots, rejected)
@@ -161,7 +167,7 @@ class Collector:
             if page >= max(pagination.total_pages, 1):
                 return
 
-    def _process_sale(self, source: SaleSource) -> tuple[list[Lot], list[RejectedLot]]:
+    def _process_sale(self, source: SaleSource) -> tuple[list[Lot], list[RejectedLot], Place]:
         """Process every lot of a sale. An upstream breakage stops this sale only."""
         self._state.record_sale(
             sale_id=source.id,
@@ -179,19 +185,23 @@ class Collector:
             raise
         except SleeperError as exc:
             self._record_anomaly("lots", f"vente {source.id}", exc)
-            return [], []
+            return [], [], Place("", "")
 
         listings = self._listings(raw_lots)
+        # The sale itself publishes no location — `location` is always null.
+        # Its place is therefore the one its lots agree on, computed over ALL
+        # of them, so that a lot without a place can inherit it.
+        sale_place = _dominant_place(raw_lots)
         kept: list[Lot] = []
         rejected: list[RejectedLot] = []
         for raw in raw_lots:
             self._counters.lots_seen += 1
-            outcome = self._process_lot(raw, listings.get(raw.id))
+            outcome = self._process_lot(raw, listings.get(raw.id), sale_place)
             if isinstance(outcome, RejectedLot):
                 rejected.append(outcome)
             else:
                 kept.append(outcome)
-        return kept, rejected
+        return kept, rejected, sale_place
 
     def _sale_lots(self, sale_id: int) -> Iterator[LotSource]:
         """Walk the pages of a sale's lots."""
@@ -270,7 +280,7 @@ class Collector:
     # -------------------------------------------------------------------- lots
 
     def _process_lot(
-        self, raw: LotSource, attributes: VehicleAttributes | None
+        self, raw: LotSource, attributes: VehicleAttributes | None, sale_place: Place
     ) -> Lot | RejectedLot:
         """Apply the business rules to a lot and turn it into output."""
         # Recorded BEFORE the business rules, and for every lot: the historical
@@ -289,6 +299,14 @@ class Collector:
                 reason=reason,
             )
 
+        _, postcode, description = _context(raw, attributes)
+        location = raw.collection_city or (attributes.collection_city if attributes else "")
+        resolved = self._perimeter.resolve(
+            postcode, location, sale_place.postcode, sale_place.location
+        )
+        if resolved.status == "inconnu":
+            self._counters.scope_unknown += 1
+
         observation = self._state.observe_lot(
             lot_id=raw.id,
             sale_id=raw.sale_id,
@@ -297,15 +315,16 @@ class Collector:
             trade_only=raw.trade_only,
             starting_price=raw.starting_price,
             current_bid=raw.current_bid,
-            postcode=raw.collection_postcode,
-            department=department_from_postcode(raw.collection_postcode) or "",
+            postcode=resolved.postcode,
+            department=department_from_postcode(resolved.postcode) or "",
             timestamp=self._started_at,
         )
         lot = _build_lot(
             config=self._config,
             raw=raw,
             attributes=attributes,
-            perimeter=self._perimeter,
+            resolved=resolved,
+            description=description,
             is_new=observation.is_new,
             bid_moved=observation.bid_moved,
         )
@@ -343,10 +362,8 @@ class Collector:
 
     # --------------------------------------------------------------- assembling
 
-    def _sale(self, source: SaleSource, kept: list[Lot], rejected: list[RejectedLot]) -> Sale:
+    def _sale(self, source: SaleSource, place: Place, seen_lots: int) -> Sale:
         """Compose the sale, deriving its place from its lots' collection points."""
-        place, postcode = _dominant_place(kept)
-        department = department_from_postcode(postcode) or ""
         return Sale(
             id=str(source.id),
             url=f"{self._config.network.base_url}/vente/{source.id}",
@@ -354,11 +371,11 @@ class Collector:
             dnid=source.regional_directorate,
             opens_at=source.opens_at,
             closes_at=source.closes_at,
-            collection_place=place,
-            postcode=postcode,
-            department=department,
-            in_scope=self._perimeter.contains(postcode, place),
-            lot_count=source.lot_count or len(kept) + len(rejected),
+            collection_place=place.location,
+            postcode=place.postcode,
+            department=department_from_postcode(place.postcode) or "",
+            scope=self._perimeter.status(place.postcode, place.location),
+            lot_count=source.lot_count or seen_lots,
         )
 
     def _document(
@@ -372,6 +389,7 @@ class Collector:
             kept=self._counters.lots_kept,
             rejected=self._counters.lots_rejected,
             reasons=self._counters.reasons,
+            scope_unknown=self._counters.scope_unknown,
             errors=len(self._errors),
             duration_s=round(duration, 1),
         )
@@ -383,6 +401,7 @@ class Collector:
                 lots_seen=self._counters.lots_seen,
                 lots_kept=self._counters.lots_kept,
                 lots_rejected=self._counters.lots_rejected,
+                lots_scope_unknown=self._counters.scope_unknown,
                 errors=self._errors,
             ),
             sales=sales,
@@ -427,15 +446,31 @@ def _signals(raw: LotSource, attributes: VehicleAttributes | None) -> LotSignals
     )
 
 
-def _dominant_place(lots: list[Lot]) -> tuple[str, str]:
-    """Most frequent collection point among a sale's lots."""
+@dataclass(frozen=True, slots=True)
+class Place:
+    """A collection point, as a sale's lots agree on it."""
+
+    location: str
+    postcode: str
+
+
+def _dominant_place(raw_lots: list[LotSource]) -> Place:
+    """Most frequent collection point among a sale's lots.
+
+    Computed over EVERY lot seen, not only the kept ones: a lot without a
+    place must be able to inherit even when all its siblings are rejected.
+    Ties break on the postcode so the result never depends on iteration order.
+    """
     counts: dict[tuple[str, str], int] = {}
-    for lot in lots:
-        key = (lot.collection_place, lot.postcode)
+    for raw in raw_lots:
+        if not raw.collection_postcode:
+            continue
+        key = (raw.collection_city, raw.collection_postcode)
         counts[key] = counts.get(key, 0) + 1
     if not counts:
-        return "", ""
-    return max(counts.items(), key=lambda item: item[1])[0]
+        return Place("", "")
+    location, postcode = max(counts.items(), key=lambda item: (item[1], item[0][1]))[0]
+    return Place(location, postcode)
 
 
 def _vat_reclaimable(label: str) -> bool | None:
@@ -455,12 +490,12 @@ def _build_lot(
     config: Configuration,
     raw: LotSource,
     attributes: VehicleAttributes | None,
-    perimeter: Perimeter,
+    resolved: ResolvedScope,
+    description: str,
     is_new: bool,
     bid_moved: bool,
 ) -> Lot:
     """Assemble the output-contract lot from all of its sources."""
-    place, postcode, description = _context(raw, attributes)
     return Lot(
         id=str(raw.id),
         url=_lot_url(config, raw),
@@ -476,15 +511,16 @@ def _build_lot(
         # fees: `null` here means "absent from the source".
         bidder_count=None,
         buyer_fee_pct=None,
-        collection_place=place,
-        postcode=postcode,
-        department=department_from_postcode(postcode) or "",
+        collection_place=resolved.location,
+        postcode=resolved.postcode,
+        department=department_from_postcode(resolved.postcode) or "",
         viewing_dates=text.extract_viewing_dates(description) or "",
         full_description=description,
-        out_of_scope=not perimeter.contains(postcode, place),
+        scope=resolved.status,
+        inherited_scope=resolved.inherited,
         new_since_last_run=is_new,
         bid_moved=bid_moved,
-        missing_fields=_missing_fields(raw, attributes),
+        missing_fields=_missing_fields(raw, attributes, resolved.status),
     )
 
 
@@ -496,13 +532,17 @@ def _context(raw: LotSource, attributes: VehicleAttributes | None) -> tuple[str,
     return place, postcode, description
 
 
-def _missing_fields(raw: LotSource, attributes: VehicleAttributes | None) -> list[str]:
+def _missing_fields(
+    raw: LotSource, attributes: VehicleAttributes | None, scope: ScopeStatus
+) -> list[str]:
     """Fields present in the source but unusable, or a missing listing."""
     missing = list(raw.unreadable_fields)
     if attributes is None:
         missing.append("fiche_detaillee")
     else:
         missing.extend(attributes.unreadable_fields)
+    if scope == "inconnu":
+        missing.append("perimetre")
     return sorted(set(missing))
 
 

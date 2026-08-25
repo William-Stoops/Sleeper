@@ -33,7 +33,7 @@ class TestSerialisation:
     def test_produces_readable_utf8_json(self) -> None:
         raw = document.serialize(empty_document())
         payload = json.loads(raw)
-        assert payload["schema_version"] == "1.0"
+        assert payload["schema_version"] == "2.0"
         assert payload["run"]["ventes_scannees"] == 1
 
     def test_the_wire_format_keeps_the_french_contract(self) -> None:

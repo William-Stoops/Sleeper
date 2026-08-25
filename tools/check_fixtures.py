@@ -15,8 +15,14 @@ from typing import Final
 
 ROOT: Final = Path("tests/fixtures")
 
+#: A VIN (17 characters) matches a naive IBAN pattern. Real IBANs are at least
+#: 20 characters — the shortest, Norway, is 15, but none of the countries this
+#: project ever meets goes below 20, and France uses 27. Requiring 20 keeps
+#: vehicle serial numbers out of the false positives.
+_MIN_IBAN_LENGTH: Final = 20
+
 PATTERNS: Final = {
-    "IBAN": re.compile(r"\b[A-Z]{2}\d{2}[0-9A-Z]{10,30}\b"),
+    "IBAN": re.compile(rf"\b[A-Z]{{2}}\d{{2}}[0-9A-Z]{{{_MIN_IBAN_LENGTH - 4},30}}\b"),
     "courriel": re.compile(r"[\w.+-]+@[\w-]+\.[\w.]{2,}"),
     "téléphone": re.compile(r"\b0[1-9](?:[ .\-]?\d{2}){4}\b"),
 }

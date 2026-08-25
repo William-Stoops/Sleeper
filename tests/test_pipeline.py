@@ -119,7 +119,7 @@ class TestNominalRun:
         result = collect(config, FakeGateway())
         reunion = [lot for lot in result.lots if lot.department == "974"]
         assert reunion, "les lots de La Réunion doivent être conservés"
-        assert all(lot.out_of_scope for lot in reunion)
+        assert all(lot.scope == "hors" for lot in reunion)
 
     def test_fills_in_the_vehicle_attributes(self, config: Configuration) -> None:
         result = collect(config, FakeGateway())

@@ -47,7 +47,7 @@ def make_lot(**overrides: Any) -> Lot:
         "buyer_fee_pct": None,
         "vat_reclaimable": None,
         "full_description": "",
-        "out_of_scope": False,
+        "scope": "dans",
         "new_since_last_run": False,
         "bid_moved": False,
         "missing_fields": [],
@@ -122,7 +122,17 @@ class TestContent:
         assert "2 000 €" in section
 
     def test_out_of_scope_is_flagged(self) -> None:
-        assert "*hors périmètre*" in render(make_document([make_lot(out_of_scope=True)]))
+        assert "*hors périmètre*" in render(make_document([make_lot(scope="hors")]))
+
+    def test_an_unknown_scope_has_its_own_section(self) -> None:
+        """Correctif 1 : ni dans, ni hors — et surtout jamais enterré."""
+        rendered = render(
+            make_document([make_lot(title="A SITUER", scope="inconnu", new_since_last_run=True)])
+        )
+        assert "Périmètre indéterminé" in rendered
+        section = rendered.split("## Périmètre indéterminé")[1].split("##")[0]
+        assert "A SITUER" in section
+        assert "**périmètre ?**" in rendered
 
     @pytest.mark.parametrize(
         ("value", "expected"), [(True, "**PRO**"), (False, "tous publics"), (None, "⚠️ inconnu")]

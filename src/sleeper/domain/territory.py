@@ -6,13 +6,19 @@ Only `dropoff_location` counts.
 
 A lot outside the scope is never dropped: it is flagged. Deciding whether to
 make the drive belongs to the operator.
+
+**A missing place is not an out-of-scope place.** The status therefore has
+three values, not two. Sale 567 — "spéciale véhicule d'exception" — vanished
+from a whole scan because an empty text field collapsed a boolean to false.
+That is precisely the silent degradation this project forbids: an unreadable
+location yields "inconnu", which is always collected and always surfaced.
 """
 
 from __future__ import annotations
 
 import re
 from dataclasses import dataclass
-from typing import Final
+from typing import Final, Literal
 
 from sleeper.domain.text import normalize
 
@@ -72,6 +78,22 @@ def country_from_location(location: str | None) -> str | None:
     return None
 
 
+#: Where a lot stands relative to the buying scope. Three values, never two:
+#: "inconnu" must never be confused with "hors".
+ScopeStatus = Literal["dans", "hors", "inconnu"]
+
+
+@dataclass(frozen=True, slots=True)
+class ResolvedScope:
+    """A lot's scope once the fallback to its sale has been applied."""
+
+    status: ScopeStatus
+    postcode: str
+    location: str
+    #: True when the place comes from the sale because the lot had none.
+    inherited: bool
+
+
 @dataclass(frozen=True, slots=True)
 class Perimeter:
     """Allow-list of French departments and neighbouring countries."""
@@ -79,10 +101,39 @@ class Perimeter:
     departments: frozenset[str]
     foreign_countries: frozenset[str] = frozenset()
 
-    def contains(self, postcode: str | None, location: str | None) -> bool:
-        """Whether the collection point falls inside the buying scope."""
+    def status(self, postcode: str | None, location: str | None) -> ScopeStatus:
+        """Where a collection point stands: inside, outside, or unreadable.
+
+        An unreadable place is "inconnu", never "hors": we do not turn a
+        missing field into a decision.
+        """
         department = department_from_postcode(postcode)
         if department is not None:
-            return department in self.departments
+            return "dans" if department in self.departments else "hors"
         country = country_from_location(location)
-        return country is not None and country in self.foreign_countries
+        if country is None:
+            return "inconnu"
+        return "dans" if country in self.foreign_countries else "hors"
+
+    def resolve(
+        self,
+        postcode: str | None,
+        location: str | None,
+        sale_postcode: str | None,
+        sale_location: str | None,
+    ) -> ResolvedScope:
+        """Resolve a lot's scope, falling back to its sale's place.
+
+        The fallback only fires when the lot itself says nothing. A lot with a
+        readable place keeps it, even when that puts it outside a sale that is
+        inside — the real case of the Limoges lots in the Clermont-Ferrand
+        sale 517.
+        """
+        own = self.status(postcode, location)
+        if own != "inconnu":
+            return ResolvedScope(own, postcode or "", location or "", inherited=False)
+
+        inherited = self.status(sale_postcode, sale_location)
+        if inherited == "inconnu":
+            return ResolvedScope("inconnu", postcode or "", location or "", inherited=False)
+        return ResolvedScope(inherited, sale_postcode or "", sale_location or "", inherited=True)

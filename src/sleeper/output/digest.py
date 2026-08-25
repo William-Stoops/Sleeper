@@ -31,7 +31,7 @@ def _access(lot: Lot) -> str:
 
 def _row(lot: Lot) -> str:
     place = f"{lot.department or '??'} {lot.collection_place}".strip()
-    outside = " · *hors périmètre*" if lot.out_of_scope else ""
+    outside = {"hors": " · *hors périmètre*", "inconnu": " · **périmètre ?**"}.get(lot.scope, "")
     mileage = "—" if lot.mileage is None else f"{lot.mileage:,} km".replace(",", " ")
     return (
         f"| [{lot.title or lot.id}]({lot.url}) | {_access(lot)} | {mileage} | "
@@ -61,6 +61,10 @@ def _incomplete(lots: Iterable[Lot]) -> list[Lot]:
     return [lot for lot in lots if lot.is_incomplete]
 
 
+def _scope_unknown(lots: Iterable[Lot]) -> list[Lot]:
+    return [lot for lot in lots if lot.scope_unknown]
+
+
 def _header(run: Run, incomplete: Sequence[Lot]) -> list[str]:
     """Title, counters, and the incompleteness warning when there is one."""
     lines = [
@@ -68,7 +72,7 @@ def _header(run: Run, incomplete: Sequence[Lot]) -> list[str]:
         "",
         f"{run.sales_scanned} vente(s) balayée(s) · {run.lots_seen} lot(s) vu(s) · "
         f"**{run.lots_kept} retenu(s)** · {run.lots_rejected} écarté(s) · "
-        f"{run.duration_seconds:.0f} s",
+        f"{run.lots_scope_unknown} périmètre inconnu · {run.duration_seconds:.0f} s",
         "",
     ]
     if incomplete:
@@ -114,12 +118,20 @@ def render(document: OutputDocument) -> str:
     trade_only = [lot for lot in lots if lot.trade_only is True]
     incomplete = _incomplete(lots)
 
+    unknown_scope = _scope_unknown(lots)
+
     lines = _header(document.run, incomplete)
     lines += _section("Nouveaux lots", new, "aucun nouveau lot depuis le dernier run")
     lines += _section("Enchères qui ont bougé", moved, "aucun mouvement d'enchère")
     lines += _section(
         "Réservés aux professionnels", trade_only, "aucun lot réservé aux professionnels"
     )
+
+    # A lot whose collection point could not be read is neither in nor out of
+    # scope. Burying it would repeat the very failure this section exists to
+    # prevent: sale 567 vanished from a whole scan that way.
+    if unknown_scope:
+        lines += _section("Périmètre indéterminé — à vérifier", unknown_scope, "")
 
     # Incomplete lots get their own table: counting them in the banner is not
     # enough, they must be individually reachable.

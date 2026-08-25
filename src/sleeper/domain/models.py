@@ -23,6 +23,8 @@ from typing import Annotated, Literal
 
 from pydantic import BaseModel, ConfigDict, Field
 
+from sleeper.domain.territory import ScopeStatus
+
 Postcode = Annotated[str, Field(max_length=10)]
 Department = Annotated[str, Field(max_length=3)]
 
@@ -60,6 +62,9 @@ class Run(SleeperModel):
     lots_seen: int = Field(alias="lots_vus", ge=0)
     lots_kept: int = Field(alias="lots_retenus", ge=0)
     lots_rejected: int = Field(alias="lots_ecartes", ge=0)
+    #: Lots whose collection point could not be read. They are collected, never
+    #: dropped, and they are the number to watch after every run.
+    lots_scope_unknown: int = Field(alias="lots_perimetre_inconnu", ge=0, default=0)
     errors: list[RunError] = Field(alias="erreurs", default_factory=list)
 
 
@@ -80,7 +85,7 @@ class Sale(SleeperModel):
     collection_place: str = Field(alias="lieu_retrait")
     postcode: Postcode = Field(alias="code_postal")
     department: Department = Field(alias="departement")
-    in_scope: bool = Field(alias="dans_perimetre")
+    scope: ScopeStatus = Field(alias="perimetre")
     lot_count: int = Field(alias="nb_lots", ge=0)
 
 
@@ -118,10 +123,17 @@ class Lot(SleeperModel):
     buyer_fee_pct: float | None = Field(alias="frais_acheteur_pct", default=None, ge=0)
     vat_reclaimable: bool | None = Field(alias="tva_recuperable")
     full_description: str = Field(alias="description_integrale")
-    out_of_scope: bool = Field(alias="hors_perimetre")
+    scope: ScopeStatus = Field(alias="perimetre")
+    #: True when the place was inherited from the sale because the lot had none.
+    inherited_scope: bool = Field(alias="perimetre_herite", default=False)
     new_since_last_run: bool = Field(alias="nouveau_depuis_dernier_run")
     bid_moved: bool = Field(alias="enchere_a_bouge")
     missing_fields: list[str] = Field(alias="champs_manquants", default_factory=list)
+
+    @property
+    def scope_unknown(self) -> bool:
+        """A lot whose collection point could not be read at all."""
+        return self.scope == "inconnu"
 
     @property
     def is_incomplete(self) -> bool:
@@ -141,7 +153,7 @@ class RejectedLot(SleeperModel):
 class OutputDocument(SleeperModel):
     """The document produced by each execution."""
 
-    schema_version: Literal["1.0"] = "1.0"
+    schema_version: Literal["2.0"] = "2.0"
     run: Run
     sales: list[Sale] = Field(alias="ventes")
     lots: list[Lot]

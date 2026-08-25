@@ -108,8 +108,9 @@ class TestValidation:
 class TestDerivations:
     def test_builds_the_domain_perimeter(self, tmp_path: Path) -> None:
         config = load_configuration(write(tmp_path, MINIMAL))
-        assert config.perimeter().contains("59000", "LILLE") is True
-        assert config.perimeter().contains("13001", "MARSEILLE") is False
+        assert config.perimeter().status("59000", "LILLE") == "dans"
+        assert config.perimeter().status("13001", "MARSEILLE") == "hors"
+        assert config.perimeter().status("", "") == "inconnu"
 
     def test_builds_the_exclusion_engine_with_the_extra_phrases(self, tmp_path: Path) -> None:
         content = MINIMAL + (

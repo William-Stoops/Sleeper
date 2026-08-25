@@ -53,7 +53,7 @@ def minimal_lot(**overrides: Any) -> Lot:
         "buyer_fee_pct": None,
         "vat_reclaimable": None,
         "full_description": "",
-        "out_of_scope": False,
+        "scope": "dans",
         "new_since_last_run": True,
         "bid_moved": False,
         "missing_fields": [],
@@ -150,7 +150,7 @@ class TestSchema:
         monkeypatch.chdir(tmp_path)
         result = runner.invoke(cli.app, ["schema"])
         assert result.exit_code == 0
-        assert (tmp_path / "schemas" / "sortie-1.0.json").is_file()
+        assert (tmp_path / "schemas" / "sortie-2.0.json").is_file()
 
 
 class TestCollect:

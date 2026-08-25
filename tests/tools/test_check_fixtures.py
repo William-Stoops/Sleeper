@@ -1,0 +1,50 @@
+"""The personal-data guard must not cry wolf on vehicle serial numbers.
+
+It blocked a legitimate fixture by reading every VIN as an IBAN.
+"""
+
+from __future__ import annotations
+
+import sys
+from pathlib import Path
+
+import pytest
+
+sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "tools"))
+
+from check_fixtures import PATTERNS
+
+
+class TestIbanPattern:
+    @pytest.mark.parametrize(
+        "value",
+        [
+            "FR7600000000000000000000000",  # relevé dans une charge utile réelle
+            "DE89370400440532013000",
+        ],
+    )
+    def test_detects_a_real_iban(self, value: str) -> None:
+        assert PATTERNS["IBAN"].search(value)
+
+    @pytest.mark.parametrize(
+        "vin",
+        [
+            "VF15R7A0H48421954",
+            "VF7VAYHVKKZ078443",  # le doublon constaté dans la vente 467
+            "WF0FXXTTRFMU20040",  # le Ford Transit 329644
+        ],
+    )
+    def test_does_not_mistake_a_vin_for_an_iban(self, vin: str) -> None:
+        assert not PATTERNS["IBAN"].search(vin)
+
+
+class TestOtherPatterns:
+    def test_detects_an_email(self) -> None:
+        assert PATTERNS["courriel"].search("prenom.nom@exemple.gouv.fr")
+
+    @pytest.mark.parametrize("phone", ["06-00-00-00-00", "06 00 00 00 00", "0600000000"])
+    def test_detects_a_phone_number(self, phone: str) -> None:
+        assert PATTERNS["téléphone"].search(phone)
+
+    def test_does_not_flag_a_mileage(self) -> None:
+        assert not PATTERNS["téléphone"].search("110430 km")

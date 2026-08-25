@@ -8,6 +8,11 @@ Trois roles :
 
 Et un quatrieme, differe : constituer la serie historique qui permettra de
 savoir a quel pourcentage de la mise a prix les lots partent reellement.
+
+`historique_encheres`, `ventes_cloturees` et `adjudications` sont la surface de
+LECTURE de cette serie. Le run quotidien ne s'en sert pas — c'est normal : il
+ecrit, il ne relit pas. Elles existent pour le systeme d'analyse aval, elles
+sont couvertes par des tests, et elles fixent le contrat de lecture de la base.
 """
 
 from __future__ import annotations
@@ -246,13 +251,6 @@ class EtatSleeper:
             )
         ) as curseur:
             return [(str(x["horodatage"]), float(x["montant"])) for x in curseur]
-
-    def lots_connus(self, vente_id: int) -> set[int]:
-        """Identifiants des lots deja enregistres pour une vente."""
-        with closing(
-            self._cnx.execute("SELECT id FROM lot WHERE vente_id = ?", (vente_id,))
-        ) as curseur:
-            return {int(ligne["id"]) for ligne in curseur}
 
     # ------------------------------------------------------------- adjudications
 

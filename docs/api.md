@@ -82,6 +82,7 @@ trois informations décisives.
 | `price_auction` | `Float` | `mise_a_prix` |
 | `last_bid` | `Float\|null` | `enchere_en_cours` |
 | `reserve_price` | `Float\|null` | prix de réserve, non publié dans la sortie |
+| `bid_winner_amount` | `Float\|null` | prix d'adjudication, consigné dans la table `adjudication` dès qu'il apparaît |
 | `dropoff_location.{city,postcode}` | `String` | **`lieu_retrait`, `code_postal`** |
 | `short_description.html` | HTML | `description_integrale` (balises retirées) |
 | `lot_status_label` | `String` | « Vente en cours », « Adjugé »… |

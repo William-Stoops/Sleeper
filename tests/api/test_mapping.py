@@ -164,3 +164,22 @@ def _lot_brut(**remplacements: Any) -> dict[str, Any]:
     }
     base.update(remplacements)
     return base
+
+
+class TestPrixDadjudication:
+    def test_absent_tant_que_le_lot_nest_pas_vendu(self, payload_lots: dict[str, Any]) -> None:
+        lots, _ = mapping.lire_lots(payload_lots)
+        assert all(lot.prix_adjudication is None for lot in lots)
+
+    def test_lu_des_quil_apparait(self) -> None:
+        payload = {
+            "data": {
+                "products": {
+                    "total_count": 1,
+                    "page_info": {"total_pages": 1},
+                    "items": [_lot_brut(bid_winner_amount=2400)],
+                }
+            }
+        }
+        lots, _ = mapping.lire_lots(payload)
+        assert lots[0].prix_adjudication == 2400.0

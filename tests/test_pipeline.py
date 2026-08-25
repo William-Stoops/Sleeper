@@ -220,3 +220,34 @@ class TestCachePerime:
         assert client.compte("getProductPageMain") == len(lots)
         assert resultat.lots
         assert all(lot.marque == "DACIA" for lot in resultat.lots)
+
+
+class TestHistoriqueDesAdjudications:
+    """La série historique qui donnera, dans six mois, le rapport prix/mise à prix."""
+
+    def _avec_adjudication(self, montant: float) -> dict[str, Any]:
+        charge = _une_seule_page(charger("auction_lots_467_page1.json"), "products")
+        charge["data"]["products"]["items"][0]["bid_winner_amount"] = montant
+        return charge
+
+    def test_consigne_le_prix_des_quil_devient_visible(self, config: Configuration) -> None:
+        client = ClientFactice(**{operations.LOTS_DE_VENTE: self._avec_adjudication(2400)})
+        executer(config, client)
+        with EtatSleeper(config.etat.base) as etat:
+            assert etat.adjudications() == [(267804, 2400.0, 1500.0)]
+
+    def test_reste_idempotent_dun_run_a_lautre(self, config: Configuration) -> None:
+        charge = self._avec_adjudication(2400)
+        executer(config, ClientFactice(**{operations.LOTS_DE_VENTE: charge}))
+        executer(
+            config,
+            ClientFactice(**{operations.LOTS_DE_VENTE: charge}),
+            T0 + timedelta(days=1),
+        )
+        with EtatSleeper(config.etat.base) as etat:
+            assert len(etat.adjudications()) == 1
+
+    def test_aucune_adjudication_tant_que_rien_nest_vendu(self, config: Configuration) -> None:
+        executer(config, ClientFactice())
+        with EtatSleeper(config.etat.base) as etat:
+            assert etat.adjudications() == []

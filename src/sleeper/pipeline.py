@@ -259,6 +259,15 @@ class Collecteur:
                 motif=motif,
             )
 
+        # Le prix d'adjudication n'apparait qu'une fois le lot vendu. C'est la
+        # donnee qui, dans six mois, dira a quel pourcentage de la mise a prix
+        # les lots du Domaine partent reellement : on la consigne des qu'elle
+        # est visible, meme si le lot n'interesse plus l'achat.
+        if brut.prix_adjudication is not None:
+            self._etat.enregistrer_adjudication(
+                brut.id, brut.prix_adjudication, brut.mise_a_prix, self._debut
+            )
+
         observation = self._etat.observer_lot(
             lot_id=brut.id,
             vente_id=brut.vente_id,

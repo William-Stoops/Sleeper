@@ -68,6 +68,8 @@ class LotSource:
     mise_a_prix: float | None
     enchere_en_cours: float | None
     prix_reserve: float | None
+    #: Montant d'adjudication, publie par la source une fois le lot vendu.
+    prix_adjudication: float | None
     statut_libelle: str
     date_ouverture: datetime | None
     date_cloture: datetime | None
@@ -247,6 +249,7 @@ def _lot(item: Mapping[str, Any], chemin: str) -> LotSource:
         mise_a_prix=_nombre(_exiger(item, "price_auction", chemin)),
         enchere_en_cours=_nombre(item.get("last_bid")),
         prix_reserve=_nombre(item.get("reserve_price")),
+        prix_adjudication=_nombre(item.get("bid_winner_amount")),
         statut_libelle=_texte(item.get("lot_status_label")),
         date_ouverture=_horodatage(item.get("start_date")),
         date_cloture=_horodatage(item.get("end_date")),

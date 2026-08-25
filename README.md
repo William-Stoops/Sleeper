@@ -185,6 +185,23 @@ var/sorties/
 `latest.*` est un lien symbolique, ou une copie là où les liens symboliques ne
 sont pas disponibles (Windows sans privilège).
 
+### Suivre un run en cours
+
+Un run long n'est pas muet. Il émet, au fil de l'eau :
+
+| Événement | Quand |
+|---|---|
+| `run.starting`, `session.ready` | au démarrage |
+| `sale.starting` | à l'ouverture de chaque vente, avec son nombre de lots annoncé |
+| `lots.listing` | toutes les 20 pages de la liste des lots |
+| `listings.fetching` | quand commence le téléchargement des fiches, avec le nombre déjà en cache |
+| `listings.progress` | **toutes les 20 fiches** — c'est le battement de cœur |
+| `sale.finished` | à la fin de chaque vente : retenus, écartés, motifs cumulés |
+| `run.finished`, `output.written` | au bilan |
+
+Pour un affichage lisible plutôt que du JSON, passer `format = "console"` dans
+`[journalisation]`.
+
 ### Le digest
 
 À lire en trente secondes, le matin. Quatre questions dans l'ordre : ce qui est

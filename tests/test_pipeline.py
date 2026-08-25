@@ -6,17 +6,20 @@ No network: a fake gateway replays the fixtures.
 from __future__ import annotations
 
 import copy
+import logging
 from collections.abc import Mapping
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import Any
 
 import pytest
+import structlog
 
 from sleeper.api import mapping, operations
-from sleeper.config import Configuration, load_configuration
+from sleeper.config import Configuration, LoggingConfig, load_configuration
 from sleeper.domain.models import OutputDocument
 from sleeper.errors import AntiBotChallengeError, UpstreamSchemaError
+from sleeper.logging_setup import configure as configure_logging
 from sleeper.output import document
 from sleeper.pipeline import Collector, _fingerprint
 from sleeper.state.store import SleeperState
@@ -276,3 +279,30 @@ class TestHammerPriceHistory:
         collect(config, FakeGateway())
         with SleeperState(config.state.database) as state:
             assert state.hammer_prices() == []
+
+
+class TestProgressReporting:
+    """A half-hour run must not stay silent: the operator cannot tell work
+    from a hang."""
+
+    @pytest.fixture
+    def events(self, config: Configuration, capsys: pytest.CaptureFixture[str]) -> str:
+        """Run a collection with logging routed to the error stream."""
+        configure_logging(LoggingConfig(level="INFO", format="json"))
+        try:
+            collect(config, FakeGateway())
+            return capsys.readouterr().err
+        finally:
+            structlog.reset_defaults()
+            logging.basicConfig(force=True)
+
+    def test_each_sale_is_announced_and_summarised(self, events: str) -> None:
+        assert "sale.starting" in events
+        assert "sale.finished" in events
+
+    def test_listing_downloads_emit_a_heartbeat(self, events: str) -> None:
+        # 8 lots in the fixture: the final beat must fire even below the step.
+        assert "listings.progress" in events
+
+    def test_lot_pagination_is_reported(self, events: str) -> None:
+        assert "lots.listing" in events

@@ -49,6 +49,10 @@ _LOG = structlog.get_logger(__name__)
 #: we suspect pagination that never terminates.
 MAX_PAGES = 200
 
+#: One heartbeat every N listings. A full sweep takes half an hour: staying
+#: silent that long leaves the operator unable to tell work from a hang.
+PROGRESS_EVERY = 20
+
 
 class GraphQLGateway(Protocol):
     """What the pipeline needs, and nothing more.
@@ -113,7 +117,20 @@ class Collector:
         for source in self._vehicle_sales():
             seen.add(source.id)
             self._counters.sales_scanned += 1
+            _LOG.info(
+                "sale.starting",
+                sale=source.id,
+                announced_lots=source.lot_count,
+                title=source.title[:70],
+            )
             kept, dropped = self._process_sale(source)
+            _LOG.info(
+                "sale.finished",
+                sale=source.id,
+                kept=len(kept),
+                rejected=len(dropped),
+                reasons=self._counters.reasons,
+            )
             lots.extend(kept)
             rejected.extend(dropped)
             sales.append(self._sale(source, kept, dropped))
@@ -188,7 +205,10 @@ class Collector:
             payload = self._gateway.query(operations.SALE_LOTS, variables)
             lots, pagination = mapping.read_lots(payload)
             yield from lots
-            if page >= max(pagination.total_pages, 1):
+            total = max(pagination.total_pages, 1)
+            if page % PROGRESS_EVERY == 0 or page >= total:
+                _LOG.info("lots.listing", sale=sale_id, page=page, pages=total)
+            if page >= total:
                 return
 
     # ---------------------------------------------------------------- listings
@@ -212,8 +232,10 @@ class Collector:
         # concurrency buys nothing anyway — the limiter would serialise the
         # requests regardless. Politeness is enforced by the delay, which is a
         # stricter guarantee than a cap on simultaneous requests.
-        for raw in to_fetch:
+        for rank, raw in enumerate(to_fetch, 1):
             attributes = self._listing(raw)
+            if rank % PROGRESS_EVERY == 0 or rank == len(to_fetch):
+                _LOG.info("listings.progress", done=rank, total=len(to_fetch))
             if attributes is None:
                 continue
             found[raw.id] = attributes

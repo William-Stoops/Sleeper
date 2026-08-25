@@ -7,3 +7,8 @@ __pycache__/
 .ruff_cache/
 .coverage
 htmlcov/
+
+# Configuration locale : elle porte votre adresse de contact réelle.
+# Elle reste sur votre machine, elle n'a rien à faire dans le dépôt.
+config/local.toml
+config/*.local.toml

@@ -200,8 +200,17 @@ class Collecteur:
         charges: dict[int, AttributsVehicule] = {}
 
         for brut in bruts:
-            if (memo := self._etat.fiche_en_cache(brut.id, _empreinte(brut))) is not None:
-                charges[brut.id] = _attributs_depuis_memo(memo)
+            memo = self._etat.fiche_en_cache(brut.id, _empreinte(brut))
+            if memo is None:
+                continue
+            attributs = _attributs_depuis_memo(memo)
+            if attributs is None:
+                # Cache ecrit par une version anterieure du modele : on le
+                # traite comme absent plutot que de faire tomber le run.
+                _LOG.warning("fiche.cache_perime", lot=brut.id)
+                a_charger.append(brut)
+                continue
+            charges[brut.id] = attributs
 
         if a_charger:
             _LOG.info("fiches.telechargement", a_charger=len(a_charger), en_cache=len(charges))
@@ -506,9 +515,16 @@ def _memo_depuis_attributs(attributs: AttributsVehicule) -> dict[str, Any]:
     }
 
 
-def _attributs_depuis_memo(memo: Mapping[str, Any]) -> AttributsVehicule:
-    """Reconstruit une fiche depuis le cache."""
+def _attributs_depuis_memo(memo: Mapping[str, Any]) -> AttributsVehicule | None:
+    """Reconstruit une fiche depuis le cache.
+
+    Rend `None` si la forme memorisee ne correspond plus au modele courant —
+    cas d'un cache ecrit par une version anterieure. L'appelant retelecharge.
+    """
     donnees = dict(memo)
     donnees["champs_illisibles"] = tuple(donnees.get("champs_illisibles") or ())
     donnees["attributs_bruts"] = {}
-    return AttributsVehicule(**donnees)
+    try:
+        return AttributsVehicule(**donnees)
+    except TypeError:
+        return None

@@ -13,12 +13,12 @@ from typing import Any
 
 import pytest
 
-from sleeper.api import operations
+from sleeper.api import mapping, operations
 from sleeper.config import Configuration, charger_configuration
 from sleeper.domain.models import DocumentSortie
 from sleeper.errors import ProtectionAntiRobotError, SchemaAmontError
 from sleeper.output import document
-from sleeper.pipeline import Collecteur
+from sleeper.pipeline import Collecteur, _empreinte
 from sleeper.state.store import EtatSleeper
 from tests.conftest import charger
 
@@ -198,3 +198,25 @@ class TestGestionDesErreurs:
         assert len(incomplets) == 1
         assert incomplets[0].reserve_aux_professionnels is None
         assert any(e.type == "ChampCritiqueIllisible" for e in resultat.run.erreurs)
+
+
+class TestCachePerime:
+    def test_un_cache_ecrit_par_une_version_anterieure_est_retelecharge(
+        self, config: Configuration
+    ) -> None:
+        """Garde-fou : un cache devenu incompatible ne doit pas faire tomber le run."""
+        executer(config, ClientFactice())
+
+        # On remplace chaque fiche memorisee par une forme obsolete, sous son
+        # empreinte courante — exactement ce que laisserait une version
+        # anterieure du modele.
+        lots, _ = mapping.lire_lots(charger("auction_lots_467_page1.json"))
+        with EtatSleeper(config.etat.base) as etat:
+            for brut in lots:
+                etat.memoriser_fiche(brut.id, _empreinte(brut), {"champ_disparu": 1}, T0)
+
+        client = ClientFactice()
+        resultat = executer(config, client, T0 + timedelta(days=1))
+        assert client.compte("getProductPageMain") == len(lots)
+        assert resultat.lots
+        assert all(lot.marque == "DACIA" for lot in resultat.lots)

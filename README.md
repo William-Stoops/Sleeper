@@ -557,22 +557,60 @@ dépôt sur Drive ne fait jamais échouer le run : l'erreur est repliée dans
 `run.erreurs`, le fichier local est réécrit pour la porter, et l'opérateur la
 trouve là où il la cherche.
 
-Pour activer le dépôt :
+#### Deux authentifications, et le choix ne vous appartient pas
 
-```toml
-[sortie.drive]
-actif = true
-credentials = "/chemin/hors/depot/service-account.json"
-dossier_id = "1AbC..."
-```
+Google en propose deux, et laquelle s'applique dépend du **compte de
+destination**, pas d'une préférence :
+
+| Compte de destination | Voie | Pourquoi |
+|---|---|---|
+| Google Workspace, écrivant sur un **Drive partagé** | compte de service | tourne sans surveillance, aucun navigateur |
+| Compte Google **personnel** (Gmail) | client OAuth | un compte de service **n'a aucun quota de stockage** : partagez-lui un dossier, il pourra le lire et sera refusé à chaque dépôt (`storageQuotaExceeded`) |
+
+L'outil lit le fichier d'identifiants pour savoir auquel il a affaire : la
+nature du fichier est écrite dedans, et la redemander en configuration ne
+créerait qu'une seconde vérité capable de contredire la première.
+
+Le scope est `drive.file` dans les deux cas — **le plus étroit qui permette
+d'écrire**. L'outil voit les fichiers qu'il a créés, et rien d'autre de votre
+Drive.
+
+#### Activer le dépôt
 
 ```bash
 uv sync --extra drive
 ```
 
-> 🔐 **Le fichier de compte de service n'entre jamais dans le dépôt.** Seul son
-> chemin est configuration, et `.gitignore` refuse le fichier lui-même. Donnez
-> au compte de service l'accès au seul dossier de destination.
+```toml
+[sortie.drive]
+actif = true
+credentials = "/chemin/hors/depot/identifiants.json"
+jeton = "/chemin/hors/depot/drive-token.json"   # voie OAuth uniquement
+dossier_id = "1AbC..."
+```
+
+Sur la voie OAuth, une autorisation unique, dans **votre** navigateur :
+
+```bash
+uv run sleeper autoriser-drive -c config/local.toml
+```
+
+C'est vous qui vous connectez et qui accordez l'accès. L'outil ne voit jamais
+votre mot de passe. Le jeton obtenu se renouvelle seul : les runs planifiés
+n'ouvrent plus rien, et `collecter` **n'ouvrira jamais** de navigateur de son
+propre chef — une tâche nocturne qui attend un consentement que personne
+n'accordera est un run perdu, pas un run lent.
+
+> ⚠️ Dans la console Google Cloud, passez l'écran de consentement en
+> **« En production »**. En « Test », Google fait expirer le jeton de
+> rafraîchissement au bout de **7 jours** : l'outil s'arrêterait de publier
+> chaque semaine. `drive.file` n'est pas un scope sensible, la mise en
+> production ne demande aucune vérification.
+
+> 🔐 **Ni les identifiants ni le jeton n'entrent dans le dépôt.** Seuls leurs
+> chemins sont configuration, et `.gitignore` refuse les fichiers eux-mêmes.
+> Le jeton est un secret à part entière : il porte un *refresh token*
+> réutilisable, et il est écrit en `600`.
 
 ### L'état persistant a une valeur propre
 
@@ -723,6 +761,7 @@ Aucune dépendance n'est ajoutée sans raison écrite.
 | Paquet | Pourquoi celui-là |
 |---|---|
 | **google-api-python-client**, **google-auth** | dépôt du JSON classé sur Drive. **Optionnels** (`--extra drive`) : une machine qui ne publie pas n'a pas à les installer |
+| **google-auth-oauthlib** | consentement navigateur unique, seule voie d'écriture sur un compte Google personnel — un compte de service n'y a pas de quota. Bibliothèque officielle, **optionnelle** (`--extra drive`) |
 | **playwright** | **seul moyen d'atteindre l'API sans contourner la protection anti-robot** : le pare-feu du site rejette tout client dont la signature TLS n'est pas celle d'un navigateur. Sert aussi à la phase de reconnaissance |
 | **pydantic** v2 | modèles typés, validation, et **génération du JSON Schema** depuis les mêmes classes : le contrat de sortie a une seule source de vérité |
 | **typer** | CLI typée dérivée des annotations, cohérente avec `mypy --strict` |

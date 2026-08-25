@@ -29,7 +29,7 @@ from sleeper.errors import AntiBotChallengeError, SleeperError
 from sleeper.logging_setup import configure
 from sleeper.output import document as output_document
 from sleeper.output.digest import render
-from sleeper.output.drive import DriveSink, build_client
+from sleeper.output.drive import DriveSink, authorise, build_client
 from sleeper.output.sink import FileSink, Sink, timestamped_name
 from sleeper.pipeline import Collector
 from sleeper.state.store import SleeperState
@@ -159,8 +159,9 @@ def _write(sink: Sink, config: Configuration, result: OutputDocument) -> None:
 
 def _upload_to_drive(config: Configuration, result: OutputDocument) -> None:
     """Deposit the run on Drive: one timestamped file, one stable name."""
+    settings = config.output.drive
     drive = DriveSink(
-        build_client(config.output.drive.credentials_path), config.output.drive.folder_id
+        build_client(settings.credentials_path, settings.token_path), settings.folder_id
     )
     payload = output_document.serialize(result)
     drive.put(timestamped_name("sleeper", result.run.timestamp, "json"), payload)
@@ -206,6 +207,24 @@ def validate_config(config_path: ConfigPath = DEFAULT_CONFIG) -> None:
     table.add_row("État", str(config.state.database))
     console.print(table)
     console.print("[bold green]Configuration valide.[/]")
+
+
+@app.command("autoriser-drive")
+def authorise_drive(config_path: ConfigPath = DEFAULT_CONFIG) -> None:
+    """Autorise une fois le dépôt sur votre Drive, dans votre navigateur."""
+    settings = _load(config_path).output.drive
+    console.print(
+        "Une page Google va s'ouvrir. C'est [bold]vous[/] qui vous connectez et "
+        "qui accordez l'accès :\n"
+        "  l'outil ne voit ni votre mot de passe, ni le reste de votre Drive.\n"
+    )
+    try:
+        token = authorise(settings.credentials_path, settings.token_path)
+    except SleeperError as exc:
+        console.print(f"[bold red]Autorisation impossible :[/] {exc}")
+        raise typer.Exit(code=1) from exc
+    console.print(f"[bold green]Autorisation enregistrée :[/] {token}")
+    console.print("Elle se renouvelle seule ; les runs planifiés n'ouvriront plus rien.")
 
 
 @app.command()

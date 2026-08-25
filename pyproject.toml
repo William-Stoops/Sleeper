@@ -20,7 +20,14 @@ sleeper = "sleeper.cli:app"
 [project.optional-dependencies]
 # Dépôt du JSON classé sur Google Drive, pour le système d'analyse aval.
 # Optionnel : une machine qui ne publie pas n'a pas à installer ces paquets.
-drive = ["google-api-python-client>=2.150", "google-auth>=2.35"]
+# google-auth-oauthlib : un compte de service n'a pas de quota de stockage,
+# donc sur un compte Google personnel seule l'autorisation OAuth permet
+# d'écrire. C'est la bibliothèque officielle du consentement navigateur.
+drive = [
+    "google-api-python-client>=2.150",
+    "google-auth>=2.35",
+    "google-auth-oauthlib>=1.2",
+]
 
 [dependency-groups]
 dev = [
@@ -87,7 +94,12 @@ ignore_missing_imports = true
 # Les bibliothèques Google ne publient pas de stubs et vivent dans un extra :
 # une machine qui ne dépose pas sur Drive ne les installe pas.
 [[tool.mypy.overrides]]
-module = ["googleapiclient.*", "google.oauth2.*", "google.auth.*"]
+module = [
+    "googleapiclient.*",
+    "google.oauth2.*",
+    "google.auth.*",
+    "google_auth_oauthlib.*",
+]
 ignore_missing_imports = true
 
 # google-auth n'expose aucune annotation : appeler ses constructeurs depuis un

@@ -34,8 +34,13 @@ PATTERNS: Final = {
 ALLOWED: Final = frozenset(
     {
         "contact@exemple.fr",
-        "test@example.org",
         "prenom.nom@exemple.gouv.fr",
+        # Contre-exemples du garde-fou lui-même : des adresses qui doivent
+        # être détectées, donc d'apparence réelle, donc inventées de bout en
+        # bout — aucun de ces domaines n'existe.
+        "nom.invente@fournisseur-imaginaire.fr",
+        "agent@ministere-invente.gouv.fr",
+        "piege@example.org.attaquant.fr",
         "noreply@anthropic.com",
         "williamstoops2@gmail.com",
         "me@affaanmustafa.com",
@@ -45,6 +50,13 @@ ALLOWED: Final = frozenset(
         "06 00 00 00 00",
         "0600000000",
     }
+)
+
+#: Domains the RFC 2606 / RFC 6761 reserve for documentation and examples.
+#: Nobody can register them, so an address there belongs to no one and cannot
+#: leak. Recognising the rule beats listing every fake address one by one.
+RESERVED_DOMAINS: Final = re.compile(
+    r"@([\w-]+\.)*(example|invalid|test|localhost)(\.[a-z]{2,})?$", re.IGNORECASE
 )
 
 #: File names that must never be tracked, whatever they contain. A service
@@ -69,6 +81,11 @@ def tracked_files() -> list[Path]:
     return [Path(name) for name in listing.stdout.split("\n") if name]
 
 
+def _is_reserved(value: str) -> bool:
+    """An address at a reserved domain names nobody, so it cannot leak."""
+    return bool(RESERVED_DOMAINS.search(value))
+
+
 def main() -> int:
     """Scan the repository and report anything that must not be published."""
     leaks: list[str] = []
@@ -84,7 +101,7 @@ def main() -> int:
             leaks.extend(
                 f"{file}: {name} => {found}"
                 for found in sorted(set(pattern.findall(content)))
-                if found not in ALLOWED
+                if found not in ALLOWED and not _is_reserved(found)
             )
 
     if leaks:

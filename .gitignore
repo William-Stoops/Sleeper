@@ -13,8 +13,12 @@ htmlcov/
 config/local.toml
 config/*.local.toml
 
-# Compte de service Google : il donne l'écriture sur votre Drive.
-# Il reste sur votre machine, son chemin seul est configuration.
+# Identifiants Google : ils donnent l'écriture sur votre Drive. Le jeton
+# OAuth en est un aussi — il porte un refresh token réutilisable.
+# Ils restent sur votre machine, leur chemin seul est configuration.
 config/drive-service-account.json
+config/drive-credentials.json
+config/drive-token.json
+*-token.json
 config/*service-account*.json
 *-credentials.json

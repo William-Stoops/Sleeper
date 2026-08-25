@@ -200,7 +200,8 @@ nom_digest = "latest.md"
 # et reste la source, et l'erreur remonte dans run.erreurs.
 [sortie.drive]
 actif = false
-credentials = "config/drive-service-account.json"
+credentials = "config/drive-credentials.json"
+jeton = "config/drive-token.json"
 dossier_id = ""
 
 # ---------------------------------------------------------------------------

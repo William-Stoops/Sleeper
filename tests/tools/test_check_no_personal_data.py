@@ -12,7 +12,13 @@ import pytest
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "tools"))
 
-from check_no_personal_data import ALLOWED, FORBIDDEN_NAMES, PATTERNS, tracked_files
+from check_no_personal_data import (
+    ALLOWED,
+    FORBIDDEN_NAMES,
+    PATTERNS,
+    _is_reserved,
+    tracked_files,
+)
 
 
 class TestIbanPattern:
@@ -48,6 +54,37 @@ class TestAllowList:
 
     def test_the_synthetic_test_values_are_allowed(self) -> None:
         assert {"06-00-00-00-00", "FR7600000000000000000000000"} <= ALLOWED
+
+
+class TestReservedDomains:
+    """Une adresse à un domaine réservé ne désigne personne : rien à fuiter."""
+
+    @pytest.mark.parametrize(
+        "adresse",
+        [
+            "x@y.iam.example",
+            "quelquun@example.com",
+            "a@sous.domaine.example.org",
+            "essai@machine.invalid",
+            "root@localhost",
+            "MAJUSCULE@EXAMPLE.NET",
+        ],
+    )
+    def test_a_reserved_address_is_not_a_leak(self, adresse: str) -> None:
+        assert _is_reserved(adresse)
+
+    @pytest.mark.parametrize(
+        "adresse",
+        [
+            "nom.invente@fournisseur-imaginaire.fr",
+            "contact@exemple.fr",
+            "agent@ministere-invente.gouv.fr",
+            "piege@example.org.attaquant.fr",
+        ],
+    )
+    def test_a_real_address_is_still_a_leak(self, adresse: str) -> None:
+        """« example » ailleurs qu'en domaine de tête ne protège rien."""
+        assert not _is_reserved(adresse)
 
 
 class TestOtherPatterns:

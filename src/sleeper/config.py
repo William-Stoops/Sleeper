@@ -238,14 +238,17 @@ class ScoringConfig(_Section):
 class DriveConfig(_Section):
     """Google Drive destination, for the downstream analysis system.
 
-    The service-account file never enters the repository: only its path is
-    configuration, and the file itself is git-ignored.
+    Neither the credentials file nor the token ever enters the repository:
+    only their paths are configuration, and both files are git-ignored.
     """
 
     enabled: bool = Field(alias="actif", default=False)
     credentials_path: Path = Field(
-        alias="credentials", default=Path("config/drive-service-account.json")
+        alias="credentials", default=Path("config/drive-credentials.json")
     )
+    #: Where the OAuth authorisation is kept between runs. Unused by a service
+    #: account, which needs no consent and stores nothing.
+    token_path: Path = Field(alias="jeton", default=Path("config/drive-token.json"))
     folder_id: str = Field(alias="dossier_id", default="")
 
     @field_validator("folder_id")

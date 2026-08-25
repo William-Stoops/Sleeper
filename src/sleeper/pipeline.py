@@ -250,6 +250,11 @@ class Collector:
         self, raw: LotSource, attributes: VehicleAttributes | None
     ) -> Lot | RejectedLot:
         """Apply the business rules to a lot and turn it into output."""
+        # Recorded BEFORE the business rules, and for every lot: the historical
+        # series describes the market, not our shortlist. Restricting it to
+        # kept lots would bias it with our own filters.
+        self._record_hammer_price(raw)
+
         signals = _signals(raw, attributes)
         if reason := self._exclusions.reason(signals):
             self._counters.reject(reason)
@@ -261,7 +266,6 @@ class Collector:
                 reason=reason,
             )
 
-        self._record_hammer_price(raw)
         observation = self._state.observe_lot(
             lot_id=raw.id,
             sale_id=raw.sale_id,

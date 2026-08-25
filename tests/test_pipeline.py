@@ -252,6 +252,26 @@ class TestHammerPriceHistory:
         with SleeperState(config.state.database) as state:
             assert len(state.hammer_prices()) == 1
 
+    def test_a_rejected_lot_still_feeds_the_series(self, config: Configuration) -> None:
+        """La série décrit le marché, pas notre présélection : un lot écarté
+        par une règle métier doit tout de même y figurer."""
+        payload = self._with_hammer_price(2400)
+        # Ce lot serait écarté : aucun attribut véhicule ne le concerne, et sa
+        # description ne porte aucun kilométrage.
+        payload["data"]["products"]["items"][0]["short_description"] = {
+            "html": "<p>Canapé d'angle en cuir</p>"
+        }
+        gateway = FakeGateway(
+            **{
+                operations.SALE_LOTS: payload,
+                operations.LOT_MAIN: {"data": {"products": {"items": [{"custom_attributes": []}]}}},
+            }
+        )
+        result = collect(config, gateway)
+        assert any(lot.id == "267804" for lot in result.rejected)
+        with SleeperState(config.state.database) as state:
+            assert state.hammer_prices() == [(267804, 2400.0, 1500.0)]
+
     def test_no_hammer_price_while_nothing_is_sold(self, config: Configuration) -> None:
         collect(config, FakeGateway())
         with SleeperState(config.state.database) as state:

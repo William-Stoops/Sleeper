@@ -486,9 +486,12 @@ SQLite ne sert pas qu'à détecter les nouveautés. La table `enchere` n'enregis
 une ligne **que lorsqu'un montant change**, ce qui construit une série
 historique propre. Dans six mois, elle répondra à la question qui compte : à
 quel pourcentage de la mise à prix les lots du Domaine partent-ils réellement ?
-La table `adjudication` conserve les prix constatés à la clôture : dès que la
+La table `hammer_price` conserve les prix constatés à la clôture : dès que la
 source publie `bid_winner_amount` sur un lot, le montant et la mise à prix
-correspondante sont consignés, une fois et une seule.
+correspondante sont consignés, une fois et une seule — **y compris pour les
+lots écartés par une règle métier**. La série décrit le marché, pas votre
+présélection ; la restreindre aux lots retenus la biaiserait avec vos propres
+filtres.
 
 ---
 

@@ -38,6 +38,7 @@ def candidate(**overrides: object) -> ScoreInput:
         "make": "FORD",
         "model": "TRANSIT",
         "fuel": "Gazole",
+        "gearbox": "Boîte manuelle",
         "year": 2021,
         "mileage": 27798,
         "mileage_per_year": 5560,
@@ -56,6 +57,7 @@ def candidate(**overrides: object) -> ScoreInput:
         make=str(base["make"]),
         model=str(base["model"]),
         fuel=str(base["fuel"]),
+        gearbox=str(base["gearbox"]),
         year=cast("int | None", base["year"]),
         mileage=cast("int | None", base["mileage"]),
         mileage_per_year=cast("int | None", base["mileage_per_year"]),
@@ -317,3 +319,78 @@ class TestMarginFloor:
         assert result.quote_eur is not None
         assert result.margin_at_start_eur is not None
         assert result.score is not None
+
+
+class TestGearboxCost:
+    """Un forfait unique mentait dans les deux sens."""
+
+    BOITE_HS = "Boîte de vitesses HS, véhicule non roulant."
+
+    def _cost(self, engine: ScoringEngine, gearbox: str) -> float:
+        result = engine.score(candidate(description=self.BOITE_HS, gearbox=gearbox))
+        return next(r for r in result.explanation if r.regle == "boite_hs").cout_eur or 0.0
+
+    def test_a_manual_costs_less(self, engine: ScoringEngine) -> None:
+        assert self._cost(engine, "Boîte manuelle") == 3000.0
+
+    def test_a_modern_automatic_costs_more(self, engine: ScoringEngine) -> None:
+        """EAT8, Aisin : quatre à sept mille euros posée."""
+        assert self._cost(engine, "Boîte automatique") == 5500.0
+
+    def test_an_unreadable_gearbox_keeps_the_table_figure(self, engine: ScoringEngine) -> None:
+        """Trente et une fiches sur trois cent quarante-huit ne le disent pas."""
+        assert self._cost(engine, "") == 5000.0
+
+    def test_the_wording_is_matched_loosely(self, engine: ScoringEngine) -> None:
+        """« BVA », « automatique », accents ou non : la fiche n'est pas normée."""
+        assert self._cost(engine, "boite automatique 8 rapports") == 5500.0
+
+    def test_other_allowances_are_untouched(self, engine: ScoringEngine) -> None:
+        result = engine.score(
+            candidate(description="pare-brise fissuré", gearbox="Boîte automatique")
+        )
+        pare_brise = next(r for r in result.explanation if r.regle == "pare_brise")
+        assert pare_brise.cout_eur == 400
+
+
+class TestUnknownConditionIsDegressive:
+    """L'inconnu coûte ce que vous avez mis sur la table."""
+
+    INCONNU = "Etat mécanique non connu. Vendu en l'état."
+
+    def _coefficient(self, engine: ScoringEngine, price: float | None) -> float:
+        result = engine.score(candidate(description=self.INCONNU, starting_price=price))
+        rule = next(r for r in result.explanation if r.regle == "etat_meca_inconnu")
+        assert rule.coefficient is not None
+        return rule.coefficient
+
+    def test_the_unknown_is_cheap_on_a_wreck(self, engine: ScoringEngine) -> None:
+        assert self._coefficient(engine, 300.0) == pytest.approx(0.95)
+
+    def test_it_is_expensive_on_a_people_carrier(self, engine: ScoringEngine) -> None:
+        """Le SEAT Alhambra du rang 25 : mise à prix 4 000 €."""
+        assert self._coefficient(engine, 4000.0) == pytest.approx(0.60)
+
+    def test_it_slides_between_the_two(self, engine: ScoringEngine) -> None:
+        milieu = self._coefficient(engine, 2150.0)
+        assert 0.60 < milieu < 0.95
+        assert milieu == pytest.approx(0.775, abs=0.01)
+
+    def test_it_stays_flat_beyond_the_bounds(self, engine: ScoringEngine) -> None:
+        assert self._coefficient(engine, 50.0) == pytest.approx(0.95)
+        assert self._coefficient(engine, 20000.0) == pytest.approx(0.60)
+
+    def test_an_unreadable_price_falls_back_on_the_flat_severity(
+        self, engine: ScoringEngine
+    ) -> None:
+        """Sans mise à prix, la dégressivité n'a rien sur quoi s'appuyer."""
+        assert self._coefficient(engine, None) == pytest.approx(0.85)
+
+    def test_the_dearer_lot_is_punished_harder(self, engine: ScoringEngine) -> None:
+        cher = engine.score(candidate(description=self.INCONNU, starting_price=4000.0))
+        modeste = engine.score(candidate(description=self.INCONNU, starting_price=300.0))
+        assert cher.score is not None and modeste.score is not None
+        assert cher.margin_at_start_eur is not None and modeste.margin_at_start_eur is not None
+        # Le lot cher a une marge plus faible ET un coefficient plus dur : les
+        # deux effets vont dans le même sens, ce qui est le but.
+        assert cher.score < modeste.score

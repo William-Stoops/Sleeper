@@ -229,3 +229,44 @@ class TestPatternAnchoring:
     def test_the_shipped_table_obeys_the_rule(self) -> None:
         """La règle vaut pour le fichier livré, pas seulement pour les fixtures."""
         assert len(RepairTable.load(REPAIRS)) == 20
+
+
+class TestTheSprinterOfBeynes:
+    """La preuve, figée, que la règle vitrage vit encore.
+
+    Lot 301168, MERCEDES Sprinter 4X4, Beynes (78) : le seul vrai positif
+    connu de la règle avant l'ancrage du motif. Sa description est reprise
+    telle qu'elle figure dans le run du 25 août, et non paraphrasée — une
+    paraphrase prouverait que le motif marche sur ce que j'ai écrit, pas sur
+    ce que la source écrit.
+    """
+
+    #: Fragment exact du lot 301168, run du 2026-08-25.
+    SPRINTER = (
+        "Etat mécanique non connu. Vendu en l'état. Révision complète à prévoir. "
+        "Le vitrage n'est pas réceptionné, retrait obligatoire à la charge de "
+        "l'acquéreur."
+    )
+
+    @pytest.fixture
+    def table(self) -> RepairTable:
+        return RepairTable.load(REPAIRS)
+
+    def test_the_rule_still_fires_on_it(self, table: RepairTable) -> None:
+        codes = [f.code for f in table.match(self.SPRINTER)]
+        assert "vitrage_non_receptionne" in codes
+
+    def test_it_costs_what_the_table_says(self, table: RepairTable) -> None:
+        found = next(f for f in table.match(self.SPRINTER) if f.code == "vitrage_non_receptionne")
+        assert found.cost_eur == 2500
+        assert found.severity == "lourd"
+        assert "vitrage n'est pas réceptionné" in found.evidence
+
+    def test_the_certificate_next_to_it_changes_nothing(self, table: RepairTable) -> None:
+        """Le faux positif et le vrai, dans la même phrase."""
+        description = self.SPRINTER + " Avec clé, avec certificat d'immatriculation."
+        codes = [f.code for f in table.match(description)]
+        assert codes.count("vitrage_non_receptionne") == 1
+
+    def test_a_certificate_alone_fires_nothing(self, table: RepairTable) -> None:
+        assert table.match("Avec clé, avec certificat d'immatriculation.") == []

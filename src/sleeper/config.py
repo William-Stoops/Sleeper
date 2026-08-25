@@ -200,6 +200,62 @@ class BuyerFeesConfig(_Section):
         return self.per_sale_pct.get(sale_id, self.default_pct)
 
 
+class GearboxCostConfig(_Section):
+    """Le coût d'une boîte HS dépend de ce qu'il y a dans le carter.
+
+    Un forfait unique mentait dans les deux sens : une boîte manuelle
+    d'utilitaire se remplace pour deux à trois mille euros, une automatique
+    moderne — EAT8, Aisin — coûte quatre à sept mille euros posée. Le type est
+    lisible sur neuf fiches sur dix ; quand il ne l'est pas, la table garde son
+    propre montant, qui est le cas médian.
+    """
+
+    #: Le code de réparation concerné. En configuration, pas en dur : c'est la
+    #: table qui décide de ses codes, pas le moteur.
+    code: str = Field(alias="code", default="boite_hs")
+    manual_eur: Annotated[float, Field(ge=0)] = Field(alias="manuelle", default=3000.0)
+    automatic_eur: Annotated[float, Field(ge=0)] = Field(alias="automatique", default=5500.0)
+
+
+class UnknownConditionConfig(_Section):
+    """L'inconnu mécanique coûte ce que vous avez mis sur la table.
+
+    Un coefficient fixe traitait « état mécanique non connu » de la même façon
+    sur une épave à 300 € et sur un monospace à 4 000 €. Dans le premier cas
+    l'inconnu ne risque presque rien ; dans le second il peut emporter toute la
+    marge. Le coefficient descend donc avec la mise à prix, linéairement entre
+    les deux bornes, et reste plat au-delà de chacune.
+    """
+
+    low_price_eur: Annotated[float, Field(ge=0)] = Field(
+        alias="mise_a_prix_basse_eur", default=300.0
+    )
+    low_coefficient: Annotated[float, Field(gt=0, le=1)] = Field(
+        alias="coefficient_bas", default=0.95
+    )
+    high_price_eur: Annotated[float, Field(gt=0)] = Field(
+        alias="mise_a_prix_haute_eur", default=4000.0
+    )
+    high_coefficient: Annotated[float, Field(gt=0, le=1)] = Field(
+        alias="coefficient_haut", default=0.60
+    )
+
+    @model_validator(mode="after")
+    def _bounds_must_be_ordered(self) -> UnknownConditionConfig:
+        """Bornes inversées : l'interpolation rendrait l'inverse du sens voulu."""
+        if self.high_price_eur <= self.low_price_eur:
+            raise ValueError(
+                "score.inconnu_mecanique : mise_a_prix_haute_eur doit dépasser "
+                "mise_a_prix_basse_eur"
+            )
+        if self.high_coefficient > self.low_coefficient:
+            raise ValueError(
+                "score.inconnu_mecanique : coefficient_haut doit être inférieur à "
+                "coefficient_bas — l'inconnu coûte plus cher quand on paie plus cher"
+            )
+        return self
+
+
 class ScoringConfig(_Section):
     """Coefficients of the sort. Every one of them lives here, none in code.
 
@@ -251,6 +307,8 @@ class ScoringConfig(_Section):
     low_yearly_mileage: float = Field(alias="faible_km_par_an", default=1.15)
     low_yearly_mileage_threshold: int = Field(alias="seuil_km_par_an", default=8000)
     structural_damage: float = Field(alias="dommages_structurels", default=0.75)
+    #: Repli quand la mise à prix est illisible : sans elle, le coefficient
+    #: dégressif de `inconnu_mecanique` n'a rien sur quoi s'appuyer.
     severity_signal: float = Field(alias="gravite_signal", default=0.85)
     severity_heavy: float = Field(alias="gravite_lourd", default=0.70)
     severity_prohibitive: float = Field(alias="gravite_redhibitoire", default=0.30)
@@ -258,6 +316,13 @@ class ScoringConfig(_Section):
     out_of_scope: float = Field(alias="perimetre_hors", default=0.0)
     unknown_scope: float = Field(alias="perimetre_inconnu", default=1.0)
     inactive_segment: float = Field(alias="segment_inactif", default=0.0)
+
+    gearbox_cost: GearboxCostConfig = Field(
+        alias="cout_selon_boite", default_factory=GearboxCostConfig
+    )
+    unknown_condition: UnknownConditionConfig = Field(
+        alias="inconnu_mecanique", default_factory=UnknownConditionConfig
+    )
 
 
 class DriveConfig(_Section):

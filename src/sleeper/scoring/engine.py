@@ -31,7 +31,8 @@ from sleeper.config import ScoringConfig
 from sleeper.domain.damage import BodyDamage
 from sleeper.domain.segment import Segment
 from sleeper.domain.territory import ScopeStatus
-from sleeper.scoring.tables import QuoteTable, RepairTable, Severity
+from sleeper.domain.text import normalize
+from sleeper.scoring.tables import QuoteTable, RepairMatch, RepairTable, Severity
 
 
 class ScoreRule(BaseModel):
@@ -53,6 +54,8 @@ class ScoreInput:
     make: str
     model: str
     fuel: str
+    #: Libellé du type de boîte tel que la fiche le donne, vide s'il manque.
+    gearbox: str
     year: int | None
     mileage: int | None
     mileage_per_year: int | None
@@ -186,17 +189,18 @@ class ScoringEngine:
     ) -> tuple[float, bool, set[Severity]]:
         """Sum of the allowances the description triggers, capped on the quote."""
         matches = self._repairs.match(lot.description)
+        costs = {m.code: self._allowance(m, lot) for m in matches}
         for match in matches:
             rules.append(
                 ScoreRule(
                     regle=match.code,
-                    cout_eur=match.cost_eur,
-                    coefficient=self._severity_coefficient(match.severity),
+                    cout_eur=costs[match.code],
+                    coefficient=self._severity_coefficient(match.severity, lot.starting_price),
                     extrait_declencheur=match.evidence,
                 )
             )
         severities = {m.severity for m in matches}
-        total = sum(m.cost_eur for m in matches)
+        total = sum(costs.values())
         if quote is None:
             return total, False, severities
         cap = quote * self._settings.repairs_cap_ratio
@@ -204,10 +208,51 @@ class ScoringEngine:
             return cap, True, severities
         return total, False, severities
 
-    def _severity_coefficient(self, severity: Severity) -> float | None:
+    def _allowance(self, match: RepairMatch, lot: ScoreInput) -> float:
+        """The allowance this match costs, once the vehicle is taken into account.
+
+        Only one allowance varies today, and it varies a lot: a manual gearbox
+        is replaced for two to three thousand euros, a modern automatic for
+        four to seven. A single flat figure lied in both directions.
+        """
+        settings = self._settings.gearbox_cost
+        if match.code != settings.code:
+            return match.cost_eur
+        gearbox = normalize(lot.gearbox)
+        if "automat" in gearbox:
+            return settings.automatic_eur
+        if "manuel" in gearbox:
+            return settings.manual_eur
+        return match.cost_eur
+
+    def _severity_coefficient(
+        self, severity: Severity, starting_price: float | None
+    ) -> float | None:
         """Coefficient a severity carries, when it carries one."""
+        if severity == "signal":
+            return self._unknown_condition_coefficient(starting_price)
         name = _SEVERITY_FIELDS.get(severity)
         return None if name is None else float(getattr(self._settings, name))
+
+    def _unknown_condition_coefficient(self, starting_price: float | None) -> float:
+        """What the unknown costs, given what is being put on the table.
+
+        A flat coefficient treated « état mécanique non connu » the same on a
+        300 € wreck and on a 4 000 € people carrier. On the first the unknown
+        risks almost nothing; on the second it can take the whole margin.
+        """
+        settings = self._settings.unknown_condition
+        if starting_price is None:
+            return float(self._settings.severity_signal)
+        if starting_price <= settings.low_price_eur:
+            return settings.low_coefficient
+        if starting_price >= settings.high_price_eur:
+            return settings.high_coefficient
+        span = settings.high_price_eur - settings.low_price_eur
+        travelled = (starting_price - settings.low_price_eur) / span
+        return settings.low_coefficient - travelled * (
+            settings.low_coefficient - settings.high_coefficient
+        )
 
     def _coefficients(
         self,
@@ -256,6 +301,12 @@ class ScoringEngine:
         # A severity weighs once, however many allowances of that severity
         # fired: three light faults must not compound into a verdict.
         for severity, name in _SEVERITY_FIELDS.items():
-            if severity in severities:
-                product *= float(getattr(settings, name))
+            if severity not in severities:
+                continue
+            weight = (
+                self._unknown_condition_coefficient(lot.starting_price)
+                if severity == "signal"
+                else float(getattr(settings, name))
+            )
+            product *= weight
         return product

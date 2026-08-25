@@ -1,6 +1,6 @@
 motif,pattern,cout_eur,gravite
 moteur_hs,"moteur HS|probl[èe]me moteur|casse moteur|moteur d[ée]grad[ée]|moteur et embrayage HS|joint de culasse.{0,20}HS|culasse HS",3500,redhibitoire
-boite_hs,"bo[iî]te de vitesses? HS|BV HS|BV et embrayage HS|bo[iî]te bloqu[ée]e",2000,lourd
+boite_hs,"bo[iî]te de vitesses? HS|BV HS|BV et embrayage HS|bo[iî]te bloqu[ée]e",5000,lourd
 corrosion_chassis,"corrosion (ch[aâ]ssis|berceau|longeron)|corrosion importante|traces de corrosion ch[aâ]ssis",4000,redhibitoire
 incomplet_preleve,"incomplet et possiblement pr[ée]lev[ée]|pr[ée]l[èe]vements? de pi[èe]ces",2500,redhibitoire
 batterie_traction_location,"location de batterie|batterie reste la propri[ée]t[ée] de|DIAC Location|contrat de location obligatoire",0,redhibitoire

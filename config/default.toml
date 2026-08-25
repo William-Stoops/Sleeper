@@ -240,3 +240,22 @@ conserver_historique_encheres = true
 # format : "json" pour la tache planifiee, "console" pour le confort humain
 niveau = "INFO"
 format = "json"
+
+# Le coût d'une boîte HS dépend de ce qu'il y a dans le carter : une manuelle
+# se remplace pour deux à trois mille euros, une automatique moderne — EAT8,
+# Aisin — coûte quatre à sept mille euros posée. Le type est lisible sur neuf
+# fiches sur dix ; sinon la table garde son montant, qui est le cas médian.
+[score.cout_selon_boite]
+code = "boite_hs"
+manuelle = 3000.0
+automatique = 5500.0
+
+# L'inconnu mécanique coûte ce que vous avez mis sur la table. Un coefficient
+# fixe traitait « état mécanique non connu » de la même façon sur une épave à
+# 300 € et sur un monospace à 4 000 € : dans le premier cas l'inconnu ne risque
+# presque rien, dans le second il peut emporter toute la marge.
+[score.inconnu_mecanique]
+mise_a_prix_basse_eur = 300.0
+coefficient_bas = 0.95
+mise_a_prix_haute_eur = 4000.0
+coefficient_haut = 0.60

@@ -788,6 +788,7 @@ def _score_input(lot: Lot) -> ScoreInput:
         make=lot.make,
         model=lot.model,
         fuel=lot.fuel,
+        gearbox=lot.gearbox,
         year=_registration_year(lot.first_registration),
         mileage=lot.mileage,
         mileage_per_year=lot.mileage_per_year,

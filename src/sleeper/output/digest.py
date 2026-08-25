@@ -159,9 +159,10 @@ def _to_quote(lots: Sequence[Lot]) -> list[str]:
     ]
     for lot in shortlist:
         rank = str(lot.rank) if lot.rank else "—"
-        # Le score est en euros : deux décimales laisseraient croire à une
-        # précision que ce tri n'a pas.
-        score = _euros_or_dash(lot.score)
+        # Pas d'unité : le score est une marge pondérée par des coefficients,
+        # pas un montant. Le rang 1 affichait 28 489 € sur une cote de
+        # 21 932 € — un euro que personne ne verrait jamais.
+        score = f"{lot.score:,.0f}".replace(",", "\u00a0") if lot.score is not None else "—"
         closing = f"{lot.closes_at:%d/%m}" if lot.closes_at else "—"
         place = f"{lot.department or '??'} {lot.collection_place}".strip()
         lines.append(

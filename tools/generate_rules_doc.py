@@ -67,16 +67,22 @@ FOOTER: Final = """\
 
 | Règle | Attribut de la fiche | Verdict |
 |---|---|---|
-| `kilometrage_inconnu` | `vehicle_mileage` | absent **ou zéro** → écarté, sauf si un kilométrage figure dans le texte |
+| `hors_categorie_vehicule` | `kind`, `vehicle_brand`, `vehicle_model` | **tous vides** → écarté. Cette règle n'a aucune expression textuelle : elle ne juge que la présence d'attributs véhicule |
+| `genre_hors_cible` | `kind` | code hors cible → écarté |
+| `collection_avant_1990` | `date_first_registration` | année < {annee} → écarté |
 | `sans_cle` | `vehicle_has_a_key` | `Non` → écarté |
 | `sans_certificat_immatriculation` | `registration_certificate` | `Non` → écarté |
-| `non_roulant` | `registrable_again` | `Non` → écarté |
 | `epave_ou_pieces` | `vhu_declared` | `Oui` → écarté |
-| `genre_hors_cible` | `kind` | code hors cible → écarté |
-| `collection_avant_{annee}` | `date_first_registration` | année < {annee} → écarté |
+| `non_roulant` | `registrable_again` | `Non` → écarté |
+| `kilometrage_inconnu` | `vehicle_mileage` | absent **ou zéro** → écarté, sauf si un kilométrage figure dans le texte |
 
-Un compteur à zéro n'est pas un kilométrage : c'est une absence de saisie. Le
-code le traite comme tel.
+Deux précisions tirées des données réelles :
+
+- **un compteur à zéro n'est pas un kilométrage** : c'est une absence de
+  saisie, et le code le traite comme telle ;
+- **le genre est lu sur son seul code J.1**. L'attribut porte des valeurs
+  composées (`VASP - DERIV_VP`) et une casse inconstante (`vp`) : seul le
+  premier jeton est le code de la carte grise.
 
 ## Genres de carte grise écartés d'office
 

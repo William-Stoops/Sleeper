@@ -30,9 +30,19 @@ _KILOMETRAGE = re.compile(
     r"\b(\d{1,3}(?:[\s.\u00a0]\d{3})+|\d{3,7})\s*(?:km|kms|kilom[eè]tres?)\b", re.IGNORECASE
 )
 _CRIT_AIR = re.compile(r"crit\W{0,2}air\W{0,3}(\d)", re.IGNORECASE)
+#: Creneau de visite. Volontairement BORNE : la phrase qui suit la date
+#: contient regulierement le nom et le telephone d'un agent public, qui n'ont
+#: rien a faire dans un champ structure.
+_JOUR = r"(?:lundi|mardi|mercredi|jeudi|vendredi|samedi|dimanche)"
+_DATE = (
+    r"(?:\d{1,2}[/\-.]\d{1,2}[/\-.]\d{2,4}"
+    r"|\d{1,2}(?:er)?\s+(?:janvier|f[ée]vrier|mars|avril|mai|juin|juillet|ao[uû]t"
+    r"|septembre|octobre|novembre|d[ée]cembre)(?:\s+\d{4})?)"
+)
+_HEURE = r"\d{1,2}\s*h(?:\s*\d{2})?"
 _VISITE = re.compile(
-    r"(?:visites?|journ[ée]es?\s+de\s+visite)[^.]*?"
-    r"((?:lundi|mardi|mercredi|jeudi|vendredi|samedi|dimanche)[^.]*)",
+    rf"(?:visites?|journ[ée]es?\s+de\s+visite)[^.]{{0,80}}?"
+    rf"({_JOUR}\s+{_DATE}(?:\s*(?:de|entre)\s*{_HEURE}\s*(?:[àa]|et)\s*{_HEURE})?)",
     re.IGNORECASE,
 )
 _CT_DATE_COMPLETE = re.compile(

@@ -103,8 +103,29 @@ class TestExtractions:
         source = "Visites sur place uniquement le Mercredi 29/07/2026 de 08h00 à 11h00"
         assert texte.extraire_dates_visite(source) == "Mercredi 29/07/2026 de 08h00 à 11h00"
 
+    def test_sarrete_avant_les_coordonnees_de_lagent(self) -> None:
+        """Le nom et le téléphone d'un agent public n'ont rien à faire ici."""
+        source = (
+            "Visites sur place uniquement le Mercredi 29/07/2026 de 08h00 à 11h00 "
+            "avec Mr DUPONT au 06-00-00-00-00 Enlèvement sur plateau"
+        )
+        extrait = texte.extraire_dates_visite(source)
+        assert extrait == "Mercredi 29/07/2026 de 08h00 à 11h00"
+        assert "DUPONT" not in (extrait or "")
+        assert "06" not in (extrait or "").replace("08h00", "")
+
+    def test_accepte_un_mois_en_toutes_lettres(self) -> None:
+        source = "Les visites se feront uniquement le jeudi 23 juillet 2026"
+        assert texte.extraire_dates_visite(source) == "jeudi 23 juillet 2026"
+
+    def test_creneau_facultatif(self) -> None:
+        assert texte.extraire_dates_visite("Visite le lundi 04/08/2026") == "lundi 04/08/2026"
+
     def test_absence_de_visite_renvoie_none(self) -> None:
         assert texte.extraire_dates_visite("Enlèvement à la charge de l'acquéreur") is None
+
+    def test_mention_de_visite_sans_date_renvoie_none(self) -> None:
+        assert texte.extraire_dates_visite("Visites sur rendez-vous") is None
 
     @pytest.mark.parametrize(
         ("brut", "attendu"),

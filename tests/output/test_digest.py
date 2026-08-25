@@ -10,6 +10,7 @@ from typing import Any
 
 import pytest
 
+from sleeper.domain.inspection import Inspection
 from sleeper.domain.models import Lot, OutputDocument, RejectedLot, Run, RunError
 from sleeper.output.digest import SECTION_LIMIT, render
 
@@ -33,7 +34,7 @@ def make_lot(**overrides: Any) -> Lot:
         "tax_horsepower": 6,
         "vin": "",
         "crit_air": "",
-        "inspection": "",
+        "inspection": Inspection(),
         "registration_certificate": True,
         "keys": True,
         "declared_condition": "",

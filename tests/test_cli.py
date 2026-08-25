@@ -14,6 +14,7 @@ import pytest
 from typer.testing import CliRunner
 
 from sleeper import cli
+from sleeper.domain.inspection import Inspection
 from sleeper.domain.models import Lot, OutputDocument, Run, RunError
 from sleeper.errors import AntiBotChallengeError
 
@@ -39,7 +40,7 @@ def minimal_lot(**overrides: Any) -> Lot:
         "tax_horsepower": 6,
         "vin": "",
         "crit_air": "",
-        "inspection": "",
+        "inspection": Inspection(),
         "registration_certificate": True,
         "keys": True,
         "declared_condition": "",

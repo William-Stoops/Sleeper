@@ -17,6 +17,7 @@ Three principles govern error handling:
 
 from __future__ import annotations
 
+import datetime as dt
 import hashlib
 from collections.abc import Callable, Iterator, Mapping
 from dataclasses import dataclass, field
@@ -31,6 +32,8 @@ from sleeper.config import Configuration
 from sleeper.domain import text
 from sleeper.domain.damage import classify_damage
 from sleeper.domain.exclusions import ExclusionEngine, LotSignals
+from sleeper.domain.inspection import read_inspection
+from sleeper.domain.integrity import check_integrity
 from sleeper.domain.models import (
     CRITICAL_FIELD,
     FeeSource,
@@ -84,6 +87,7 @@ class Counters:
     lots_rejected: int = 0
     scope_unknown: int = 0
     sales_without_fees: int = 0
+    integrity_anomalies: int = 0
     reasons: dict[str, int] = field(default_factory=dict)
 
     def reject(self, reason: str) -> None:
@@ -145,6 +149,7 @@ class Collector:
             sales.append(self._sale(source, sale_place, sale_fee, len(kept) + len(dropped)))
 
         self._state.close_absent_sales(seen, self._started_at)
+        self._check_integrity(lots)
         return self._document(sales, lots, rejected)
 
     # ------------------------------------------------------------------- sales
@@ -340,6 +345,7 @@ class Collector:
             resolved=resolved,
             description=description,
             fee=fee,
+            run_day=self._started_at.date(),
             is_new=observation.is_new,
             bid_moved=observation.bid_moved,
         )
@@ -409,6 +415,7 @@ class Collector:
             reasons=self._counters.reasons,
             scope_unknown=self._counters.scope_unknown,
             sales_without_fees=self._counters.sales_without_fees,
+            integrity=self._counters.integrity_anomalies,
             errors=len(self._errors),
             duration_s=round(duration, 1),
         )
@@ -422,12 +429,43 @@ class Collector:
                 lots_rejected=self._counters.lots_rejected,
                 lots_scope_unknown=self._counters.scope_unknown,
                 sales_without_published_fees=self._counters.sales_without_fees,
+                integrity_anomalies=self._counters.integrity_anomalies,
                 errors=self._errors,
             ),
             sales=sales,
             lots=lots,
             rejected=rejected,
         )
+
+    def _check_integrity(self, lots: list[Lot]) -> None:
+        """Sanity-check the whole run. Never fails it, always reports it."""
+        anomalies = check_integrity(
+            [
+                {
+                    "id": lot.id,
+                    "vin": lot.vin,
+                    "mileage": lot.mileage,
+                    "first_registration_year": _registration_year(lot.first_registration),
+                    "starting_price": lot.starting_price,
+                    "current_bid": lot.current_bid,
+                }
+                for lot in lots
+            ],
+            run_day=self._started_at.date(),
+        )
+        self._counters.integrity_anomalies = len(anomalies)
+        for anomaly in anomalies:
+            _LOG.warning(
+                "run.integrity", code=anomaly.code, lots=anomaly.lot_ids, value=anomaly.value
+            )
+            self._errors.append(
+                RunError(
+                    step="integrite",
+                    target=", ".join(anomaly.lot_ids),
+                    kind=anomaly.code,
+                    message=f"{anomaly.message} : {anomaly.value}",
+                )
+            )
 
     def _record_anomaly(self, step: str, target: str, exc: Exception) -> None:
         """Record an anomaly: in the logs AND in the output document."""
@@ -567,6 +605,7 @@ def _build_lot(
     resolved: ResolvedScope,
     description: str,
     fee: BuyerFee,
+    run_day: dt.date,
     is_new: bool,
     bid_moved: bool,
 ) -> Lot:
@@ -579,7 +618,7 @@ def _build_lot(
         title=raw.title,
         category=config.filters.vehicle_category,
         trade_only=raw.trade_only,
-        **_vehicle_fields(raw, attributes, description),
+        **_vehicle_fields(raw, attributes, description, run_day),
         starting_price=raw.starting_price,
         current_bid=raw.current_bid,
         # The source does not publish the number of bidders anywhere.
@@ -623,7 +662,10 @@ def _missing_fields(
 
 
 def _vehicle_fields(
-    raw: LotSource, attributes: VehicleAttributes | None, description: str
+    raw: LotSource,
+    attributes: VehicleAttributes | None,
+    description: str,
+    run_day: dt.date,
 ) -> dict[str, Any]:
     """Vehicle characteristics: structured attributes first, then free text."""
     return {
@@ -631,14 +673,17 @@ def _vehicle_fields(
         "model": attributes.model if attributes else "",
         "variant": _variant(raw.title, attributes),
         "first_registration": attributes.first_registration if attributes else "",
-        "mileage": _mileage(attributes, description),
+        "mileage": (mileage := _mileage(attributes, description)),
+        "mileage_per_year": _mileage_per_year(mileage, attributes),
         "fuel": attributes.fuel if attributes else "",
         "gearbox": attributes.gearbox if attributes else "",
         "tax_horsepower": text.extract_tax_horsepower(description),
         "vin": text.extract_vin(description) or "",
         "crit_air": text.extract_crit_air(description) or "",
-        "inspection": (
-            text.extract_inspection_date(description) or _inspection_from_attribute(attributes)
+        "inspection": read_inspection(
+            description,
+            structured=attributes.roadworthiness_test if attributes else None,
+            run_day=run_day,
         ),
         "registration_certificate": attributes.registration_certificate if attributes else None,
         "keys": attributes.has_key if attributes else None,
@@ -666,11 +711,20 @@ def _mileage(attributes: VehicleAttributes | None, description: str) -> int | No
     return text.extract_mileage(description)
 
 
-def _inspection_from_attribute(attributes: VehicleAttributes | None) -> str:
-    """Roadworthiness mention derived from the boolean attribute."""
-    if attributes is None or attributes.roadworthiness_test is None:
-        return ""
-    return "présent" if attributes.roadworthiness_test else "absent"
+def _registration_year(first_registration: str) -> int | None:
+    """Year of first registration, read from the ISO date the contract carries."""
+    try:
+        return int(first_registration[:4])
+    except (ValueError, TypeError):
+        return None
+
+
+def _mileage_per_year(mileage: int | None, attributes: VehicleAttributes | None) -> int | None:
+    """Mileage divided by the vehicle's age, the usual sanity yardstick."""
+    if mileage is None or attributes is None or attributes.first_registration_year is None:
+        return None
+    age = max(dt.date.today().year - attributes.first_registration_year, 1)
+    return round(mileage / age)
 
 
 def _to_memo(attributes: VehicleAttributes) -> dict[str, Any]:

@@ -24,6 +24,7 @@ from typing import Annotated, Literal
 from pydantic import BaseModel, ConfigDict, Field
 
 from sleeper.domain.damage import BodyDamage
+from sleeper.domain.inspection import Inspection
 from sleeper.domain.territory import ScopeStatus
 
 Postcode = Annotated[str, Field(max_length=10)]
@@ -72,6 +73,8 @@ class Run(SleeperModel):
     lots_scope_unknown: int = Field(alias="lots_perimetre_inconnu", ge=0, default=0)
     #: Sales that do not publish their buyer's premium anywhere.
     sales_without_published_fees: int = Field(alias="ventes_sans_frais_publies", ge=0, default=0)
+    #: Integrity findings. They never fail the run; they must be seen.
+    integrity_anomalies: int = Field(alias="anomalies_integrite", ge=0, default=0)
     errors: list[RunError] = Field(alias="erreurs", default_factory=list)
 
 
@@ -114,12 +117,14 @@ class Lot(SleeperModel):
     variant: str = Field(alias="version")
     first_registration: str = Field(alias="premiere_mise_en_circulation")
     mileage: int | None = Field(alias="kilometrage", default=None, ge=0)
+    #: Mileage divided by the vehicle's age. `None` when either is unknown.
+    mileage_per_year: int | None = Field(alias="km_par_an", default=None, ge=0)
     fuel: str = Field(alias="energie")
     gearbox: str = Field(alias="boite")
     tax_horsepower: int | None = Field(alias="puissance_fiscale", default=None, ge=0)
     vin: str
     crit_air: str
-    inspection: str = Field(alias="controle_technique")
+    inspection: Inspection = Field(alias="controle_technique", default_factory=Inspection)
     registration_certificate: bool | None = Field(alias="carte_grise")
     keys: bool | None = Field(alias="cles")
     declared_condition: str = Field(alias="etat_declare")

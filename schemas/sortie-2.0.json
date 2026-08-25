@@ -1,5 +1,54 @@
 {
   "$defs": {
+    "Inspection": {
+      "additionalProperties": false,
+      "description": "What a listing says about the vehicle's roadworthiness test.",
+      "properties": {
+        "mentionne": {
+          "default": false,
+          "title": "Mentionne",
+          "type": "boolean"
+        },
+        "date": {
+          "anyOf": [
+            {
+              "format": "date",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Date"
+        },
+        "resultat": {
+          "default": "inconnu",
+          "enum": [
+            "favorable",
+            "favorable_defaillances_mineures",
+            "defavorable_contre_visite",
+            "inconnu"
+          ],
+          "title": "Resultat",
+          "type": "string"
+        },
+        "valide_a_la_date_du_run": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Valide A La Date Du Run"
+        }
+      },
+      "title": "Inspection",
+      "type": "object"
+    },
     "Lot": {
       "additionalProperties": false,
       "description": "A vehicle lot, in the exact shape of the output contract.",
@@ -68,6 +117,19 @@
           "default": null,
           "title": "Kilometrage"
         },
+        "km_par_an": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Km Par An"
+        },
         "energie": {
           "title": "Energie",
           "type": "string"
@@ -98,8 +160,7 @@
           "type": "string"
         },
         "controle_technique": {
-          "title": "Controle Technique",
-          "type": "string"
+          "$ref": "#/$defs/Inspection"
         },
         "carte_grise": {
           "anyOf": [
@@ -285,7 +346,6 @@
         "boite",
         "vin",
         "crit_air",
-        "controle_technique",
         "carte_grise",
         "cles",
         "etat_declare",
@@ -376,6 +436,12 @@
           "default": 0,
           "minimum": 0,
           "title": "Ventes Sans Frais Publies",
+          "type": "integer"
+        },
+        "anomalies_integrite": {
+          "default": 0,
+          "minimum": 0,
+          "title": "Anomalies Integrite",
           "type": "integer"
         },
         "erreurs": {

@@ -153,3 +153,39 @@ class TestVentesEtAdjudications:
         etat.enregistrer_adjudication(1, 2400.0, 1500.0, T0)
         etat.enregistrer_adjudication(1, 2400.0, 1500.0, T1)
         assert len(etat.adjudications()) == 1
+
+
+class TestClotureProtegee:
+    def test_un_run_sans_aucune_vente_ne_cloture_rien(self, etat: EtatSleeper) -> None:
+        """Garde-fou : un scan vide est bien plus probablement une panne amont."""
+        etat.enregistrer_vente(
+            vente_id=467,
+            intitule="Vente",
+            direction_regionale="LILLE",
+            statut=3,
+            nb_lots=161,
+            date_ouverture=T0,
+            date_cloture=T0,
+            horodatage=T0,
+        )
+        etat.cloturer_ventes_absentes(set(), T1)
+        assert etat.ventes_cloturees() == []
+
+    def test_une_vente_reapparue_est_rouverte(self, etat: EtatSleeper) -> None:
+        def enregistrer(quand: datetime) -> None:
+            etat.enregistrer_vente(
+                vente_id=467,
+                intitule="Vente",
+                direction_regionale="LILLE",
+                statut=3,
+                nb_lots=161,
+                date_ouverture=T0,
+                date_cloture=T0,
+                horodatage=quand,
+            )
+
+        enregistrer(T0)
+        etat.cloturer_ventes_absentes({999}, T1)
+        assert etat.ventes_cloturees() == [467]
+        enregistrer(T1)
+        assert etat.ventes_cloturees() == []

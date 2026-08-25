@@ -146,9 +146,17 @@ class EtatSleeper:
             )
 
     def cloturer_ventes_absentes(self, vues: Iterable[int], horodatage: datetime) -> None:
-        """Marque comme cloturees les ventes connues qui ne sont plus publiees."""
+        """Marque comme cloturees les ventes connues qui ne sont plus publiees.
+
+        Un run qui n'a vu AUCUNE vente ne cloture rien. Le site publie en
+        permanence des ventes ouvertes : un scan vide signale bien plus
+        surement une panne amont qu'un catalogue reellement vide, et il ne doit
+        pas se traduire par une cloture en masse de l'historique.
+        """
         identifiants = tuple(vues)
-        trous = ",".join("?" * len(identifiants)) or "NULL"
+        if not identifiants:
+            return
+        trous = ",".join("?" * len(identifiants))
         with self._cnx:
             self._cnx.execute(
                 # `trous` n'est qu'une suite de « ? » derivee du nombre

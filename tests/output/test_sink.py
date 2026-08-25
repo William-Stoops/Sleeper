@@ -7,6 +7,7 @@ from pathlib import Path
 
 import pytest
 
+from sleeper.errors import OutputError
 from sleeper.output.sink import FileSink, timestamped_name
 
 
@@ -74,3 +75,39 @@ class TestTimestampedName:
         first = timestamped_name("sleeper", datetime(2026, 8, 25, 12, 40, 2), "json")
         second = timestamped_name("sleeper", datetime(2026, 8, 25, 12, 40, 59), "json")
         assert first == second == "sleeper-2026-08-25-1240.json"
+
+
+class TestCloudFolderGuard:
+    """Un espace synchronisé absent ne doit jamais être remplacé en silence.
+
+    C'est la panne la plus coûteuse de cette destination : le run réussit,
+    les fichiers sont écrits, rien ne part, et personne ne s'en aperçoit.
+    """
+
+    def test_it_refuses_a_drive_folder_whose_mount_is_absent(self, tmp_path: Path) -> None:
+        absent = tmp_path / "Library" / "CloudStorage" / "GoogleDrive-a@b.example"
+        with pytest.raises(OutputError, match="synchronisé"):
+            FileSink(absent / "Mon Drive" / "Sleeper")
+
+    def test_the_message_names_the_missing_parent(self, tmp_path: Path) -> None:
+        cible = tmp_path / "CloudStorage" / "GoogleDrive-a@b.example" / "Mon Drive" / "Sleeper"
+        with pytest.raises(OutputError) as leve:
+            FileSink(cible)
+        assert str(cible.parent) in str(leve.value)
+
+    def test_it_creates_the_last_level_when_the_mount_is_there(self, tmp_path: Path) -> None:
+        """Le dossier Sleeper lui-même, oui : c'est le seul niveau permis."""
+        monte = tmp_path / "CloudStorage" / "GoogleDrive-a@b.example" / "Mon Drive"
+        monte.mkdir(parents=True)
+        sink = FileSink(monte / "Sleeper")
+        assert sink.directory.is_dir()
+
+    @pytest.mark.parametrize("racine", ["Dropbox", "OneDrive - Entreprise", "Google Drive"])
+    def test_the_other_sync_clients_are_covered_too(self, tmp_path: Path, racine: str) -> None:
+        with pytest.raises(OutputError, match="synchronisé"):
+            FileSink(tmp_path / racine / "absent" / "Sleeper")
+
+    def test_an_ordinary_path_still_creates_its_whole_branch(self, tmp_path: Path) -> None:
+        """Une première exécution sur un dépôt neuf crée var/sorties toute seule."""
+        sink = FileSink(tmp_path / "var" / "sorties")
+        assert sink.directory.is_dir()

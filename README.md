@@ -557,6 +557,34 @@ dépôt sur Drive ne fait jamais échouer le run : l'erreur est repliée dans
 `run.erreurs`, le fichier local est réécrit pour la porter, et l'opérateur la
 trouve là où il la cherche.
 
+#### Le chemin le plus court : ne pas passer par l'API
+
+Si la destination est **votre propre Drive personnel** sur votre propre
+machine, l'API n'apporte rien. Installez **Google Drive pour ordinateur** :
+votre dossier devient un chemin sur le disque, et il suffit d'y pointer la
+sortie ordinaire.
+
+```toml
+[sortie]
+repertoire = "/Users/vous/Library/CloudStorage/GoogleDrive-vous@example.com/Mon Drive/Sleeper"
+```
+
+Aucun identifiant, aucun secret, aucun jeton, aucune dépendance
+supplémentaire, rien qui expire — et c'est `FileSink`, la destination écrite
+en premier à chaque run et la plus testée des deux.
+
+> ⚠️ **Un espace synchronisé n'existe que si son client tourne.** Si Drive est
+> arrêté la nuit, `mkdir` recréerait la branche en dossiers locaux ordinaires :
+> le run réussirait, les fichiers seraient écrits, rien ne partirait, et vous
+> croiriez publier depuis des semaines. `FileSink` refuse : sous une racine de
+> synchronisation, seul le dernier niveau peut être créé, et le parent absent
+> est une erreur qui nomme la cause. Hors de ces chemins, rien ne change — une
+> première exécution crée toujours `var/sorties` toute seule.
+
+L'API Drive reste utile pour une machine qui publie vers le Drive de
+*quelqu'un d'autre*, ou vers un Drive partagé Workspace. C'est ce que décrit
+la suite.
+
 #### Deux authentifications, et le choix ne vous appartient pas
 
 Google en propose deux, et laquelle s'applique dépend du **compte de

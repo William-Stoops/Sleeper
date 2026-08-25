@@ -9,9 +9,20 @@ Only the local-file destination is implemented today.
 
 from __future__ import annotations
 
+import re
 from datetime import datetime
 from pathlib import Path
-from typing import Protocol
+from typing import Final, Protocol
+
+from sleeper.errors import OutputError
+
+#: Directory names that mark the root of a synchronising cloud folder. Not
+#: configuration: these are facts about operating systems, not a business
+#: decision, and an operator who had to declare them could only get them wrong.
+_CLOUD_MARKERS: Final = re.compile(
+    r"^(CloudStorage|Google ?Drive.*|Dropbox|OneDrive.*|iCloud Drive|Mobile Documents)$",
+    re.IGNORECASE,
+)
 
 
 class Sink(Protocol):
@@ -30,6 +41,7 @@ class FileSink:
     """Writes into a local directory, with a shortcut to the latest run."""
 
     def __init__(self, directory: Path) -> None:
+        _refuse_to_forge_a_cloud_folder(directory)
         self._directory = directory
         directory.mkdir(parents=True, exist_ok=True)
 
@@ -59,6 +71,33 @@ class FileSink:
         except (OSError, NotImplementedError):
             link.write_bytes(target.read_bytes())
         return str(link)
+
+
+def _refuse_to_forge_a_cloud_folder(directory: Path) -> None:
+    """Inside a sync folder, only the last level may be created.
+
+    A cloud folder exists only while its client runs. If the destination is
+    `.../Mon Drive/Sleeper` and Drive is not running that night, `mkdir` would
+    quietly rebuild the whole branch as ordinary local directories: the run
+    would report a success, the files would land on the disk, and nothing
+    would ever be synchronised. The operator would believe they had been
+    publishing for weeks.
+
+    So the rule is narrow and stated once: under a sync root, the parent must
+    already be there. Everything outside such a path keeps the old behaviour —
+    a first run on a fresh clone still creates `var/sorties` on its own.
+    """
+    if not any(_CLOUD_MARKERS.match(part) for part in directory.parts):
+        return
+    parent = directory.parent
+    if parent.is_dir():
+        return
+    raise OutputError(
+        f"le dossier de destination {directory} est dans un espace synchronisé, "
+        f"mais {parent} n'existe pas. Le client de synchronisation n'est "
+        "probablement pas lancé. Refus de créer un dossier local qui ne "
+        "partirait jamais : lancez-le, puis relancez la collecte."
+    )
 
 
 def timestamped_name(prefix: str, instant: datetime, extension: str) -> str:

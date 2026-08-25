@@ -199,6 +199,27 @@ class TestOutOfScopeKind:
     def test_a_van_stays_in_scope(self, engine: ExclusionEngine) -> None:
         assert engine.reason(signals("Utilitaire RENAULT Kangoo, 15500 km", kind="CTTE")) is None
 
+    @pytest.mark.parametrize("kind", ["vp", "VP", " vp "])
+    def test_case_and_spacing_do_not_matter(self, engine: ExclusionEngine, kind: str) -> None:
+        # Relevé en production : le genre arrive en minuscules sur certains lots.
+        assert engine.reason(signals("90000 km", kind=kind, mileage=1)) is None
+
+    @pytest.mark.parametrize(
+        ("kind", "expected"),
+        [
+            ("VASP - DERIV_VP", None),
+            ("MTL - GROS CUBE", "genre_hors_cible"),
+            ("REM-PLATEAU", "genre_hors_cible"),
+        ],
+    )
+    def test_compound_values_are_read_on_their_j1_code(
+        self, engine: ExclusionEngine, kind: str, expected: str | None
+    ) -> None:
+        """Relevé en production : « VASP - DERIV_VP ». Seul le premier jeton
+        est le code de la carte grise ; sans cela un deux-roues libellé
+        « MTL - … » passerait à travers."""
+        assert engine.reason(signals("90000 km", kind=kind, mileage=1)) == expected
+
 
 class TestClassicCar:
     def test_before_1990_is_rejected(self, engine: ExclusionEngine) -> None:

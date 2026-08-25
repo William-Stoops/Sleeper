@@ -119,9 +119,16 @@ def _end_of_life(signals: LotSignals) -> bool | None:
 
 
 def _out_of_scope_kind(signals: LotSignals) -> bool | None:
+    """Compare on the J.1 code alone.
+
+    Observed in production: the attribute carries compound values such as
+    "VASP - DERIV_VP", and inconsistent case ("vp"). Only the leading token is
+    the registration-document code; the rest is a local refinement.
+    """
     if not signals.kind:
         return None
-    return True if signals.kind.strip().upper() in OUT_OF_SCOPE_KINDS else None
+    code = signals.kind.strip().upper().split()[0].split("-")[0].strip()
+    return True if code in OUT_OF_SCOPE_KINDS else None
 
 
 def _classic_car(signals: LotSignals) -> bool | None:

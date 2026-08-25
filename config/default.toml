@@ -98,6 +98,14 @@ categorie_vehicules = "Véhicules"
 # Statuts de vente retenus : 2 = a venir, 3 = en cours.
 statuts_vente = [2, 3]
 
+# Segments commerciaux travailles : vl (vehicule leger), vu (utilitaire),
+# pl (poids lourd), engin (non immatriculable).
+#
+# Un lot hors de ces segments n'est PAS ecarte : il reste dans la sortie, son
+# segment affiche, et il quitte simplement le classement. Une decision
+# commerciale est une ligne de configuration, jamais un filtre.
+segments_actifs = ["vl", "vu"]
+
 # Taille de page demandee a l'API, pour la liste des ventes comme pour celle
 # des lots. La valeur employee par l'application du site est 8 ; s'en ecarter
 # fait sortir la requete du gabarit accepte par le pare-feu applicatif.

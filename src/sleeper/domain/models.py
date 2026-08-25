@@ -25,6 +25,7 @@ from pydantic import BaseModel, ConfigDict, Field
 
 from sleeper.domain.damage import BodyDamage
 from sleeper.domain.inspection import Inspection
+from sleeper.domain.segment import Segment
 from sleeper.domain.territory import ScopeStatus
 
 Postcode = Annotated[str, Field(max_length=10)]
@@ -111,6 +112,9 @@ class Lot(SleeperModel):
     number: str = Field(alias="numero")
     title: str = Field(alias="titre")
     category: str = Field(alias="categorie")
+    #: Commercial segment. Which ones are worked is a line of configuration,
+    #: never a filter: a lot outside them stays here, stated.
+    segment: Segment = Field(alias="segment", default="vl")
     trade_only: bool | None = Field(alias=CRITICAL_FIELD)
     make: str = Field(alias="marque")
     model: str = Field(alias="modele")

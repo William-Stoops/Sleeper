@@ -44,6 +44,7 @@ from sleeper.domain.models import (
     RunError,
     Sale,
 )
+from sleeper.domain.segment import classify_segment
 from sleeper.domain.territory import (
     Perimeter,
     ResolvedScope,
@@ -500,7 +501,7 @@ def _signals(raw: LotSource, attributes: VehicleAttributes | None) -> LotSignals
         declared_end_of_life=attributes.declared_end_of_life if attributes else None,
         re_registrable=attributes.re_registrable if attributes else None,
         non_compliant=attributes.non_compliant if attributes else None,
-        has_vehicle_attributes=attributes.is_a_vehicle if attributes else None,
+        is_registrable_vehicle=attributes.is_a_vehicle if attributes else None,
     )
 
 
@@ -689,6 +690,12 @@ def _vehicle_fields(
         "keys": attributes.has_key if attributes else None,
         "declared_condition": text.extract_declared_condition(description) or "",
         "body_damage": classify_damage(description),
+        "segment": classify_segment(
+            kind=attributes.kind if attributes else "",
+            plate=attributes.plate if attributes else "",
+            vin=text.extract_vin(description) or (attributes.vin if attributes else ""),
+            title=raw.title,
+        ),
         "vat_reclaimable": _vat_reclaimable(attributes.vat if attributes else ""),
     }
 

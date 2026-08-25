@@ -23,6 +23,7 @@ from typing import Any, Final
 
 from sleeper.domain import text
 from sleeper.domain.codes import SENSITIVE_ATTRIBUTES, to_bool
+from sleeper.domain.segment import is_registrable
 from sleeper.errors import UpstreamSchemaError
 
 _MIN_YEAR: Final = 1900
@@ -106,6 +107,8 @@ class VehicleAttributes:
     re_registrable: bool | None
     odometer_altered: bool | None
     impounded: bool | None
+    plate: str
+    vin: str
     collection_city: str
     collection_postcode: str
     description: str
@@ -114,8 +117,11 @@ class VehicleAttributes:
 
     @property
     def is_a_vehicle(self) -> bool:
-        """True when the listing carries at least one identifying vehicle attribute."""
-        return bool(self.kind or self.make or self.model)
+        """True when the listing shows a road-registrable vehicle.
+
+        Registration, not branding: a Broyeur carries a make.
+        """
+        return is_registrable(kind=self.kind, plate=self.plate, vin=self.vin)
 
 
 def _data_block(payload: Mapping[str, Any], path: str) -> Mapping[str, Any]:
@@ -317,6 +323,8 @@ def read_vehicle_attributes(payload: Mapping[str, Any]) -> VehicleAttributes:
         re_registrable=_tolerant_bool(raw.get("registrable_again")),
         odometer_altered=_tolerant_bool(raw.get("counter_change")),
         impounded=_tolerant_bool(raw.get("administrative_pound")),
+        plate=raw.get("vehicle_numberplate", ""),
+        vin=raw.get("vin", ""),
         collection_city=_as_text(collection.get("city")),
         collection_postcode=_as_text(collection.get("postcode")),
         description=text.from_html((item.get("short_description") or {}).get("html")),

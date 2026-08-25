@@ -152,6 +152,26 @@ class FiltersConfig(_Section):
     # used by the site's own application, and the firewall does not accept
     # departures from it.
     page_size: Annotated[int, Field(ge=1, le=50)] = Field(alias="taille_de_page", default=8)
+    #: Commercial segments worked. A lot outside them is NOT dropped: it stays
+    #: in the output with its segment stated, and simply leaves the ranking.
+    #: A commercial decision belongs in configuration, never in a filter.
+    active_segments: frozenset[str] = Field(
+        alias="segments_actifs", default=frozenset({"vl", "vu"})
+    )
+
+    @field_validator("active_segments", mode="before")
+    @classmethod
+    def _known_segments(cls, values: object) -> object:
+        if not isinstance(values, list | frozenset | set | tuple):
+            return values
+        known = {"vl", "vu", "pl", "engin"}
+        cleaned = [str(v).strip().lower() for v in values]
+        if unknown := set(cleaned) - known:
+            raise ValueError(
+                f"segment(s) inconnu(s) : {', '.join(sorted(unknown))}. "
+                f"Segments disponibles : {', '.join(sorted(known))}"
+            )
+        return frozenset(cleaned)
 
 
 class BuyerFeesConfig(_Section):

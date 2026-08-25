@@ -26,7 +26,7 @@ def signals(
     declared_end_of_life: bool | None = None,
     re_registrable: bool | None = None,
     non_compliant: bool | None = None,
-    has_vehicle_attributes: bool | None = None,
+    is_registrable_vehicle: bool | None = None,
 ) -> LotSignals:
     """Build a minimal lot signal, everything else being unknown."""
     return LotSignals(
@@ -39,7 +39,7 @@ def signals(
         declared_end_of_life=declared_end_of_life,
         re_registrable=re_registrable,
         non_compliant=non_compliant,
-        has_vehicle_attributes=has_vehicle_attributes,
+        is_registrable_vehicle=is_registrable_vehicle,
     )
 
 
@@ -248,21 +248,21 @@ class TestNotAVehicle:
         self, engine: ExclusionEngine
     ) -> None:
         # A "Véhicules" sale also sells furniture and consumer electronics.
-        sofa = signals("Canapé d'angle en cuir", has_vehicle_attributes=False)
+        sofa = signals("Canapé d'angle en cuir", is_registrable_vehicle=False)
         assert engine.reason(sofa) == "hors_categorie_vehicule"
 
     def test_a_vehicle_passes_the_rule(self, engine: ExclusionEngine) -> None:
-        car = signals("DACIA DUSTER", mileage=110430, has_vehicle_attributes=True)
+        car = signals("DACIA DUSTER", mileage=110430, is_registrable_vehicle=True)
         assert engine.reason(car) is None
 
     def test_an_unreadable_listing_allows_no_conclusion(self, engine: ExclusionEngine) -> None:
         # Listing missing: we do not pretend to know whether it is a vehicle.
         # The lot falls through to the other rules, here the mileage one.
-        unknown = signals("Lot 42", has_vehicle_attributes=None)
+        unknown = signals("Lot 42", is_registrable_vehicle=None)
         assert engine.reason(unknown) == "kilometrage_inconnu"
 
     def test_the_rule_runs_before_the_mileage_one(self, engine: ExclusionEngine) -> None:
-        sofa = signals("Canapé d'angle", has_vehicle_attributes=False)
+        sofa = signals("Canapé d'angle", is_registrable_vehicle=False)
         assert engine.reason(sofa) != "kilometrage_inconnu"
 
 
@@ -293,3 +293,22 @@ class TestOrderAndExtensibility:
     def test_the_label_of_an_unknown_reason_is_an_error(self, engine: ExclusionEngine) -> None:
         with pytest.raises(KeyError):
             engine.label("regle_fantome")
+
+
+class TestEvidence:
+    """Un motif sans sa preuve n'est pas vérifiable par un humain."""
+
+    def test_the_triggering_phrase_is_quoted(self, engine: ExclusionEngine) -> None:
+        assert engine.evidence("sans_cle", "véhicule vendu sans clé, 90000 km") == "sans cle"
+
+    def test_a_cancelled_rule_quotes_nothing(self, engine: ExclusionEngine) -> None:
+        assert engine.evidence("sans_cle", "Avec CG et clé, 90000 km") is None
+
+    def test_a_structured_verdict_has_no_textual_evidence(self, engine: ExclusionEngine) -> None:
+        # La règle a bien déclenché, mais sur un attribut, pas sur du texte.
+        assert engine.reason(signals("90000 km", has_key=False)) == "sans_cle"
+        assert engine.evidence("sans_cle", "90000 km") is None
+
+    def test_an_unknown_rule_is_an_error(self, engine: ExclusionEngine) -> None:
+        with pytest.raises(KeyError):
+            engine.evidence("regle_fantome", "peu importe")

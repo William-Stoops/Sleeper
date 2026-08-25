@@ -54,9 +54,10 @@ class LotSignals:
     declared_end_of_life: bool | None
     re_registrable: bool | None
     non_compliant: bool | None
-    #: `True` when the listing carries at least one vehicle attribute (kind,
-    #: make, model). `None` when the listing could not be read: no conclusion.
-    has_vehicle_attributes: bool | None = None
+    #: `True` when the listing shows a road-registrable vehicle — a J.1 code,
+    #: a plate, or a serial number. `None` when the listing could not be read:
+    #: no conclusion. A Broyeur carries a make; it carries none of these.
+    is_registrable_vehicle: bool | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -76,6 +77,17 @@ class Rule:
             return False
         return any(text.contains(signals.description, p) for p in self.phrases)
 
+    def triggering_phrase(self, description: str | None) -> str | None:
+        """The phrase of this rule that the description actually carries.
+
+        The audit and the score explanation both need to quote what fired,
+        not merely name the rule: a reason without its evidence cannot be
+        checked by a human.
+        """
+        if any(text.contains(description, c) for c in self.counter_phrases):
+            return None
+        return next((p for p in self.phrases if text.contains(description, p)), None)
+
     def _structured_verdict(self, signals: LotSignals) -> bool | None:
         """Verdict from the reliable attributes. `None` = the rule has none."""
         return _STRUCTURED_VERDICTS.get(self.code, _no_verdict)(signals)
@@ -86,15 +98,15 @@ def _no_verdict(_: LotSignals) -> bool | None:
 
 
 def _not_a_vehicle(signals: LotSignals) -> bool | None:
-    """A "Véhicules" sale also sells furniture, consumer electronics, jewellery.
+    """A "Véhicules" sale also sells furniture, machines, jewellery.
 
-    Those lots carry no vehicle attribute. Rejecting them here gives them an
-    accurate reason instead of letting them fall on "kilométrage inconnu",
-    which would be true but misleading.
+    The test is registration, not branding: a Broyeur DURATECH carries a make
+    and used to slip through, only to be rejected further down for having no
+    key. Rejecting it here gives it an accurate reason.
     """
-    if signals.has_vehicle_attributes is None:
+    if signals.is_registrable_vehicle is None:
         return None
-    return not signals.has_vehicle_attributes
+    return not signals.is_registrable_vehicle
 
 
 def _mileage_missing(signals: LotSignals) -> bool | None:
@@ -161,7 +173,7 @@ _STRUCTURED_VERDICTS: Final = {
 DEFAULT_RULES: Final[tuple[Rule, ...]] = (
     Rule(
         code="hors_categorie_vehicule",
-        label="Lot sans attribut véhicule (mobilier, high-tech, bijoux…)",
+        label="Lot non immatriculable (mobilier, engin, high-tech, bijoux…)",
     ),
     Rule(
         code="genre_hors_cible",
@@ -330,6 +342,13 @@ class ExclusionEngine:
             if rule.matches(signals):
                 return rule.code
         return None
+
+    def evidence(self, code: str, description: str | None) -> str | None:
+        """Phrase that made `code` fire on this description, when it was text."""
+        for rule in self._rules:
+            if rule.code == code:
+                return rule.triggering_phrase(description)
+        raise KeyError(code)
 
     def label(self, code: str) -> str:
         """Human-readable label of a reason, for reporting."""

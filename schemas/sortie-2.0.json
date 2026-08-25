@@ -77,6 +77,17 @@
           "title": "Categorie",
           "type": "string"
         },
+        "segment": {
+          "default": "vl",
+          "enum": [
+            "vl",
+            "vu",
+            "pl",
+            "engin"
+          ],
+          "title": "Segment",
+          "type": "string"
+        },
         "reserve_aux_professionnels": {
           "anyOf": [
             {

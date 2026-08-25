@@ -46,7 +46,7 @@ rend le verdict reproductible d'un run à l'autre.
 
 ### 1. `hors_categorie_vehicule`
 
-**Lot sans attribut véhicule (mobilier, high-tech, bijoux…)**
+**Lot non immatriculable (mobilier, engin, high-tech, bijoux…)**
 
 ### 2. `genre_hors_cible`
 

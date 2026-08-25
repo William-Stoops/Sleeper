@@ -259,15 +259,7 @@ class Collecteur:
                 motif=motif,
             )
 
-        # Le prix d'adjudication n'apparait qu'une fois le lot vendu. C'est la
-        # donnee qui, dans six mois, dira a quel pourcentage de la mise a prix
-        # les lots du Domaine partent reellement : on la consigne des qu'elle
-        # est visible, meme si le lot n'interesse plus l'achat.
-        if brut.prix_adjudication is not None:
-            self._etat.enregistrer_adjudication(
-                brut.id, brut.prix_adjudication, brut.mise_a_prix, self._debut
-            )
-
+        self._consigner_adjudication(brut)
         observation = self._etat.observer_lot(
             lot_id=brut.id,
             vente_id=brut.vente_id,
@@ -289,19 +281,36 @@ class Collecteur:
             enchere_a_bouge=observation.enchere_a_bouge,
         )
         if CHAMP_CRITIQUE in lot.champs_manquants:
-            self._erreurs.append(
-                ErreurRun(
-                    etape="lot",
-                    cible=str(brut.id),
-                    type="ChampCritiqueIllisible",
-                    message=(
-                        "la mention « reserve aux professionnels » n'a pas pu etre lue ; "
-                        "le lot est livre incomplet, ne pas decider dessus"
-                    ),
-                )
-            )
+            self._signaler_incomplet(brut.id)
         self._compteurs.lots_retenus += 1
         return lot
+
+    def _consigner_adjudication(self, brut: LotSource) -> None:
+        """Enregistre le prix d'adjudication des qu'il devient visible.
+
+        C'est la donnee qui, dans six mois, dira a quel pourcentage de la mise
+        a prix les lots du Domaine partent reellement. On la consigne meme si
+        le lot n'interesse plus l'achat.
+        """
+        if brut.prix_adjudication is None:
+            return
+        self._etat.enregistrer_adjudication(
+            brut.id, brut.prix_adjudication, brut.mise_a_prix, self._debut
+        )
+
+    def _signaler_incomplet(self, lot_id: int) -> None:
+        """Remonte l'illisibilite du champ le plus important du projet."""
+        self._erreurs.append(
+            ErreurRun(
+                etape="lot",
+                cible=str(lot_id),
+                type="ChampCritiqueIllisible",
+                message=(
+                    "la mention « reserve aux professionnels » n'a pas pu etre lue ; "
+                    "le lot est livre incomplet, ne pas decider dessus"
+                ),
+            )
+        )
 
     # --------------------------------------------------------------- assemblage
 

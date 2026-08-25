@@ -464,6 +464,19 @@ La liste complète des formulations reconnues est dans
 [`docs/regles-metier.md`](docs/regles-metier.md), **généré depuis le code** —
 il ne peut donc pas mentir sur ce que l'outil fait.
 
+### Chemins sous Windows
+
+Dans une chaîne TOML entre guillemets, `\` ouvre une séquence d'échappement :
+`repertoire = "C:\Users\moi\sorties"` échoue sur `Invalid hex value`. Deux
+écritures correctes :
+
+```toml
+repertoire = "C:/Users/moi/sorties"     # barres obliques
+repertoire = 'C:\Users\moi\sorties'    # apostrophes simples : rien n'est échappé
+```
+
+L'outil détecte ce cas précis et vous le dit dans le message d'erreur.
+
 ### Garde-fous de politesse
 
 Le code impose des plafonds que la configuration ne peut pas franchir :

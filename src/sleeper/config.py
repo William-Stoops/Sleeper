@@ -341,7 +341,7 @@ def load_configuration(path: Path) -> Configuration:
     try:
         raw = tomllib.loads(path.read_text(encoding="utf-8"))
     except tomllib.TOMLDecodeError as exc:
-        raise ConfigurationError(f"TOML invalide dans {path} : {exc}") from exc
+        raise ConfigurationError(_explain_toml(path, exc)) from exc
     except OSError as exc:
         raise ConfigurationError(f"lecture impossible de {path} : {exc}") from exc
 
@@ -349,6 +349,24 @@ def load_configuration(path: Path) -> Configuration:
         return Configuration.model_validate(raw)
     except ValidationError as exc:
         raise ConfigurationError(_explain(path, exc)) from exc
+
+
+def _explain_toml(path: Path, exc: tomllib.TOMLDecodeError) -> str:
+    """Render a TOML syntax error, with the Windows trap spelled out.
+
+    A Windows operator pasting `C:\\Users\\...` into a quoted string hits
+    "Invalid hex value": TOML reads `\\U` as an escape. The raw message says
+    nothing about that, and the fix is one character.
+    """
+    message = f"TOML invalide dans {path} : {exc}"
+    if "hex" in str(exc).lower() or "escape" in str(exc).lower():
+        message += (
+            "\n\n  Chemin Windows ? Dans une chaîne TOML entre guillemets, « \\ » "
+            "ouvre une séquence\n  d'échappement. Écrire le chemin avec des barres "
+            "obliques — « C:/Users/... » —\n  ou entre apostrophes simples — "
+            "'C:\\Users\\...' — qui n'échappent rien."
+        )
+    return message
 
 
 def _explain(path: Path, exc: ValidationError) -> str:

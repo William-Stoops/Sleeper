@@ -135,3 +135,36 @@ class TestFrenchWireFormat:
         assert config.network.user_agent.startswith("SleeperBot/")
         assert config.output.directory == Path("var/sorties")
         assert config.state.database == Path("var/etat/sleeper.sqlite3")
+
+
+class TestWindowsPaths:
+    """Un chemin Windows entre guillemets casse le TOML, et le message doit le dire.
+
+    « C:\\Users\\... » déclenche « Invalid hex value » : TOML lit « \\U » comme
+    une séquence d'échappement. Le message brut n'en dit rien, et le correctif
+    tient en un caractère.
+    """
+
+    def test_a_backslash_path_fails_with_guidance(self, tmp_path: Path) -> None:
+        content = MINIMAL.replace(
+            'repertoire = "var/sorties"', 'repertoire = "C:\\Users\\moi\\sorties"'
+        )
+        with pytest.raises(ConfigurationError, match="Chemin Windows"):
+            load_configuration(write(tmp_path, content))
+
+    def test_forward_slashes_are_accepted(self, tmp_path: Path) -> None:
+        content = MINIMAL.replace(
+            'repertoire = "var/sorties"', 'repertoire = "C:/Users/moi/sorties"'
+        )
+        assert load_configuration(write(tmp_path, content)).output.directory.parts
+
+    def test_a_literal_string_is_accepted(self, tmp_path: Path) -> None:
+        content = MINIMAL.replace(
+            'repertoire = "var/sorties"', "repertoire = 'C:\\Users\\moi\\sorties'"
+        )
+        assert load_configuration(write(tmp_path, content)).output.directory.parts
+
+    def test_an_ordinary_syntax_error_gets_no_windows_hint(self, tmp_path: Path) -> None:
+        with pytest.raises(ConfigurationError, match="TOML") as caught:
+            load_configuration(write(tmp_path, "[reseau\nuser_agent = "))
+        assert "Chemin Windows" not in str(caught.value)

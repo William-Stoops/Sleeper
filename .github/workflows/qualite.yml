@@ -45,7 +45,7 @@ jobs:
       - name: Tests + couverture
         run: uv run pytest --cov --cov-report=term-missing
 
-      - name: Aucune donnée personnelle dans les fixtures
+      - name: Aucune donnée personnelle dans le dépôt
         run: uv run python tools/check_no_personal_data.py
 
       - name: La configuration livrée est valide

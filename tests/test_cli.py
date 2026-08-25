@@ -92,10 +92,10 @@ user_agent = "SleeperBot/0.1 (+mailto:test@example.org)"
 departements = ["59", "62"]
 
 [sortie]
-repertoire = "{tmp_path / "sorties"}"
+repertoire = "{(tmp_path / "sorties").as_posix()}"
 
 [etat]
-base = "{tmp_path / "state.sqlite3"}"
+base = "{(tmp_path / "state.sqlite3").as_posix()}"
 """,
         encoding="utf-8",
     )

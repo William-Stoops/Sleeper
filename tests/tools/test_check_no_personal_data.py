@@ -58,7 +58,9 @@ class TestOtherPatterns:
         """La faille originelle : de vrais numéros ont atteint tests/ sans être vus."""
         suivis = tracked_files()
         assert suivis, "le garde-fou doit voir les fichiers versionnés"
-        assert any(str(f).startswith("tests/") for f in suivis)
+        # git ls-files rend des chemins POSIX ; sous Windows, str(Path(...))
+        # les rendrait avec des antislashs.
+        assert any(f.as_posix().startswith("tests/") for f in suivis)
 
     @pytest.mark.parametrize("phone", ["06-00-00-00-00", "06 00 00 00 00", "0600000000"])
     def test_detects_a_phone_number(self, phone: str) -> None:

@@ -181,6 +181,10 @@ segment_inactif = 0.0
 # ---------------------------------------------------------------------------
 [sortie]
 # ---------------------------------------------------------------------------
+# CHEMINS SOUS WINDOWS : dans une chaine TOML entre guillemets, « \ » ouvre une
+# sequence d'echappement, et « C:\Users\... » echoue sur « Invalid hex value ».
+# Ecrire « C:/Users/... » avec des barres obliques, ou 'C:\Users\...' entre
+# apostrophes simples, qui n'echappent rien.
 repertoire = "var/sorties"
 nom_lien_courant = "latest.json"
 digest = true

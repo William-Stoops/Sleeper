@@ -48,11 +48,34 @@ jobs:
       - name: Aucune donnée personnelle dans les fixtures
         run: uv run python tools/verifier_fixtures.py
 
-      - name: Le schéma publié suit les modèles
-        run: uv run sleeper schema && git diff --exit-code schemas/
-
       - name: La configuration livrée est valide
         run: uv run sleeper valider-config
 
+  # Contrôles de dérive : ils comparent des fichiers générés à ceux du dépôt.
+  # Inutile de les rejouer sur six combinaisons, et surtout : la redirection
+  # « > » de PowerShell écrit en UTF-16, et git peut normaliser les fins de
+  # ligne sur Windows. Ces deux pièges rendraient la comparaison fausse.
+  derive:
+    name: Artefacts générés à jour
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Installer uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+          cache-dependency-glob: uv.lock
+
+      - name: Installer les dépendances
+        run: uv sync --locked --all-extras
+
+      - name: Le schéma publié suit les modèles
+        run: |
+          uv run sleeper schema
+          git diff --exit-code schemas/
+
       - name: La doc des règles métier suit le code
-        run: uv run python tools/generer_doc_regles.py > docs/regles-metier.md && git diff --exit-code docs/
+        run: |
+          uv run python tools/generer_doc_regles.py > docs/regles-metier.md
+          git diff --exit-code docs/

@@ -29,22 +29,33 @@ from types import TracebackType
 from typing import Any, Final, Protocol, Self
 
 import httpx
+import structlog
 
 from sleeper.api.operations import CHEMIN_GRAPHQL, NOM_OPERATION
 from sleeper.api.session import Session
 from sleeper.config import Reseau
 from sleeper.errors import ProtectionAntiRobotError, ReseauError
 
-#: Signatures d'un challenge anti-robot servi a la place de la reponse.
-_SIGNATURES_CHALLENGE: Final = (
+#: Signatures d'un CAPTCHA. TERMINALES : Sleeper ne les resout pas, et ne
+#: reessaie pas — reessayer reviendrait a chercher a contourner.
+_SIGNATURES_CAPTCHA: Final = (
     re.compile(r"not\s+a\s+robot", re.IGNORECASE),
     re.compile(r"altcha", re.IGNORECASE),
+    re.compile(r"captcha", re.IGNORECASE),
+)
+
+#: Signatures d'une session simplement expiree : le site redemande son
+#: challenge JavaScript d'entree. Un visiteur ordinaire le repasserait sans y
+#: penser ; on renouvelle donc la session, UNE fois.
+_SIGNATURES_SESSION_EXPIREE: Final = (
     re.compile(r"window\.location\.href\s*=\s*'/redirect_", re.IGNORECASE),
     re.compile(r"requires JS enabled and cookies", re.IGNORECASE),
 )
 
 _STATUTS_REESSAYABLES: Final = frozenset({408, 425, 429, 500, 502, 503, 504})
 _STATUT_MINI_ERREUR: Final = 400
+
+_LOG = structlog.get_logger(__name__)
 
 
 class FournisseurSession(Protocol):
@@ -70,6 +81,25 @@ class SessionStatique:
 
     def renouveler(self) -> Session:
         return self._session
+
+
+def _corps_html(reponse: httpx.Response) -> str:
+    """Debut du corps, uniquement si la reponse n'est pas du JSON."""
+    if "json" in reponse.headers.get("content-type", "").lower():
+        return ""
+    return reponse.text[:2000]
+
+
+def _est_captcha(reponse: httpx.Response) -> bool:
+    """Le site demande une resolution humaine."""
+    extrait = _corps_html(reponse)
+    return any(signature.search(extrait) for signature in _SIGNATURES_CAPTCHA)
+
+
+def _session_expiree(reponse: httpx.Response) -> bool:
+    """Le site redemande simplement son challenge JavaScript d'entree."""
+    extrait = _corps_html(reponse)
+    return any(signature.search(extrait) for signature in _SIGNATURES_SESSION_EXPIREE)
 
 
 def identifier(agent_navigateur: str, identification: str) -> str:
@@ -160,6 +190,7 @@ class ClientDomaine:
             params["operationName"] = operation
 
         derniere: Exception | None = None
+        session_renouvelee = False
         for tentative in range(1, self._reseau.tentatives_max + 1):
             self._cadenceur.attendre()
             try:
@@ -172,7 +203,17 @@ class ClientDomaine:
             except httpx.HTTPError as exc:
                 derniere = exc
             else:
-                self._refuser_si_challenge(reponse)
+                self._refuser_si_captcha(reponse)
+                if _session_expiree(reponse) and not session_renouvelee:
+                    _LOG.info("session.expiree", action="renouvellement")
+                    self._session.renouveler()
+                    session_renouvelee = True
+                    continue
+                if _session_expiree(reponse):
+                    raise ReseauError(
+                        "le site redemande son challenge JavaScript malgre une "
+                        "session neuve : la protection a probablement change"
+                    )
                 if reponse.status_code < _STATUT_MINI_ERREUR:
                     return self._payload(reponse)
                 if reponse.status_code not in _STATUTS_REESSAYABLES:
@@ -194,17 +235,13 @@ class ClientDomaine:
         return min(brut, self._reseau.backoff_max_s)
 
     @staticmethod
-    def _refuser_si_challenge(reponse: httpx.Response) -> None:
-        """Arrete tout si le site presente un challenge anti-robot.
+    def _refuser_si_captcha(reponse: httpx.Response) -> None:
+        """Arrete tout si le site presente un CAPTCHA.
 
-        Sleeper ne resout aucun challenge et ne reessaie pas : reessayer
+        Sleeper ne resout aucun CAPTCHA et ne reessaie pas : reessayer
         reviendrait a chercher a le contourner.
         """
-        type_contenu = reponse.headers.get("content-type", "")
-        if "json" in type_contenu.lower():
-            return
-        extrait = reponse.text[:2000]
-        if any(signature.search(extrait) for signature in _SIGNATURES_CHALLENGE):
+        if _est_captcha(reponse):
             raise ProtectionAntiRobotError(
                 "le site presente un challenge anti-robot (WAF/CAPTCHA). "
                 "Sleeper ne le contourne pas : espacer les executions, verifier "

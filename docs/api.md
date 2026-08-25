@@ -179,9 +179,14 @@ Conséquences architecturales, toutes assumées :
 - **Le User-Agent annonce les deux** : le navigateur d'origine, dont la session
   est rejouée, et le robot qui s'en sert, avec une adresse de contact. Masquer
   l'un invaliderait la session ; masquer l'autre nous rendrait injoignables.
-- **Aucun challenge n'est résolu.** Une page ALTCHA fait lever
+- **Aucun CAPTCHA n'est résolu.** Une page ALTCHA fait lever
   `ProtectionAntiRobotError`, **sans aucune reprise**, et le run s'arrête avec
   le code de sortie `3`. Réessayer reviendrait à chercher à contourner.
+- **Une session expirée n'est pas un CAPTCHA.** Quand le site resert son
+  challenge JavaScript d'entrée (`/redirect_<jeton>/…`), `client.py` renouvelle
+  la session **une fois** et rejoue la requête. Si le challenge persiste malgré
+  une session neuve, c'est que la protection a changé : le run échoue avec un
+  message qui le dit.
 
 ### Politesse
 

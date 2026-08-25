@@ -131,7 +131,7 @@ class Collecteur:
         for page in range(1, PAGES_MAX + 1):
             variables = {
                 "currentPage": page,
-                "pageSize": self._config.filtres.lots_par_page,
+                "pageSize": self._config.filtres.taille_de_page,
                 "sort": {"end_date": "ASC"},
                 "filter": {"auction_auto_status": {"in": statuts}},
             }
@@ -173,7 +173,7 @@ class Collecteur:
             resultat = self._traiter_lot(brut, fiches.get(brut.id))
             if isinstance(resultat, LotEcarte):
                 ecartes.append(resultat)
-            elif resultat is not None:
+            else:
                 retenus.append(resultat)
         return retenus, ecartes
 
@@ -182,7 +182,7 @@ class Collecteur:
         for page in range(1, PAGES_MAX + 1):
             variables = {
                 "currentPage": page,
-                "pageSize": self._config.filtres.lots_par_page,
+                "pageSize": self._config.filtres.taille_de_page,
                 "sort": {"lot_number": "ASC"},
                 "filter": {"auction": {"eq": str(vente_id)}},
             }
@@ -240,9 +240,7 @@ class Collecteur:
 
     # -------------------------------------------------------------------- lots
 
-    def _traiter_lot(
-        self, brut: LotSource, attributs: AttributsVehicule | None
-    ) -> Lot | LotEcarte | None:
+    def _traiter_lot(self, brut: LotSource, attributs: AttributsVehicule | None) -> Lot | LotEcarte:
         """Applique les regles metier a un lot et le transforme en sortie."""
         signal = _signal(brut, attributs)
         if motif := self._exclusions.motif(signal):

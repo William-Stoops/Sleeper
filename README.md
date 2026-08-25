@@ -516,9 +516,20 @@ ALTCHA.** Cela impose trois choses, toutes délibérées :
    paramètres et rejette toute requête forgée, même sémantiquement équivalente
    (`400 — Bad query params length`). `operations.py` reproduit au caractère
    près les requêtes du site ; un test bloque toute divergence.
-3. **Aucun challenge n'est résolu, jamais.** Une page ALTCHA fait lever
+3. **Aucun CAPTCHA n'est résolu, jamais.** Une page ALTCHA fait lever
    `ProtectionAntiRobotError`, **sans aucune reprise**, et le run s'arrête avec
    le code `3`. Réessayer reviendrait à chercher à contourner.
+
+   Le client distingue soigneusement deux pages qui se ressemblent :
+
+   | Ce que le site sert | Ce que fait Sleeper |
+   |---|---|
+   | Le challenge JavaScript d'entrée (`/redirect_…`, « requires JS enabled ») | la session a expiré : il la **renouvelle une fois** et repart, comme le ferait un visiteur ordinaire |
+   | Une page ALTCHA (« Check that you are not a robot ») | il **s'arrête**, sans reprise |
+
+   Confondre les deux serait grave dans les deux sens : abandonner sur une
+   simple expiration rendrait l'outil inutilisable, insister sur un CAPTCHA
+   reviendrait à le contourner.
 
 L'outil **ne crée pas de compte, n'enchérit pas, n'écrit rien sur le site**, et
 ne stocke aucun identifiant.

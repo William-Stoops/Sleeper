@@ -13,6 +13,7 @@ import httpx
 import pytest
 
 from sleeper.api.client import Cadenceur, ClientDomaine, SessionStatique, identifier
+from sleeper.api.session import Session
 from sleeper.config import Reseau
 from sleeper.errors import ProtectionAntiRobotError, ReseauError
 
@@ -109,14 +110,111 @@ class TestProtectionAntiRobot:
         # Aucune reprise : insister sur un challenge, c'est chercher a le contourner.
         assert appels == 1
 
-    def test_redirection_javascript_est_terminale(self, reseau: Reseau) -> None:
-        page = "<html><body><script>window.location.href='/redirect_ABC/x'</script></body></html>"
+    def test_un_captcha_nest_pas_confondu_avec_une_session_expiree(self, reseau: Reseau) -> None:
+        """Un CAPTCHA reste terminal meme si la session pourrait etre renouvelee."""
+        session = SessionCompteuse()
 
         def gestionnaire(_: httpx.Request) -> httpx.Response:
-            return httpx.Response(200, text=page, headers={"content-type": "text/html"})
+            return httpx.Response(200, text=PAGE_ALTCHA, headers={"content-type": "text/html"})
 
-        with client_avec(reseau, gestionnaire) as client, pytest.raises(ProtectionAntiRobotError):
+        client = ClientDomaine(
+            reseau=reseau,
+            session=session,
+            transport=httpx.MockTransport(gestionnaire),
+            dormir=lambda _: None,
+            horloge=horloge_qui_court(),
+        )
+        with client, pytest.raises(ProtectionAntiRobotError):
             client.interroger("query x{y}", {})
+        assert session.renouvellements == 0
+
+
+PAGE_CHALLENGE_JS = (
+    "<html><body><script>window.location.href='/redirect_ABC/x'</script>"
+    "<noscript>This website requires JS enabled and cookies</noscript></body></html>"
+)
+
+
+class SessionCompteuse:
+    """Session qui compte ses renouvellements."""
+
+    def __init__(self) -> None:
+        self.renouvellements = 0
+        self._session = Session(cookies={"bot_mitigation_cookie": "v0"}, user_agent="Chrome/140")
+
+    def session(self) -> Session:
+        return self._session
+
+    def renouveler(self) -> Session:
+        self.renouvellements += 1
+        self._session = Session(
+            cookies={"bot_mitigation_cookie": f"v{self.renouvellements}"},
+            user_agent="Chrome/140",
+        )
+        return self._session
+
+
+class TestSessionExpiree:
+    """Le challenge JS d'entree n'est PAS un CAPTCHA : c'est une session a refaire."""
+
+    def _client(
+        self, reseau: Reseau, gestionnaire: Any, session: SessionCompteuse
+    ) -> ClientDomaine:
+        return ClientDomaine(
+            reseau=reseau,
+            session=session,
+            transport=httpx.MockTransport(gestionnaire),
+            dormir=lambda _: None,
+            horloge=horloge_qui_court(),
+        )
+
+    def test_renouvelle_la_session_puis_reussit(self, reseau: Reseau) -> None:
+        session = SessionCompteuse()
+        reponses = [
+            httpx.Response(200, text=PAGE_CHALLENGE_JS, headers={"content-type": "text/html"}),
+            httpx.Response(200, json={"data": {"ok": 1}}),
+        ]
+
+        def gestionnaire(_: httpx.Request) -> httpx.Response:
+            return reponses.pop(0)
+
+        with self._client(reseau, gestionnaire, session) as client:
+            assert client.interroger("query x{y}", {}) == {"data": {"ok": 1}}
+        assert session.renouvellements == 1
+
+    def test_la_requete_repart_avec_les_nouveaux_cookies(self, reseau: Reseau) -> None:
+        session = SessionCompteuse()
+        vues: list[httpx.Request] = []
+        reponses = [
+            httpx.Response(200, text=PAGE_CHALLENGE_JS, headers={"content-type": "text/html"}),
+            httpx.Response(200, json={"data": {}}),
+        ]
+
+        def gestionnaire(requete: httpx.Request) -> httpx.Response:
+            vues.append(requete)
+            return reponses.pop(0)
+
+        with self._client(reseau, gestionnaire, session) as client:
+            client.interroger("query x{y}", {})
+        assert "bot_mitigation_cookie=v1" in vues[-1].headers["cookie"]
+
+    def test_un_challenge_persistant_apres_renouvellement_est_une_erreur_claire(
+        self, reseau: Reseau
+    ) -> None:
+        session = SessionCompteuse()
+
+        def gestionnaire(_: httpx.Request) -> httpx.Response:
+            return httpx.Response(
+                200, text=PAGE_CHALLENGE_JS, headers={"content-type": "text/html"}
+            )
+
+        with (
+            self._client(reseau, gestionnaire, session) as client,
+            pytest.raises(ReseauError, match="protection a probablement change"),
+        ):
+            client.interroger("query x{y}", {})
+        # Une seule tentative de renouvellement : on n'insiste pas.
+        assert session.renouvellements == 1
 
 
 class TestReprises:

@@ -89,10 +89,11 @@ categorie_vehicules = "Véhicules"
 # Statuts de vente retenus : 2 = a venir, 3 = en cours.
 statuts_vente = [2, 3]
 
-# Taille de page demandee a l'API. La valeur employee par l'application du
-# site est 8 ; s'en ecarter fait sortir la requete du gabarit accepte par le
-# pare-feu applicatif. Ne pas augmenter sans avoir rejoue la decouverte.
-lots_par_page = 8
+# Taille de page demandee a l'API, pour la liste des ventes comme pour celle
+# des lots. La valeur employee par l'application du site est 8 ; s'en ecarter
+# fait sortir la requete du gabarit accepte par le pare-feu applicatif.
+# Ne pas augmenter sans avoir rejoue la decouverte.
+taille_de_page = 8
 
 # ---------------------------------------------------------------------------
 [sortie]

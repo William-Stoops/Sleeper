@@ -135,7 +135,10 @@ class Filtres(_Section):
     statuts_vente: list[int] = Field(
         default_factory=lambda: [int(s) for s in StatutVente.ouvertes()]
     )
-    lots_par_page: Annotated[int, Field(ge=1, le=50)] = 8
+    # S'applique a la liste des ventes comme a celle des lots : c'est la
+    # taille de page employee par l'application du site, et le pare-feu
+    # n'accepte pas qu'on s'en ecarte.
+    taille_de_page: Annotated[int, Field(ge=1, le=50)] = 8
 
 
 class Sortie(_Section):

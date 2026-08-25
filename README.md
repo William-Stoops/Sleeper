@@ -126,7 +126,12 @@ cp config/default.toml config/local.toml
 
 **Une seule valeur est à changer impérativement** : `reseau.user_agent`, qui
 doit porter une adresse de contact réellement relevée. L'outil refuse de
-démarrer avec un User-Agent anonyme.
+démarrer avec une identification anonyme.
+
+Cette chaîne n'écrase pas le User-Agent du navigateur — ce serait un
+déguisement. Elle voyage à côté, dans l'en-tête `From` défini par la RFC 9110
+pour l'adresse de la personne responsable d'un agent automatisé, et dans
+`X-Robot-Identification`. Un administrateur du site peut ainsi vous joindre.
 
 ### 5. Vérifier
 
@@ -362,7 +367,7 @@ message explicite plutôt que de produire un scan silencieusement vide.
 
 | Section | Ce qu'on y règle |
 |---|---|
-| `[reseau]` | URL, User-Agent, cadence, reprises, durée de session, `navigateur_headless` |
+| `[reseau]` | URL, identification du robot, cadence, reprises, durée de session, `navigateur_headless` |
 | `[perimetre]` | départements retenus, pays étrangers |
 | `[exclusions]` | règles actives, **formulations supplémentaires** |
 | `[filtres]` | catégorie, statuts de vente, taille de page |

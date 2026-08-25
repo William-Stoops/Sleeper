@@ -19,6 +19,7 @@ challenge is passed once and not on every execution.
 from __future__ import annotations
 
 import json
+import re
 from collections.abc import Mapping
 from dataclasses import dataclass
 from pathlib import Path
@@ -38,6 +39,9 @@ _CAPTCHA_MARKERS = ("not a robot", "altcha", "captcha")
 #: Functional headers of the application's protocol. `Store` is a Magento
 #: header, not an anti-bot token: it selects the store view.
 _APPLICATION_HEADERS = {"Store": "default", "Content-Type": "application/json"}
+
+#: An email address inside the configured identification string.
+_EMAIL = re.compile(r"[\w.+-]+@[\w-]+\.[\w.]{2,}")
 
 
 @dataclass(frozen=True, slots=True)
@@ -112,9 +116,7 @@ class BrowserTransport:
         headers = {
             **_APPLICATION_HEADERS,
             "Referer": f"{self._network.base_url}/ventes",
-            # The robot identifies itself alongside the browser it drives, so
-            # that a site administrator can recognise and contact us.
-            "X-Robot-Identification": self._network.user_agent,
+            **identification_headers(self._network.user_agent),
         }
         raw = self._context.request.get(
             f"{self._network.base_url}{path}",
@@ -198,6 +200,20 @@ class BrowserTransport:
         # A session amounts to implicit authentication: it concerns its owner
         # and nobody else.
         self._session_cache.chmod(0o600)
+
+
+def identification_headers(identification: str) -> dict[str, str]:
+    """Headers by which the robot makes itself reachable.
+
+    The browser announces its own User-Agent and we do not rewrite it — that
+    would be a disguise. Identification therefore travels alongside: `From`,
+    which RFC 9110 defines for exactly this purpose (the address of the human
+    responsible for an automated agent), plus the full configured string.
+    """
+    headers = {"X-Robot-Identification": identification}
+    if found := _EMAIL.search(identification):
+        headers["From"] = found.group(0)
+    return headers
 
 
 def payload_of(response: Response) -> dict[str, Any]:

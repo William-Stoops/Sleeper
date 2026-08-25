@@ -13,6 +13,11 @@ base_url = "https://encheres-domaine.gouv.fr"
 
 # Le robot doit etre identifiable : une adresse de contact ou une URL est
 # EXIGEE. Remplacer par une adresse reellement relevee.
+#
+# Cette chaine n'ecrase PAS le User-Agent du navigateur — ce serait un
+# deguisement. Elle voyage a cote, dans l'en-tete « From » (RFC 9110, adresse
+# de la personne responsable d'un agent automatise) et dans
+# « X-Robot-Identification ».
 user_agent = "SleeperBot/0.1 (+mailto:contact@exemple.fr)"
 
 # Politesse. Le site est un service public protege par un WAF : une seule

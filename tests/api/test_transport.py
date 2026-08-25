@@ -12,7 +12,12 @@ from pathlib import Path
 import pytest
 
 from sleeper.api.client import is_captcha, is_expired_session
-from sleeper.api.transport import BrowserTransport, Response, payload_of
+from sleeper.api.transport import (
+    BrowserTransport,
+    Response,
+    identification_headers,
+    payload_of,
+)
 from sleeper.config import Network
 from sleeper.errors import NetworkError
 
@@ -92,3 +97,17 @@ class TestStoredSession:
     ) -> None:
         (tmp_path / "session.json").write_text(content, encoding="utf-8")
         assert self._transport(tmp_path)._stored_session() is None
+
+
+class TestIdentificationHeaders:
+    """The robot must stay reachable even though it does not rewrite the UA."""
+
+    def test_extracts_the_contact_address_into_the_from_header(self) -> None:
+        headers = identification_headers("SleeperBot/0.1 (+mailto:contact@exemple.fr)")
+        assert headers["From"] == "contact@exemple.fr"
+        assert headers["X-Robot-Identification"] == "SleeperBot/0.1 (+mailto:contact@exemple.fr)"
+
+    def test_an_identification_by_url_carries_no_from_header(self) -> None:
+        headers = identification_headers("SleeperBot/0.1 (+https://exemple.fr/robot)")
+        assert "From" not in headers
+        assert headers["X-Robot-Identification"].startswith("SleeperBot/")

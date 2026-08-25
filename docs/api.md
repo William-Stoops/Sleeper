@@ -1,7 +1,7 @@
 # API du site cible — reconnaissance et exploitation
 
 > Relevé le 2026-08-25 sur `encheres-domaine.gouv.fr`.
-> À rejouer avec `tools/discover_api.py` dès qu'un run échoue en `SchemaAmontError`.
+> À rejouer avec `tools/discover_api.py` dès qu'un run échoue en `UpstreamSchemaError`.
 
 ## 1. Verdict
 
@@ -191,7 +191,7 @@ Conséquences architecturales, toutes assumées :
   est rejouée, et le robot qui s'en sert, avec une adresse de contact. Masquer
   l'un invaliderait la session ; masquer l'autre nous rendrait injoignables.
 - **Aucun CAPTCHA n'est résolu.** Une page ALTCHA fait lever
-  `ProtectionAntiRobotError`, **sans aucune reprise**, et le run s'arrête avec
+  `AntiBotChallengeError`, **sans aucune reprise**, et le run s'arrête avec
   le code de sortie `3`. Réessayer reviendrait à chercher à contourner.
 - **Une session expirée n'est pas un CAPTCHA.** Quand le site resert son
   challenge JavaScript d'entrée (`/redirect_<jeton>/…`), `client.py` renouvelle

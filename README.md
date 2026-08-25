@@ -523,7 +523,7 @@ et il tourne en pre-commit comme en CI.
 
 ### Rejouer la reconnaissance de l'API
 
-Quand un run échoue en `SchemaAmontError`, c'est que le contrat amont a bougé :
+Quand un run échoue en `UpstreamSchemaError`, c'est que le contrat amont a bougé :
 
 ```bash
 uv run python tools/discover_api.py --out var/discovery
@@ -585,12 +585,13 @@ ALTCHA.** Cela impose trois choses, toutes délibérées :
    masqué. Dans une unité systemd, préfixer `ExecStart` par
    `/usr/bin/xvfb-run -a`.
    </details>
+
 2. **Les requêtes sont rejouées à l'identique.** Le pare-feu valide la forme des
    paramètres et rejette toute requête forgée, même sémantiquement équivalente
    (`400 — Bad query params length`). `operations.py` reproduit au caractère
    près les requêtes du site ; un test bloque toute divergence.
 3. **Aucun CAPTCHA n'est résolu, jamais.** Une page ALTCHA fait lever
-   `ProtectionAntiRobotError`, **sans aucune reprise**, et le run s'arrête avec
+   `AntiBotChallengeError`, **sans aucune reprise**, et le run s'arrête avec
    le code `3`. Réessayer reviendrait à chercher à contourner.
 
    Le client distingue soigneusement deux pages qui se ressemblent :

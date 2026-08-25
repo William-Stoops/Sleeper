@@ -20,7 +20,7 @@ from __future__ import annotations
 import hashlib
 from collections.abc import Callable, Iterator, Mapping
 from dataclasses import dataclass, field
-from datetime import UTC, datetime
+from datetime import datetime
 from typing import Any, Protocol
 
 import structlog
@@ -92,8 +92,9 @@ class Collector:
         self._gateway = gateway
         self._state = state
         # A single source of time: injectable, so the run is reproducible in
-        # tests without freezing the process clock.
-        self._clock = clock or (lambda: datetime.now(UTC))
+        # tests without freezing the process clock. Local time with its offset,
+        # as the output contract shows: the operator reads these timestamps.
+        self._clock = clock or (lambda: datetime.now().astimezone())
         self._started_at = self._clock()
         self._perimeter: Perimeter = config.perimeter()
         self._exclusions: ExclusionEngine = config.exclusion_engine()

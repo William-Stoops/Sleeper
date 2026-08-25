@@ -9,6 +9,7 @@ Only the local-file destination is implemented today.
 
 from __future__ import annotations
 
+import re
 from pathlib import Path
 from typing import Protocol
 
@@ -61,6 +62,11 @@ class FileSink:
 
 
 def timestamped_name(prefix: str, instant: str, extension: str) -> str:
-    """Build a portable file name from an ISO timestamp."""
-    safe = instant.replace(":", "-").replace("+", "_")
+    """Build a portable file name from an ISO timestamp.
+
+    Sub-second precision is dropped: it makes the name unreadable and two runs
+    a second apart do not exist — the tool runs once a day.
+    """
+    without_micros = re.sub(r"\.\d+", "", instant)
+    safe = without_micros.replace(":", "-").replace("+", "_")
     return f"{prefix}-{safe}.{extension}"

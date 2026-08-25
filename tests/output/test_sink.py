@@ -67,3 +67,9 @@ class TestTimestampedName:
         name = timestamped_name("sleeper", "2026-08-25T04:30:00+02:00", "json")
         assert name == "sleeper-2026-08-25T04-30-00_02-00.json"
         assert ":" not in name
+
+    def test_drops_sub_second_precision(self) -> None:
+        # Relevé sur un run réel : « 12-40-02.254400 » est illisible, et deux
+        # runs à une seconde d'intervalle n'existent pas.
+        name = timestamped_name("sleeper", "2026-08-25T12:40:02.254400+00:00", "json")
+        assert name == "sleeper-2026-08-25T12-40-02_00-00.json"

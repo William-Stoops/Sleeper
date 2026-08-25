@@ -154,6 +154,24 @@ class FiltersConfig(_Section):
     page_size: Annotated[int, Field(ge=1, le=50)] = Field(alias="taille_de_page", default=8)
 
 
+class BuyerFeesConfig(_Section):
+    """Buyer's premium: what to assume when the source does not publish it.
+
+    The default is deliberately HIGH. Under-stating the fee inflates the bid
+    ceiling downstream, which is the expensive mistake; over-stating it only
+    costs a missed lot.
+    """
+
+    #: Percentage, VAT included. Overridable per sale below.
+    default_pct: Annotated[float, Field(ge=0, le=50)] = Field(alias="defaut_pct", default=14.4)
+    #: Rate per sale id, when the operator knows it: {"474" = 11.0}.
+    per_sale_pct: dict[str, float] = Field(alias="par_vente", default_factory=dict)
+
+    def for_sale(self, sale_id: str) -> float:
+        """Assumed rate for a sale: its override, or the default."""
+        return self.per_sale_pct.get(sale_id, self.default_pct)
+
+
 class OutputConfig(_Section):
     """Destination of the produced document."""
 
@@ -202,6 +220,7 @@ class Configuration(BaseModel):
     scope: ScopeConfig = Field(alias="perimetre")
     exclusions: ExclusionsConfig = Field(default_factory=ExclusionsConfig)
     filters: FiltersConfig = Field(alias="filtres", default_factory=FiltersConfig)
+    buyer_fees: BuyerFeesConfig = Field(alias="frais", default_factory=BuyerFeesConfig)
     output: OutputConfig = Field(alias="sortie")
     state: StateConfig = Field(alias="etat")
     logging: LoggingConfig = Field(alias="journalisation", default_factory=LoggingConfig)

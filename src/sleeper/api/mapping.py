@@ -52,6 +52,10 @@ class SaleSource:
     lot_count: int
     categories: tuple[str, ...]
     trade_only: bool | None
+    #: Conditions of sale, when the source publishes them. Empty in practice:
+    #: `auction_documents.conditions_of_sale.url_path` is null on every sale
+    #: observed to date.
+    conditions_text: str = ""
 
 
 @dataclass(frozen=True, slots=True)

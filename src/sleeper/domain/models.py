@@ -33,6 +33,10 @@ Department = Annotated[str, Field(max_length=3)]
 #: It is the single most important piece of information in this project.
 CRITICAL_FIELD = "reserve_aux_professionnels"
 
+#: Where a buyer's premium came from. `config` is not a source the site
+#: published: it is an operator assumption, and it is flagged as such.
+FeeSource = Literal["vente", "lot", "config", "absent"]
+
 
 class SleeperModel(BaseModel):
     """Shared base: unknown fields rejected, immutable, populated by name."""
@@ -66,6 +70,8 @@ class Run(SleeperModel):
     #: Lots whose collection point could not be read. They are collected, never
     #: dropped, and they are the number to watch after every run.
     lots_scope_unknown: int = Field(alias="lots_perimetre_inconnu", ge=0, default=0)
+    #: Sales that do not publish their buyer's premium anywhere.
+    sales_without_published_fees: int = Field(alias="ventes_sans_frais_publies", ge=0, default=0)
     errors: list[RunError] = Field(alias="erreurs", default_factory=list)
 
 
@@ -88,6 +94,9 @@ class Sale(SleeperModel):
     department: Department = Field(alias="departement")
     scope: ScopeStatus = Field(alias="perimetre")
     lot_count: int = Field(alias="nb_lots", ge=0)
+    buyer_fee_pct: float | None = Field(alias="frais_acheteur_pct", default=None, ge=0)
+    buyer_fee_source: FeeSource = Field(alias="frais_acheteur_source", default="absent")
+    conditions_text: str = Field(alias="conditions_vente_texte", default="")
 
 
 class Lot(SleeperModel):
@@ -124,6 +133,10 @@ class Lot(SleeperModel):
     department: Department = Field(alias="departement")
     viewing_dates: str = Field(alias="dates_visite")
     buyer_fee_pct: float | None = Field(alias="frais_acheteur_pct", default=None, ge=0)
+    buyer_fee_source: FeeSource = Field(alias="frais_acheteur_source", default="absent")
+    #: True when the rate is an assumption, not something the source published.
+    #: It must stay visible all the way to the report.
+    hypothetical_fees: bool = Field(alias="frais_hypothetiques", default=False)
     vat_reclaimable: bool | None = Field(alias="tva_recuperable")
     full_description: str = Field(alias="description_integrale")
     scope: ScopeStatus = Field(alias="perimetre")

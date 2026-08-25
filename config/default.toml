@@ -105,6 +105,26 @@ statuts_vente = [2, 3]
 taille_de_page = 8
 
 # ---------------------------------------------------------------------------
+[frais]
+# ---------------------------------------------------------------------------
+# Frais acheteur. C'est de ce taux que depend tout calcul de plafond
+# d'enchere en aval.
+#
+# La source ne les publie presque jamais : sur le run du 25/08, un seul lot
+# sur 338 annoncait son taux. Le repli est donc la norme, pas l'exception.
+#
+# Il est pris HAUT, et delibrement : sous-estimer les frais gonfle le plafond
+# d'enchere, ce qui est l'erreur couteuse. Les surestimer ne coute qu'un lot
+# manque. 14,4 % TTC = 12 % HT majore de la TVA.
+defaut_pct = 14.4
+
+# Taux connus, par identifiant de vente. Ce qui est renseigne ici n'est PAS
+# publie par la source : le lot porte alors frais_acheteur_source = "config"
+# et frais_hypothetiques = true, visibles jusque dans le digest.
+[frais.par_vente]
+# "474" = 11.0
+
+# ---------------------------------------------------------------------------
 [sortie]
 # ---------------------------------------------------------------------------
 repertoire = "var/sorties"

@@ -192,3 +192,51 @@ class TestRealDescriptionRegressions:
     )
     def test_vin_wordings(self, raw: str, expected: str) -> None:
         assert text.extract_vin(raw) == expected
+
+
+class TestBuyerFee:
+    """Correctif 3 : le taux dont dépend tout calcul de plafond d'enchère.
+
+    Il valait null sur 100 % des 338 lots retenus du run du 25/08, alors qu'un
+    lot au moins le publie en clair.
+    """
+
+    REEL = (
+        "Attention : une TVA de 20 % est appliquée. L'acquéreur devra s'acquitter "
+        "du montant de cette taxe calculée sur le montant d'adjudication et frais "
+        "de vente (11%) inclus."
+    )
+
+    def test_reads_the_rate_of_the_real_lot(self) -> None:
+        assert text.extract_buyer_fee_pct(self.REEL) == 11.0
+
+    @pytest.mark.parametrize(
+        ("raw", "expected"),
+        [
+            ("frais de vente (11%)", 11.0),
+            ("frais de vente : 11 %", 11.0),
+            ("frais de vente 12,5 %", 12.5),
+            ("frais acheteur de 14.4 %", 14.4),
+            ("frais acheteur : 10%", 10.0),
+            ("commission de 9 %", 9.0),
+            ("commission acheteur 7,5%", 7.5),
+        ],
+    )
+    def test_accepted_wordings(self, raw: str, expected: float) -> None:
+        assert text.extract_buyer_fee_pct(raw) == expected
+
+    @pytest.mark.parametrize(
+        "raw",
+        [
+            "une TVA de 20 % est appliquée",
+            "décote de 30 %",
+            "DACIA DUSTER, Gazole, 06 cv",
+            "",
+        ],
+    )
+    def test_an_unrelated_percentage_is_not_a_fee(self, raw: str) -> None:
+        assert text.extract_buyer_fee_pct(raw) is None
+
+    def test_an_implausible_rate_is_refused(self) -> None:
+        # Un taux de frais acheteur ne dépasse pas quelques dizaines de pour cent.
+        assert text.extract_buyer_fee_pct("frais de vente (90 %)") is None

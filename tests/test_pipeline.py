@@ -306,3 +306,57 @@ class TestProgressReporting:
 
     def test_lot_pagination_is_reported(self, events: str) -> None:
         assert "lots.listing" in events
+
+
+class TestBuyerFees:
+    """Correctif 3 : le taux dont dépend tout plafond d'enchère en aval."""
+
+    def _with_fee_text(self, text: str) -> dict[str, Any]:
+        payload = _single_page(load("auction_lots_467_page1.json"), "products")
+        payload["data"]["products"]["items"][0]["short_description"] = {"html": f"<p>{text}</p>"}
+        return payload
+
+    def test_a_rate_published_on_one_lot_propagates_to_its_sale(
+        self, config: Configuration
+    ) -> None:
+        """Extrait réel de la vente 474 : « frais de vente (11%) »."""
+        reel = (
+            "Attention : une TVA de 20 % est appliquée. L'acquéreur devra s'acquitter du "
+            "montant de cette taxe calculée sur le montant d'adjudication et frais de "
+            "vente (11%) inclus. 120000 km."
+        )
+        result = collect(config, FakeGateway(**{operations.SALE_LOTS: self._with_fee_text(reel)}))
+        sale = next(s for s in result.sales if s.id == "467")
+        assert (sale.buyer_fee_pct, sale.buyer_fee_source) == (11.0, "vente")
+        # Le lot qui le publie le porte comme sien ; ses voisins l'héritent.
+        publisher = next(lot for lot in result.lots if lot.buyer_fee_source == "lot")
+        assert publisher.buyer_fee_pct == 11.0
+        assert publisher.hypothetical_fees is False
+        heirs = [lot for lot in result.lots if lot.buyer_fee_source == "vente"]
+        assert heirs and all(lot.buyer_fee_pct == 11.0 for lot in heirs)
+        assert all(lot.hypothetical_fees is False for lot in heirs)
+
+    def test_without_any_published_rate_the_configured_default_applies(
+        self, config: Configuration
+    ) -> None:
+        result = collect(config, FakeGateway())
+        assert result.run.sales_without_published_fees > 0
+        assert all(lot.buyer_fee_source == "config" for lot in result.lots)
+        assert all(lot.buyer_fee_pct == config.buyer_fees.default_pct for lot in result.lots)
+
+    def test_an_assumed_rate_is_always_flagged(self, config: Configuration) -> None:
+        """Sous-estimer les frais gonfle le plafond : l'hypothèse doit se voir."""
+        result = collect(config, FakeGateway())
+        assert all(lot.hypothetical_fees for lot in result.lots)
+
+    def test_a_per_sale_override_beats_the_default(self, config: Configuration) -> None:
+        frais = config.buyer_fees.model_copy(update={"per_sale_pct": {"467": 9.5}})
+        surcharge = config.model_copy(update={"buyer_fees": frais})
+        result = collect(surcharge, FakeGateway())
+        assert all(lot.buyer_fee_pct == 9.5 for lot in result.lots)
+        assert all(lot.hypothetical_fees for lot in result.lots)
+
+    def test_the_default_is_taken_high(self, config: Configuration) -> None:
+        # 14,4 % TTC : surestimer ne coûte qu'un lot manqué, sous-estimer coûte
+        # une enchère perdue.
+        assert config.buyer_fees.default_pct >= 14.0

@@ -33,6 +33,7 @@ from sleeper.domain.damage import classify_damage
 from sleeper.domain.exclusions import ExclusionEngine, LotSignals
 from sleeper.domain.models import (
     CRITICAL_FIELD,
+    FeeSource,
     Lot,
     OutputDocument,
     RejectedLot,
@@ -82,6 +83,7 @@ class Counters:
     lots_kept: int = 0
     lots_rejected: int = 0
     scope_unknown: int = 0
+    sales_without_fees: int = 0
     reasons: dict[str, int] = field(default_factory=dict)
 
     def reject(self, reason: str) -> None:
@@ -130,7 +132,7 @@ class Collector:
                 announced_lots=source.lot_count,
                 title=source.title[:70],
             )
-            kept, dropped, sale_place = self._process_sale(source)
+            kept, dropped, sale_place, sale_fee = self._process_sale(source)
             _LOG.info(
                 "sale.finished",
                 sale=source.id,
@@ -140,7 +142,7 @@ class Collector:
             )
             lots.extend(kept)
             rejected.extend(dropped)
-            sales.append(self._sale(source, sale_place, len(kept) + len(dropped)))
+            sales.append(self._sale(source, sale_place, sale_fee, len(kept) + len(dropped)))
 
         self._state.close_absent_sales(seen, self._started_at)
         return self._document(sales, lots, rejected)
@@ -168,7 +170,9 @@ class Collector:
             if page >= max(pagination.total_pages, 1):
                 return
 
-    def _process_sale(self, source: SaleSource) -> tuple[list[Lot], list[RejectedLot], Place]:
+    def _process_sale(
+        self, source: SaleSource
+    ) -> tuple[list[Lot], list[RejectedLot], Place, BuyerFee]:
         """Process every lot of a sale. An upstream breakage stops this sale only."""
         self._state.record_sale(
             sale_id=source.id,
@@ -186,23 +190,27 @@ class Collector:
             raise
         except SleeperError as exc:
             self._record_anomaly("lots", f"vente {source.id}", exc)
-            return [], [], Place("", "")
+            return [], [], Place("", ""), BuyerFee(None, "absent")
 
         listings = self._listings(raw_lots)
         # The sale itself publishes no location — `location` is always null.
         # Its place is therefore the one its lots agree on, computed over ALL
         # of them, so that a lot without a place can inherit it.
         sale_place = _dominant_place(raw_lots)
+        sale_fee = _sale_fee(source, raw_lots)
+        if sale_fee.pct is None:
+            self._counters.sales_without_fees += 1
+            _LOG.info("sale.fees_unpublished", sale=source.id)
         kept: list[Lot] = []
         rejected: list[RejectedLot] = []
         for raw in raw_lots:
             self._counters.lots_seen += 1
-            outcome = self._process_lot(raw, listings.get(raw.id), sale_place)
+            outcome = self._process_lot(raw, listings.get(raw.id), sale_place, sale_fee)
             if isinstance(outcome, RejectedLot):
                 rejected.append(outcome)
             else:
                 kept.append(outcome)
-        return kept, rejected, sale_place
+        return kept, rejected, sale_place, sale_fee
 
     def _sale_lots(self, sale_id: int) -> Iterator[LotSource]:
         """Walk the pages of a sale's lots."""
@@ -281,7 +289,11 @@ class Collector:
     # -------------------------------------------------------------------- lots
 
     def _process_lot(
-        self, raw: LotSource, attributes: VehicleAttributes | None, sale_place: Place
+        self,
+        raw: LotSource,
+        attributes: VehicleAttributes | None,
+        sale_place: Place,
+        sale_fee: BuyerFee,
     ) -> Lot | RejectedLot:
         """Apply the business rules to a lot and turn it into output."""
         # Recorded BEFORE the business rules, and for every lot: the historical
@@ -320,12 +332,14 @@ class Collector:
             department=department_from_postcode(resolved.postcode) or "",
             timestamp=self._started_at,
         )
+        fee = _lot_fee(raw, sale_fee, self._config.buyer_fees.for_sale(str(raw.sale_id)))
         lot = _build_lot(
             config=self._config,
             raw=raw,
             attributes=attributes,
             resolved=resolved,
             description=description,
+            fee=fee,
             is_new=observation.is_new,
             bid_moved=observation.bid_moved,
         )
@@ -363,7 +377,7 @@ class Collector:
 
     # --------------------------------------------------------------- assembling
 
-    def _sale(self, source: SaleSource, place: Place, seen_lots: int) -> Sale:
+    def _sale(self, source: SaleSource, place: Place, fee: BuyerFee, seen_lots: int) -> Sale:
         """Compose the sale, deriving its place from its lots' collection points."""
         return Sale(
             id=str(source.id),
@@ -377,6 +391,9 @@ class Collector:
             department=department_from_postcode(place.postcode) or "",
             scope=self._perimeter.status(place.postcode, place.location),
             lot_count=source.lot_count or seen_lots,
+            buyer_fee_pct=fee.pct,
+            buyer_fee_source=fee.source,
+            conditions_text=source.conditions_text,
         )
 
     def _document(
@@ -391,6 +408,7 @@ class Collector:
             rejected=self._counters.lots_rejected,
             reasons=self._counters.reasons,
             scope_unknown=self._counters.scope_unknown,
+            sales_without_fees=self._counters.sales_without_fees,
             errors=len(self._errors),
             duration_s=round(duration, 1),
         )
@@ -403,6 +421,7 @@ class Collector:
                 lots_kept=self._counters.lots_kept,
                 lots_rejected=self._counters.lots_rejected,
                 lots_scope_unknown=self._counters.scope_unknown,
+                sales_without_published_fees=self._counters.sales_without_fees,
                 errors=self._errors,
             ),
             sales=sales,
@@ -448,11 +467,65 @@ def _signals(raw: LotSource, attributes: VehicleAttributes | None) -> LotSignals
 
 
 @dataclass(frozen=True, slots=True)
+class BuyerFee:
+    """A buyer's premium and where it came from."""
+
+    pct: float | None
+    source: FeeSource
+
+    @property
+    def hypothetical(self) -> bool:
+        """True when the rate is an assumption, not a published figure."""
+        return self.source in {"config", "absent"}
+
+
+@dataclass(frozen=True, slots=True)
 class Place:
     """A collection point, as a sale's lots agree on it."""
 
     location: str
     postcode: str
+
+
+def _sale_fee(source: SaleSource, raw_lots: list[LotSource]) -> BuyerFee:
+    """Resolve a sale's buyer premium, in the order the brief prescribes.
+
+    1. the sale's own conditions of sale;
+    2. failing that, the rate its lots agree on — a rate published on one lot
+       of a sale is the rate of the whole sale, they are uniform in practice.
+
+    Pass 1 has no usable source today: the API exposes
+    `auction_documents.conditions_of_sale.url_path` as null on every sale
+    observed. The plumbing is here for the day it does.
+    """
+    from_conditions = text.extract_buyer_fee_pct(source.conditions_text)
+    if from_conditions is not None:
+        return BuyerFee(from_conditions, "vente")
+
+    published = [
+        rate
+        for raw in raw_lots
+        if (rate := text.extract_buyer_fee_pct(raw.description)) is not None
+    ]
+    if published:
+        # The most frequent rate, ties broken on the value so the result never
+        # depends on iteration order.
+        counts: dict[float, int] = {}
+        for rate in published:
+            counts[rate] = counts.get(rate, 0) + 1
+        return BuyerFee(max(counts.items(), key=lambda x: (x[1], x[0]))[0], "vente")
+
+    return BuyerFee(None, "absent")
+
+
+def _lot_fee(raw: LotSource, sale_fee: BuyerFee, assumed_pct: float) -> BuyerFee:
+    """Resolve a lot's buyer premium: its own text, then its sale, then config."""
+    own = text.extract_buyer_fee_pct(raw.description)
+    if own is not None:
+        return BuyerFee(own, "lot")
+    if sale_fee.pct is not None:
+        return BuyerFee(sale_fee.pct, "vente")
+    return BuyerFee(assumed_pct, "config")
 
 
 def _dominant_place(raw_lots: list[LotSource]) -> Place:
@@ -493,6 +566,7 @@ def _build_lot(
     attributes: VehicleAttributes | None,
     resolved: ResolvedScope,
     description: str,
+    fee: BuyerFee,
     is_new: bool,
     bid_moved: bool,
 ) -> Lot:
@@ -508,10 +582,11 @@ def _build_lot(
         **_vehicle_fields(raw, attributes, description),
         starting_price=raw.starting_price,
         current_bid=raw.current_bid,
-        # The source publishes neither the number of bidders nor per-lot buyer
-        # fees: `null` here means "absent from the source".
+        # The source does not publish the number of bidders anywhere.
         bidder_count=None,
-        buyer_fee_pct=None,
+        buyer_fee_pct=fee.pct,
+        buyer_fee_source=fee.source,
+        hypothetical_fees=fee.hypothetical,
         collection_place=resolved.location,
         postcode=resolved.postcode,
         department=department_from_postcode(resolved.postcode) or "",

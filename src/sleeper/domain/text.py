@@ -69,6 +69,21 @@ _CONDITION = re.compile(
 
 _MAX_MONTH: Final = 12
 
+#: Plausibility ceiling for a buyer's premium. Auction fees run to a few tens
+#: of a percent; anything beyond is another figure that happened to sit next
+#: to the words — a VAT rate, a discount, a share.
+_MAX_BUYER_FEE_PCT: Final = 30.0
+
+#: Buyer's premium. The wording varies by regional directorate, so three forms
+#: are accepted. The percentage must follow the words closely: "une TVA de
+#: 20 %" sits in the same sentence as the fee on real listings, and reading it
+#: as the fee would inflate every bid ceiling downstream.
+_BUYER_FEE = re.compile(
+    r"(?:frais\s+de\s+vente|frais\s+acheteurs?|commission(?:\s+acheteurs?)?)"
+    r"[^%\d]{0,20}(\d{1,2}(?:[,.]\d{1,2})?)\s*%",
+    re.IGNORECASE,
+)
+
 #: Plafond de plausibilité de la puissance fiscale. Les descriptions annoncent
 #: souvent la puissance DIN AVANT la puissance fiscale (« 2.0l DCI 16v 120cv,
 #: […] 07cv ») : sans ce plafond, on retient la mauvaise.
@@ -174,3 +189,17 @@ def extract_declared_condition(source: str | None) -> str | None:
     """Pick up the condition mention exactly as written, without rewording."""
     found = _CONDITION.search(source or "")
     return _WHITESPACE.sub(" ", found.group(1)).strip() if found else None
+
+
+def extract_buyer_fee_pct(source: str | None) -> float | None:
+    """Read the buyer's premium, as a percentage.
+
+    Returns the figure as written — 11.0 for "11 %" — not a fraction. The
+    output contract carries percentages because a human reads it; the scoring
+    divides by a hundred.
+    """
+    found = _BUYER_FEE.search(source or "")
+    if not found:
+        return None
+    rate = float(found.group(1).replace(",", "."))
+    return rate if 0 < rate <= _MAX_BUYER_FEE_PCT else None

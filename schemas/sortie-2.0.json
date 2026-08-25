@@ -208,6 +208,22 @@
           "default": null,
           "title": "Frais Acheteur Pct"
         },
+        "frais_acheteur_source": {
+          "default": "absent",
+          "enum": [
+            "vente",
+            "lot",
+            "config",
+            "absent"
+          ],
+          "title": "Frais Acheteur Source",
+          "type": "string"
+        },
+        "frais_hypothetiques": {
+          "default": false,
+          "title": "Frais Hypothetiques",
+          "type": "boolean"
+        },
         "tva_recuperable": {
           "anyOf": [
             {
@@ -356,6 +372,12 @@
           "title": "Lots Perimetre Inconnu",
           "type": "integer"
         },
+        "ventes_sans_frais_publies": {
+          "default": 0,
+          "minimum": 0,
+          "title": "Ventes Sans Frais Publies",
+          "type": "integer"
+        },
         "erreurs": {
           "items": {
             "$ref": "#/$defs/RunError"
@@ -476,6 +498,35 @@
           "minimum": 0,
           "title": "Nb Lots",
           "type": "integer"
+        },
+        "frais_acheteur_pct": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Frais Acheteur Pct"
+        },
+        "frais_acheteur_source": {
+          "default": "absent",
+          "enum": [
+            "vente",
+            "lot",
+            "config",
+            "absent"
+          ],
+          "title": "Frais Acheteur Source",
+          "type": "string"
+        },
+        "conditions_vente_texte": {
+          "default": "",
+          "title": "Conditions Vente Texte",
+          "type": "string"
         }
       },
       "required": [

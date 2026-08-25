@@ -29,24 +29,33 @@ def _access(lot: Lot) -> str:
     return "⚠️ inconnu"
 
 
+def _fee(lot: Lot) -> str:
+    """The premium, marked when it is an assumption rather than a published rate."""
+    if lot.buyer_fee_pct is None:
+        return "—"
+    mark = " ⚠️" if lot.hypothetical_fees else ""
+    return f"{lot.buyer_fee_pct:.1f} %{mark}"
+
+
 def _row(lot: Lot) -> str:
     place = f"{lot.department or '??'} {lot.collection_place}".strip()
     outside = {"hors": " · *hors périmètre*", "inconnu": " · **périmètre ?**"}.get(lot.scope, "")
     mileage = "—" if lot.mileage is None else f"{lot.mileage:,} km".replace(",", " ")
     return (
         f"| [{lot.title or lot.id}]({lot.url}) | {_access(lot)} | {mileage} | "
-        f"{_euros(lot.starting_price)} | {_euros(lot.current_bid)} | {place}{outside} |"
+        f"{_euros(lot.starting_price)} | {_euros(lot.current_bid)} | {_fee(lot)} | "
+        f"{place}{outside} |"
     )
 
 
 def _table(lots: Sequence[Lot]) -> list[str]:
     header = [
-        "| Lot | Accès | Km | Mise à prix | Enchère | Retrait |",
-        "|---|---|---|---|---|---|",
+        "| Lot | Accès | Km | Mise à prix | Enchère | Frais | Retrait |",
+        "|---|---|---|---|---|---|---|",
     ]
     body = [_row(lot) for lot in lots[:SECTION_LIMIT]]
     if len(lots) > SECTION_LIMIT:
-        body.append(f"| … et {len(lots) - SECTION_LIMIT} autres | | | | | |")
+        body.append(f"| … et {len(lots) - SECTION_LIMIT} autres | | | | | | |")
     return header + body
 
 
@@ -75,6 +84,15 @@ def _header(run: Run, incomplete: Sequence[Lot]) -> list[str]:
         f"{run.lots_scope_unknown} périmètre inconnu · {run.duration_seconds:.0f} s",
         "",
     ]
+    if run.sales_without_published_fees:
+        lines += [
+            f"> ⚠️ **{run.sales_without_published_fees} vente(s) ne publient pas leurs "
+            "frais acheteur.** Les taux marqués ⚠️ sont des hypothèses de "
+            "configuration, prises hautes — les sous-estimer gonflerait le plafond "
+            "d'enchère.",
+            "",
+        ]
+
     if incomplete:
         lines += [
             f"> ⚠️ **{len(incomplete)} lot(s) incomplet(s)** : la mention "

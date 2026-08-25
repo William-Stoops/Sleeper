@@ -196,21 +196,15 @@ class Collecteur:
 
     def _fiches(self, bruts: list[LotSource]) -> dict[int, AttributsVehicule]:
         """Recupere les fiches detaillees manquantes, en respectant la cadence."""
-        a_charger = [b for b in bruts if self._etat.fiche_en_cache(b.id, _empreinte(b)) is None]
         charges: dict[int, AttributsVehicule] = {}
+        a_charger: list[LotSource] = []
 
         for brut in bruts:
-            memo = self._etat.fiche_en_cache(brut.id, _empreinte(brut))
-            if memo is None:
-                continue
-            attributs = _attributs_depuis_memo(memo)
+            attributs = self._depuis_cache(brut)
             if attributs is None:
-                # Cache ecrit par une version anterieure du modele : on le
-                # traite comme absent plutot que de faire tomber le run.
-                _LOG.warning("fiche.cache_perime", lot=brut.id)
                 a_charger.append(brut)
-                continue
-            charges[brut.id] = attributs
+            else:
+                charges[brut.id] = attributs
 
         if a_charger:
             _LOG.info("fiches.telechargement", a_charger=len(a_charger), en_cache=len(charges))
@@ -224,6 +218,18 @@ class Collecteur:
                     brut.id, _empreinte(brut), _memo_depuis_attributs(attributs), self._debut
                 )
         return charges
+
+    def _depuis_cache(self, brut: LotSource) -> AttributsVehicule | None:
+        """Fiche memorisee et encore exploitable, `None` s'il faut la retelecharger."""
+        memo = self._etat.fiche_en_cache(brut.id, _empreinte(brut))
+        if memo is None:
+            return None
+        attributs = _attributs_depuis_memo(memo)
+        if attributs is None:
+            # Cache ecrit par une version anterieure du modele : on le traite
+            # comme absent plutot que de faire tomber le run.
+            _LOG.warning("fiche.cache_perime", lot=brut.id)
+        return attributs
 
     def _fiche(self, brut: LotSource) -> AttributsVehicule | None:
         """Telecharge une fiche. Un echec unitaire ne fait pas tomber le run."""

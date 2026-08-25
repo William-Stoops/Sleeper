@@ -156,8 +156,23 @@ class BrowserTransport:
         self._pass_entry_challenge()
 
     def _stored_session(self) -> str | None:
-        """Path of the persisted session, when there is a usable one."""
-        return str(self._session_cache) if self._session_cache.is_file() else None
+        """Path of the persisted session, when there is a usable one.
+
+        A cache left behind by another version — or simply corrupt — is
+        ignored rather than allowed to fail the browser start. The cost is one
+        extra entry challenge; the alternative is a run that cannot start.
+        """
+        if not self._session_cache.is_file():
+            return None
+        try:
+            stored = json.loads(self._session_cache.read_text(encoding="utf-8"))
+        except (OSError, ValueError):
+            _LOG.warning("session.cache_unreadable", path=str(self._session_cache))
+            return None
+        if not isinstance(stored, dict) or "cookies" not in stored:
+            _LOG.warning("session.cache_unusable", path=str(self._session_cache))
+            return None
+        return str(self._session_cache)
 
     def _pass_entry_challenge(self) -> None:
         """Load the sales page, which is where the site hands out its session."""

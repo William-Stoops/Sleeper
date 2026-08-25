@@ -287,7 +287,7 @@ vente précise.
 Si une opération a changé, extraire le nouveau texte de `captures.json`,
 remplacer la constante correspondante dans `operations.py`, régénérer
 `tests/fixtures/api/operations_reference.json`, puis **relancer
-`tools/check_fixtures.py`** avant de versionner : les captures fraîches
+`tools/check_no_personal_data.py`** avant de versionner : les captures fraîches
 contiennent des données personnelles.
 
 ## 9. Versions du contrat de sortie

@@ -47,8 +47,8 @@ repos:
         files: ^src/sleeper/domain/(exclusions|codes)\.py$
 
       - id: pas-de-donnees-personnelles
-        name: aucune donnee personnelle dans les fixtures
-        entry: uv run python tools/check_fixtures.py
+        name: aucune donnee personnelle dans le depot
+        entry: uv run python tools/check_no_personal_data.py
         language: system
         pass_filenames: false
-        files: ^tests/fixtures/
+        always_run: true

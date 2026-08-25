@@ -12,14 +12,16 @@ import pytest
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "tools"))
 
-from check_fixtures import PATTERNS
+from check_no_personal_data import ALLOWED, PATTERNS, tracked_files
 
 
 class TestIbanPattern:
     @pytest.mark.parametrize(
         "value",
         [
-            "FR7600000000000000000000000",  # relevé dans une charge utile réelle
+            # Structure d'un IBAN français, valeur inventée : ce fichier ne
+            # doit contenir aucune donnée réelle, c'est tout son objet.
+            "FR7600000000000000000000000",
             "DE89370400440532013000",
         ],
     )
@@ -38,9 +40,25 @@ class TestIbanPattern:
         assert not PATTERNS["IBAN"].search(vin)
 
 
+class TestAllowList:
+    """Les valeurs légitimes du dépôt : contacts du projet et valeurs inventées."""
+
+    def test_the_project_contacts_are_allowed(self) -> None:
+        assert "contact@exemple.fr" in ALLOWED
+
+    def test_the_synthetic_test_values_are_allowed(self) -> None:
+        assert {"06-00-00-00-00", "FR7600000000000000000000000"} <= ALLOWED
+
+
 class TestOtherPatterns:
     def test_detects_an_email(self) -> None:
         assert PATTERNS["courriel"].search("prenom.nom@exemple.gouv.fr")
+
+    def test_it_scans_every_tracked_file_not_only_the_fixtures(self) -> None:
+        """La faille originelle : de vrais numéros ont atteint tests/ sans être vus."""
+        suivis = tracked_files()
+        assert suivis, "le garde-fou doit voir les fichiers versionnés"
+        assert any(str(f).startswith("tests/") for f in suivis)
 
     @pytest.mark.parametrize("phone", ["06-00-00-00-00", "06 00 00 00 00", "0600000000"])
     def test_detects_a_phone_number(self, phone: str) -> None:

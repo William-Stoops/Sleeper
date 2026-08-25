@@ -590,7 +590,7 @@ uv run pre-commit install
 | `uv run mypy` | typage strict, **zéro `# type: ignore`** |
 | `uv run ruff check src tests tools` | lint |
 | `uv run ruff format src tests tools` | format |
-| `uv run python tools/check_fixtures.py` | aucune donnée personnelle dans les fixtures |
+| `uv run python tools/check_no_personal_data.py` | aucune donnée personnelle dans les fixtures |
 | `uv run python tools/generate_rules_doc.py > docs/regles-metier.md` | régénérer la doc des règles |
 | `uv run python tools/audit_rule.py sans_cle --limit 30` | auditer une règle d'exclusion, avec le fragment déclencheur de chaque lot |
 
@@ -603,7 +603,7 @@ des règles suivent bien le code.
 Les fixtures sont de **vraies réponses de l'API**, capturées le 2026-08-25 puis
 **expurgées des données personnelles** — l'API renvoie l'IBAN du compte de
 l'État ainsi que le nom, le courriel et le téléphone d'agents publics.
-`tools/check_fixtures.py` refuse tout versionnement qui en réintroduirait,
+`tools/check_no_personal_data.py` refuse tout versionnement qui en réintroduirait,
 et il tourne en pre-commit comme en CI.
 
 ### Rejouer la reconnaissance de l'API

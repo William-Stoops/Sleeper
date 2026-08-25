@@ -46,7 +46,7 @@ jobs:
         run: uv run pytest --cov --cov-report=term-missing
 
       - name: Aucune donnée personnelle dans les fixtures
-        run: uv run python tools/check_fixtures.py
+        run: uv run python tools/check_no_personal_data.py
 
       - name: La configuration livrée est valide
         run: uv run sleeper valider-config

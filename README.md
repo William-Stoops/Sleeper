@@ -234,6 +234,16 @@ s'arrête (code `3`). Les requêtes partent **en séquence**, espacées de
 `delai_entre_requetes_s` : il n'y a pas de réglage de concurrence, une limite
 de débit globale étant une garantie plus stricte.
 
+> ⚠️ **L'outil ouvre une fenêtre de navigateur** (voir
+> [Limites assumées](#limites-assumées)). Une tâche planifiée doit donc
+> disposer d'un affichage : session ouverte sur macOS et Windows, `xvfb-run`
+> sur un serveur Linux. Les trois recettes ci-dessous en tiennent compte.
+
+> ⏱️ **Durée.** Le premier run télécharge une fiche par lot, à la cadence
+> configurée : comptez une trentaine de minutes pour un catalogue complet. Les
+> suivants ne retéléchargent que les lots nouveaux ou modifiés, grâce au cache,
+> et durent quelques minutes.
+
 <details open>
 <summary><b>Linux / macOS — cron</b></summary>
 
@@ -243,11 +253,12 @@ crontab -e
 
 ```cron
 # Sleeper : collecte quotidienne à 04h30
-30 4 * * * cd /chemin/vers/Sleeper && /usr/bin/env uv run sleeper collecter -c config/local.toml >> var/sleeper.log 2>&1
+30 4 * * * cd /chemin/vers/Sleeper && /usr/bin/env xvfb-run -a uv run sleeper collecter -c config/local.toml >> var/sleeper.log 2>&1
 ```
 
 Le chemin absolu vers le projet est indispensable : cron ne démarre pas dans
-votre répertoire de travail.
+votre répertoire de travail. `xvfb-run` fournit l'affichage virtuel dont le
+navigateur a besoin ; sur macOS, le retirer et laisser une session ouverte.
 </details>
 
 <details>
@@ -263,7 +274,7 @@ After=network-online.target
 [Service]
 Type=oneshot
 WorkingDirectory=%h/Sleeper
-ExecStart=%h/.local/bin/uv run sleeper collecter -c config/local.toml
+ExecStart=/usr/bin/xvfb-run -a %h/.local/bin/uv run sleeper collecter -c config/local.toml
 # Le code 3 (challenge anti-robot) n'est pas un échec du service.
 SuccessExitStatus=3
 ```
@@ -291,7 +302,8 @@ journalctl --user -u sleeper.service -n 50
 ```
 
 `RandomizedDelaySec` évite de taper le site à la seconde près chaque jour.
-`loginctl enable-linger $USER` permet l'exécution sans session ouverte.
+`loginctl enable-linger $USER` permet l'exécution sans session ouverte —
+`xvfb-run` fournissant alors l'affichage.
 </details>
 
 <details>
@@ -337,10 +349,14 @@ $action  = New-ScheduledTaskAction -Execute "uv" `
              -WorkingDirectory "C:\Chemin\Vers\Sleeper"
 $trigger = New-ScheduledTaskTrigger -Daily -At 4:30am
 $reglages = New-ScheduledTaskSettingsSet -StartWhenAvailable `
-             -RandomDelay (New-TimeSpan -Minutes 15)
+             -RandomDelay (New-TimeSpan -Minutes 15) `
+             -ExecutionTimeLimit (New-TimeSpan -Hours 2)
+
+# -LogonType Interactive est necessaire : le navigateur exige un bureau.
+$principal = New-ScheduledTaskPrincipal -UserId $env:USERNAME -LogonType Interactive
 
 Register-ScheduledTask -TaskName "Sleeper - encheres du Domaine" `
-  -Action $action -Trigger $trigger -Settings $reglages `
+  -Action $action -Trigger $trigger -Settings $reglages -Principal $principal `
   -Description "Collecte quotidienne des ventes de vehicules du Domaine"
 ```
 

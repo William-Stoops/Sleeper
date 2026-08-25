@@ -267,6 +267,19 @@
           "title": "Dates Visite",
           "type": "string"
         },
+        "date_cloture": {
+          "anyOf": [
+            {
+              "format": "date-time",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Date Cloture"
+        },
         "frais_acheteur_pct": {
           "anyOf": [
             {
@@ -339,6 +352,78 @@
           },
           "title": "Champs Manquants",
           "type": "array"
+        },
+        "cote_reference": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Cote Reference"
+        },
+        "remise_en_etat_estimee": {
+          "default": 0.0,
+          "minimum": 0,
+          "title": "Remise En Etat Estimee",
+          "type": "number"
+        },
+        "marge_theorique": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Marge Theorique"
+        },
+        "score": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Score"
+        },
+        "rang": {
+          "anyOf": [
+            {
+              "minimum": 1,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Rang"
+        },
+        "score_explication": {
+          "items": {
+            "$ref": "#/$defs/ScoreRule"
+          },
+          "title": "Score Explication",
+          "type": "array"
+        },
+        "non_reparable_economiquement": {
+          "default": false,
+          "title": "Non Reparable Economiquement",
+          "type": "boolean"
+        },
+        "a_coter": {
+          "default": false,
+          "title": "A Coter",
+          "type": "boolean"
         }
       },
       "required": [
@@ -441,6 +526,12 @@
           "default": 0,
           "minimum": 0,
           "title": "Lots Perimetre Inconnu",
+          "type": "integer"
+        },
+        "lots_sans_cote": {
+          "default": 0,
+          "minimum": 0,
+          "title": "Lots Sans Cote",
           "type": "integer"
         },
         "ventes_sans_frais_publies": {
@@ -620,6 +711,50 @@
         "nb_lots"
       ],
       "title": "Sale",
+      "type": "object"
+    },
+    "ScoreRule": {
+      "additionalProperties": false,
+      "description": "One rule that moved a lot's score, and the evidence that fired it.",
+      "properties": {
+        "regle": {
+          "title": "Regle",
+          "type": "string"
+        },
+        "coefficient": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Coefficient"
+        },
+        "cout_eur": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Cout Eur"
+        },
+        "extrait_declencheur": {
+          "default": "",
+          "title": "Extrait Declencheur",
+          "type": "string"
+        }
+      },
+      "required": [
+        "regle"
+      ],
+      "title": "ScoreRule",
       "type": "object"
     }
   },

@@ -133,6 +133,52 @@ defaut_pct = 14.4
 # "474" = 11.0
 
 # ---------------------------------------------------------------------------
+[score]
+# ---------------------------------------------------------------------------
+# CE N'EST PAS UNE COTATION, C'EST UN TRI.
+#
+# Il est grossier, rapide, entierement deterministe, explicable ligne a ligne
+# et volontairement conservateur : mieux vaut faire remonter un lot mediocre
+# que d'en enterrer un bon. Il ne decide d'aucun achat. Il decide seulement de
+# qui recoit l'analyse couteuse.
+#
+# La calibration de config/cotes.csv est la principale dette du projet : ses
+# valeurs sont une amorce, pas une verite.
+
+table_cotes = "config/cotes.csv"
+table_reparations = "config/reparations.csv"
+
+# Combien de lots recoivent l'analyse couteuse.
+a_coter_n = 25
+
+# Un lot que la table de cotes ne connait pas et qui part sous ce seuil est
+# remonte quand meme : rare, mal catalogue et sous-evalue est exactement le
+# profil recherche.
+seuil_sans_cote_eur = 2000.0
+
+# La remise en etat est plafonnee a cette part de la cote ; au-dela, le lot est
+# marque non reparable economiquement.
+plafond_reparations_ratio = 0.6
+
+# Coefficients. Aucun n'est en dur dans le code.
+#
+# Le 1,20 des lots professionnels traduit un fait de marche : la moitie des
+# encherisseurs en est ecartee d'office, donc le prix d'adjudication decroche
+# mecaniquement de la cote.
+reserve_aux_professionnels = 1.20
+ct_favorable_recent = 1.10
+faible_km_par_an = 1.15
+seuil_km_par_an = 8000
+dommages_structurels = 0.75
+gravite_signal = 0.85
+gravite_lourd = 0.70
+gravite_redhibitoire = 0.30
+non_reparable = 0.10
+perimetre_hors = 0.0
+perimetre_inconnu = 1.0
+segment_inactif = 0.0
+
+# ---------------------------------------------------------------------------
 [sortie]
 # ---------------------------------------------------------------------------
 repertoire = "var/sorties"

@@ -64,6 +64,8 @@ ignore = ["PLR0913"]
 "tests/*" = ["PLR2004"]
 # Embedded Markdown template: the table width is not negotiable.
 "tools/generate_rules_doc.py" = ["E501"]
+# Le digest est du français rendu : « × » y est le signe multiplié, pas un x.
+"src/sleeper/output/digest.py" = ["RUF001"]
 
 [tool.mypy]
 python_version = "3.12"

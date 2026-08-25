@@ -128,6 +128,48 @@ def _errors(errors: Sequence[RunError]) -> list[str]:
     return [*lines, ""]
 
 
+def _euros_or_dash(amount: float | None) -> str:
+    return "—" if amount is None else _euros(amount)
+
+
+def _heaviest_rule(lot: Lot) -> str:
+    """The line that explains the lot's rank best: its heaviest coefficient."""
+    weighted = [r for r in lot.score_explanation if r.coefficient is not None]
+    if not weighted:
+        return "—"
+    rule = min(weighted, key=lambda r: r.coefficient or 1.0)
+    evidence = f" — « {rule.extrait_declencheur} »" if rule.extrait_declencheur else ""
+    return f"`{rule.regle}` ×{rule.coefficient:.2f}{evidence}"
+
+
+def _to_quote(lots: Sequence[Lot]) -> list[str]:
+    """The head of the report: who earns the expensive analysis, and why."""
+    shortlist = sorted(
+        (lot for lot in lots if lot.to_quote),
+        key=lambda lot: (lot.rank is None, lot.rank or 0, lot.id),
+    )
+    lines = [f"## À coter en priorité ({len(shortlist)})", ""]
+    if not shortlist:
+        return [*lines, "_aucun lot ne franchit le seuil_", ""]
+    lines += [
+        "| Rang | Score | Lot | Cote | Mise à prix | Remise en état | Marge | Accès "
+        "| Lieu | Clôture | Ce qui pèse le plus |",
+        "|---|---|---|---|---|---|---|---|---|---|---|",
+    ]
+    for lot in shortlist:
+        rank = str(lot.rank) if lot.rank else "—"
+        score = f"{lot.score:.2f}" if lot.score is not None else "—"
+        closing = f"{lot.closes_at:%d/%m}" if lot.closes_at else "—"
+        place = f"{lot.department or '??'} {lot.collection_place}".strip()
+        lines.append(
+            f"| {rank} | **{score}** | [{lot.title or lot.id}]({lot.url}) "
+            f"| {_euros_or_dash(lot.quote_eur)} | {_euros(lot.starting_price)} "
+            f"| {_euros(lot.repairs_eur)} | {_euros_or_dash(lot.margin_eur)} "
+            f"| {_access(lot)} | {place} | {closing} | {_heaviest_rule(lot)} |"
+        )
+    return [*lines, ""]
+
+
 def render(document: OutputDocument) -> str:
     """Compose the Markdown digest of a run."""
     lots = document.lots
@@ -139,6 +181,7 @@ def render(document: OutputDocument) -> str:
     unknown_scope = _scope_unknown(lots)
 
     lines = _header(document.run, incomplete)
+    lines += _to_quote(lots)
     lines += _section("Nouveaux lots", new, "aucun nouveau lot depuis le dernier run")
     lines += _section("Enchères qui ont bougé", moved, "aucun mouvement d'enchère")
     lines += _section(

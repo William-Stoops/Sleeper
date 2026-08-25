@@ -1,0 +1,21 @@
+motif,pattern,cout_eur,gravite
+moteur_hs,"moteur HS|probl[èe]me moteur|casse moteur|moteur d[ée]grad[ée]|moteur et embrayage HS|joint de culasse.{0,20}HS|culasse HS",3500,redhibitoire
+boite_hs,"bo[iî]te de vitesses? HS|BV HS|BV et embrayage HS|bo[iî]te bloqu[ée]e",2000,lourd
+corrosion_chassis,"corrosion (ch[aâ]ssis|berceau|longeron)|corrosion importante|traces de corrosion ch[aâ]ssis",4000,redhibitoire
+incomplet_preleve,"incomplet et possiblement pr[ée]lev[ée]|pr[ée]l[èe]vements? de pi[èe]ces",2500,redhibitoire
+batterie_traction_location,"location de batterie|batterie reste la propri[ée]t[ée] de|DIAC Location|contrat de location obligatoire",0,redhibitoire
+turbo,"turbo.{0,15}HS|turbo compresseur HS",1800,lourd
+injection,"injecteurs?.{0,15}HS|d[ée]faut injection|probl[èe]me.{0,10}injection|pompe (haute[- ]pression|à injection).{0,10}(HS|fuite)",1600,lourd
+embrayage,"embrayage.{0,10}(HS|dur|à pr[ée]voir)|pr[ée]voir kit embrayage|volant moteur",1200,moyen
+distribution,"distribution à pr[ée]voir|kit de distribution|chaine de distribution bruyante|cha[iî]ne de distribution",1000,moyen
+adblue,"probl[èe]me circuit AdBlue|voyant urea|t[ée]moin adblue",600,moyen
+vitrage_non_receptionne,"vitrages? non conformes?|vitrage n'est pas r[ée]ceptionn[ée]|r[ée]ception à titre isol[ée]|RTI",2500,lourd
+serigraphie_perforations,"toit perc[ée]|hayon perc[ée]|trous sur le (pavillon|tableau de bord)|montants perc[ée]s|enl[èe]vement de la s[ée]rigraphie|d[ée]s[ée]quip[ée] des [ée]l[ée]ments (Gendarmerie|Police)",900,moyen
+pare_brise,"pare[- ]brise.{0,20}(HS|fissur|f[êe]l[ée]|impact)|impact pare[- ]brise",400,leger
+pneus,"pneus?.{0,10}HS|4 pneus|remplacement des pneumatiques|pneumatiques HS",500,leger
+freins,"freins?.{0,15}(HS|d[ée]faillant)|disques et plaquettes|bloc ABS HS",450,leger
+batterie_12v,"batterie HS|d[ée]marre au booster|batterie 12V",150,leger
+interieur_degrade,"int[ée]rieur (moisi|humide|v[ée]tuste|d[ée]grad[ée])|si[èe]ge conducteur trou[ée]|sellerie v[ée]tuste",600,leger
+etat_meca_inconnu,"[EÉ]tat m[ée]canique non connu|[ée]tat m[ée]canique inconnu",0,signal
+vetuste_generale,"V[ée]tust[ée] g[ée]n[ée]rale",600,moyen
+revision_base,"r[ée]vision (g[ée]n[ée]rale|compl[èe]te) à (pr[ée]voir|effectuer)",400,leger

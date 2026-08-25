@@ -192,6 +192,42 @@ class BuyerFeesConfig(_Section):
         return self.per_sale_pct.get(sale_id, self.default_pct)
 
 
+class ScoringConfig(_Section):
+    """Coefficients of the sort. Every one of them lives here, none in code.
+
+    The trade-only coefficient states a fact of the market: on those lots half
+    the bidders are barred, so the hammer price falls away from the quote.
+    """
+
+    quotes_path: Path = Field(alias="table_cotes", default=Path("config/cotes.csv"))
+    repairs_path: Path = Field(alias="table_reparations", default=Path("config/reparations.csv"))
+    #: How many lots earn the expensive analysis.
+    to_quote_count: Annotated[int, Field(ge=1)] = Field(alias="a_coter_n", default=25)
+    #: A lot the quote table does not know, going below this, is surfaced
+    #: anyway: rare, mis-catalogued and under-priced is the profile sought.
+    unknown_model_price_threshold: Annotated[float, Field(ge=0)] = Field(
+        alias="seuil_sans_cote_eur", default=2000.0
+    )
+    #: Repairs are capped at this share of the quote; beyond it the lot is
+    #: marked beyond economic repair.
+    repairs_cap_ratio: Annotated[float, Field(gt=0, le=1)] = Field(
+        alias="plafond_reparations_ratio", default=0.6
+    )
+
+    trade_only: float = Field(alias="reserve_aux_professionnels", default=1.20)
+    recent_favourable_inspection: float = Field(alias="ct_favorable_recent", default=1.10)
+    low_yearly_mileage: float = Field(alias="faible_km_par_an", default=1.15)
+    low_yearly_mileage_threshold: int = Field(alias="seuil_km_par_an", default=8000)
+    structural_damage: float = Field(alias="dommages_structurels", default=0.75)
+    severity_signal: float = Field(alias="gravite_signal", default=0.85)
+    severity_heavy: float = Field(alias="gravite_lourd", default=0.70)
+    severity_prohibitive: float = Field(alias="gravite_redhibitoire", default=0.30)
+    beyond_economic_repair: float = Field(alias="non_reparable", default=0.10)
+    out_of_scope: float = Field(alias="perimetre_hors", default=0.0)
+    unknown_scope: float = Field(alias="perimetre_inconnu", default=1.0)
+    inactive_segment: float = Field(alias="segment_inactif", default=0.0)
+
+
 class OutputConfig(_Section):
     """Destination of the produced document."""
 
@@ -241,6 +277,7 @@ class Configuration(BaseModel):
     exclusions: ExclusionsConfig = Field(default_factory=ExclusionsConfig)
     filters: FiltersConfig = Field(alias="filtres", default_factory=FiltersConfig)
     buyer_fees: BuyerFeesConfig = Field(alias="frais", default_factory=BuyerFeesConfig)
+    scoring: ScoringConfig = Field(alias="score", default_factory=ScoringConfig)
     output: OutputConfig = Field(alias="sortie")
     state: StateConfig = Field(alias="etat")
     logging: LoggingConfig = Field(alias="journalisation", default_factory=LoggingConfig)

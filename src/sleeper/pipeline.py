@@ -52,6 +52,8 @@ from sleeper.domain.territory import (
     department_from_postcode,
 )
 from sleeper.errors import AntiBotChallengeError, SleeperError
+from sleeper.scoring.engine import ScoreInput, ScoreResult, ScoringEngine
+from sleeper.scoring.tables import QuoteTable, RepairTable
 from sleeper.state.store import SleeperState
 
 _LOG = structlog.get_logger(__name__)
@@ -89,6 +91,7 @@ class Counters:
     scope_unknown: int = 0
     sales_without_fees: int = 0
     integrity_anomalies: int = 0
+    without_quote: int = 0
     reasons: dict[str, int] = field(default_factory=dict)
 
     def reject(self, reason: str) -> None:
@@ -116,6 +119,12 @@ class Collector:
         self._started_at = self._clock()
         self._perimeter: Perimeter = config.perimeter()
         self._exclusions: ExclusionEngine = config.exclusion_engine()
+        self._scoring = ScoringEngine(
+            quotes=QuoteTable.load(config.scoring.quotes_path),
+            repairs=RepairTable.load(config.scoring.repairs_path),
+            settings=config.scoring,
+            active_segments=config.filters.active_segments,
+        )
         self._counters = Counters()
         self._errors: list[RunError] = []
 
@@ -150,6 +159,7 @@ class Collector:
             sales.append(self._sale(source, sale_place, sale_fee, len(kept) + len(dropped)))
 
         self._state.close_absent_sales(seen, self._started_at)
+        lots = self._rank(lots)
         self._check_integrity(lots)
         return self._document(sales, lots, rejected)
 
@@ -417,6 +427,7 @@ class Collector:
             scope_unknown=self._counters.scope_unknown,
             sales_without_fees=self._counters.sales_without_fees,
             integrity=self._counters.integrity_anomalies,
+            without_quote=self._counters.without_quote,
             errors=len(self._errors),
             duration_s=round(duration, 1),
         )
@@ -431,12 +442,47 @@ class Collector:
                 lots_scope_unknown=self._counters.scope_unknown,
                 sales_without_published_fees=self._counters.sales_without_fees,
                 integrity_anomalies=self._counters.integrity_anomalies,
+                lots_without_quote=self._counters.without_quote,
                 errors=self._errors,
             ),
             sales=sales,
             lots=lots,
             rejected=rejected,
         )
+
+    def _rank(self, lots: list[Lot]) -> list[Lot]:
+        """Score every lot, rank them, and mark those worth the analysis.
+
+        The order is fully determined: descending score, ties broken on the
+        lot id. Two runs over the same data must produce the same ranking, or
+        the digest would churn for nothing.
+        """
+        scored = [(lot, self._scoring.score(_score_input(lot))) for lot in lots]
+        self._counters.without_quote = sum(1 for _, r in scored if r.quote_eur is None)
+
+        ranked = sorted(
+            (pair for pair in scored if pair[1].score is not None),
+            key=lambda pair: (-(pair[1].score or 0.0), pair[0].id),
+        )
+        ranks = {lot.id: position for position, (lot, _) in enumerate(ranked, 1)}
+        top = {lot.id for lot, _ in ranked[: self._config.scoring.to_quote_count]}
+
+        threshold = self._config.scoring.unknown_model_price_threshold
+        return [
+            lot.model_copy(
+                update={
+                    "quote_eur": result.quote_eur,
+                    "repairs_eur": result.repairs_eur,
+                    "margin_eur": result.margin_eur,
+                    "score": result.score,
+                    "rank": ranks.get(lot.id),
+                    "score_explanation": result.explanation,
+                    "beyond_economic_repair": result.beyond_economic_repair,
+                    "to_quote": _worth_quoting(lot, result, top, threshold),
+                }
+            )
+            for lot, result in scored
+        ]
 
     def _check_integrity(self, lots: list[Lot]) -> None:
         """Sanity-check the whole run. Never fails it, always reports it."""
@@ -631,6 +677,7 @@ def _build_lot(
         postcode=resolved.postcode,
         department=department_from_postcode(resolved.postcode) or "",
         viewing_dates=text.extract_viewing_dates(description) or "",
+        closes_at=raw.closes_at,
         full_description=description,
         scope=resolved.status,
         inherited_scope=resolved.inherited,
@@ -716,6 +763,53 @@ def _mileage(attributes: VehicleAttributes | None, description: str) -> int | No
     if attributes and attributes.mileage:
         return attributes.mileage
     return text.extract_mileage(description)
+
+
+def _score_input(lot: Lot) -> ScoreInput:
+    """What the sort is allowed to look at, drawn from a finished lot."""
+    inspection = lot.inspection
+    recent = bool(
+        inspection.resultat.startswith("favorable") and inspection.valide_a_la_date_du_run
+    )
+    return ScoreInput(
+        lot_id=lot.id,
+        make=lot.make,
+        model=lot.model,
+        fuel=lot.fuel,
+        year=_registration_year(lot.first_registration),
+        mileage=lot.mileage,
+        mileage_per_year=lot.mileage_per_year,
+        starting_price=lot.starting_price,
+        buyer_fee_pct=lot.buyer_fee_pct,
+        description=lot.full_description,
+        trade_only=lot.trade_only,
+        body_damage=lot.body_damage,
+        scope=lot.scope,
+        segment=lot.segment,
+        recent_favourable_inspection=recent,
+    )
+
+
+def _worth_quoting(lot: Lot, result: ScoreResult, top: set[str], price_threshold: float) -> bool:
+    """Whether this lot earns the expensive analysis.
+
+    Two ways in. The first is the ranking. The second is not a detail: a lot
+    the table does not know, going for 500 €, is exactly the profile sought —
+    rare, mis-catalogued, under-priced. It must not fall through for want of a
+    quote.
+
+    That second door is shut to lots carrying a prohibitive fault. A Renault
+    Zoé whose traction battery stays leased from DIAC is cheap and unknown to
+    the table, and it is a trap, not a find: surfacing it would spend the
+    expensive analysis on a lot no price can rescue.
+    """
+    if lot.id in top:
+        return True
+    if result.quote_eur is not None:
+        return False
+    if result.beyond_economic_repair or result.prohibitive_fault:
+        return False
+    return lot.starting_price is not None and lot.starting_price < price_threshold
 
 
 def _registration_year(first_registration: str) -> int | None:

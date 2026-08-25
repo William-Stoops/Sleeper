@@ -27,6 +27,7 @@ from sleeper.domain.damage import BodyDamage
 from sleeper.domain.inspection import Inspection
 from sleeper.domain.segment import Segment
 from sleeper.domain.territory import ScopeStatus
+from sleeper.scoring.engine import ScoreRule
 
 Postcode = Annotated[str, Field(max_length=10)]
 Department = Annotated[str, Field(max_length=3)]
@@ -72,6 +73,9 @@ class Run(SleeperModel):
     #: Lots whose collection point could not be read. They are collected, never
     #: dropped, and they are the number to watch after every run.
     lots_scope_unknown: int = Field(alias="lots_perimetre_inconnu", ge=0, default=0)
+    #: Lots the quote table does not know. They are not lost: the cheap ones
+    #: go into their own queue.
+    lots_without_quote: int = Field(alias="lots_sans_cote", ge=0, default=0)
     #: Sales that do not publish their buyer's premium anywhere.
     sales_without_published_fees: int = Field(alias="ventes_sans_frais_publies", ge=0, default=0)
     #: Integrity findings. They never fail the run; they must be seen.
@@ -141,6 +145,7 @@ class Lot(SleeperModel):
     postcode: Postcode = Field(alias="code_postal")
     department: Department = Field(alias="departement")
     viewing_dates: str = Field(alias="dates_visite")
+    closes_at: datetime | None = Field(alias="date_cloture", default=None)
     buyer_fee_pct: float | None = Field(alias="frais_acheteur_pct", default=None, ge=0)
     buyer_fee_source: FeeSource = Field(alias="frais_acheteur_source", default="absent")
     #: True when the rate is an assumption, not something the source published.
@@ -154,6 +159,17 @@ class Lot(SleeperModel):
     new_since_last_run: bool = Field(alias="nouveau_depuis_dernier_run")
     bid_moved: bool = Field(alias="enchere_a_bouge")
     missing_fields: list[str] = Field(alias="champs_manquants", default_factory=list)
+
+    # --- Tri. Ce n'est pas une cotation : il décide seulement qui reçoit
+    # --- l'analyse coûteuse. Voir `scoring/engine.py`.
+    quote_eur: float | None = Field(alias="cote_reference", default=None)
+    repairs_eur: float = Field(alias="remise_en_etat_estimee", default=0.0, ge=0)
+    margin_eur: float | None = Field(alias="marge_theorique", default=None)
+    score: float | None = Field(alias="score", default=None)
+    rank: int | None = Field(alias="rang", default=None, ge=1)
+    score_explanation: list[ScoreRule] = Field(alias="score_explication", default_factory=list)
+    beyond_economic_repair: bool = Field(alias="non_reparable_economiquement", default=False)
+    to_quote: bool = Field(alias="a_coter", default=False)
 
     @property
     def scope_unknown(self) -> bool:

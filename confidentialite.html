@@ -1,0 +1,126 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Sleeper — Politique de confidentialité</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<h1>Politique de confidentialité</h1>
+<p class="sous-titre">
+  Sleeper — dernière mise à jour&nbsp;: 25 août 2026
+</p>
+
+<p>
+  Sleeper est un outil en ligne de commande qui s'exécute <strong>sur la
+  machine de son utilisateur</strong>. Il n'existe ni serveur, ni site, ni
+  compte, ni base de données mutualisée. L'éditeur de l'outil ne reçoit
+  aucune donnée : il n'a aucun moyen technique d'en recevoir.
+</p>
+
+<h2>Données traitées, et où elles restent</h2>
+<table>
+  <tr>
+    <th>Donnée</th>
+    <th>Origine</th>
+    <th>Où elle est écrite</th>
+  </tr>
+  <tr>
+    <td>Annonces de lots (marque, modèle, kilométrage, prix, lieu)</td>
+    <td>Pages publiques d'encheres-domaine.gouv.fr</td>
+    <td>Fichiers et base SQLite locaux, sur votre machine</td>
+  </tr>
+  <tr>
+    <td>Rapport quotidien (JSON et Markdown)</td>
+    <td>Produit par l'outil</td>
+    <td>Votre disque, et votre Google Drive si vous activez cette option</td>
+  </tr>
+  <tr>
+    <td>Jeton d'autorisation Google</td>
+    <td>Émis par Google après votre consentement</td>
+    <td>Un fichier de votre machine, en lecture pour vous seul</td>
+  </tr>
+</table>
+
+<p>
+  L'outil ne collecte aucune donnée personnelle vous concernant&nbsp;: ni
+  nom, ni adresse, ni statistique d'usage, ni traceur, ni télémétrie.
+</p>
+
+<h2>Autorisation Google demandée</h2>
+<p>
+  Le dépôt du rapport sur Google Drive est facultatif et désactivé par
+  défaut. S'il est activé, l'outil demande une seule autorisation&nbsp;:
+</p>
+<ul>
+  <li>
+    <code>https://www.googleapis.com/auth/drive.file</code> —
+    <strong>accès aux seuls fichiers créés par l'application</strong>.
+  </li>
+</ul>
+<p>
+  Cette autorisation ne donne accès ni à vos autres fichiers, ni à la liste
+  de votre Drive, ni à votre messagerie, ni à votre profil. L'outil s'en sert
+  uniquement pour déposer et remplacer ses propres rapports dans le dossier
+  que vous avez désigné.
+</p>
+<p>
+  L'usage que Sleeper fait des données reçues des API Google respecte la
+  <a href="https://developers.google.com/terms/api-services-user-data-policy">politique
+  relative aux données utilisateur des services d'API Google</a>, y compris
+  ses exigences d'utilisation limitée.
+</p>
+
+<h2>Transmission à des tiers</h2>
+<p>
+  <strong>Aucune.</strong> Les seules connexions sortantes de l'outil sont&nbsp;:
+</p>
+<ul>
+  <li>vers <code>encheres-domaine.gouv.fr</code>, pour lire les annonces publiques&nbsp;;</li>
+  <li>vers l'API Google Drive, si et seulement si vous avez activé le dépôt, pour y écrire vos propres fichiers.</li>
+</ul>
+<p>
+  Rien n'est vendu, loué, partagé ni analysé. Aucun modèle de langage n'est
+  appelé.
+</p>
+
+<h2>Conservation</h2>
+<ul>
+  <li>Les fichiers déposés dans votre Drive vous appartiennent et y restent jusqu'à ce que vous les supprimiez.</li>
+  <li>Les données locales restent sur votre machine ; les effacer suffit à les supprimer.</li>
+  <li>Le jeton d'autorisation reste valable jusqu'à ce que vous le révoquiez ou que vous supprimiez le fichier qui le contient.</li>
+</ul>
+
+<h2>Révoquer l'accès</h2>
+<p>
+  À tout moment, depuis
+  <a href="https://myaccount.google.com/permissions">myaccount.google.com/permissions</a>,
+  en retirant l'accès accordé à Sleeper. Supprimer le fichier de jeton sur
+  votre machine produit le même effet côté outil.
+</p>
+
+<h2>Sécurité</h2>
+<p>
+  Les identifiants et le jeton ne figurent jamais dans le code source&nbsp;:
+  seuls leurs chemins sont de la configuration, les fichiers eux-mêmes sont
+  exclus du dépôt, et le jeton est écrit avec des droits restreints à son
+  propriétaire. Le code étant public, chacune de ces affirmations est
+  vérifiable.
+</p>
+
+<h2>Contact</h2>
+<p>
+  Éditeur&nbsp;: William Stoops. Toute question relative à cette politique
+  peut être posée en ouvrant un ticket sur
+  <a href="https://github.com/William-Stoops/Sleeper/issues">le dépôt public</a>.
+</p>
+
+<footer>
+  <a href="index.html">Retour à l'accueil</a> ·
+  <a href="https://github.com/William-Stoops/Sleeper">Code source</a>
+</footer>
+
+</body>
+</html>

@@ -370,6 +370,7 @@ def _signal(brut: LotSource, attributs: AttributsVehicule | None) -> SignalLot:
         vhu_declare=attributs.vhu_declare if attributs else None,
         immatriculable_a_nouveau=attributs.immatriculable_a_nouveau if attributs else None,
         non_conforme=attributs.non_conforme if attributs else None,
+        a_des_attributs_vehicule=attributs.est_un_vehicule if attributs else None,
     )
 
 

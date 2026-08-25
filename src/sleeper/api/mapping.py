@@ -106,6 +106,11 @@ class AttributsVehicule:
     attributs_bruts: Mapping[str, str] = field(default_factory=dict)
     champs_illisibles: tuple[str, ...] = ()
 
+    @property
+    def est_un_vehicule(self) -> bool:
+        """Vrai si la fiche porte au moins un attribut vehicule identifiant."""
+        return bool(self.genre or self.marque or self.modele)
+
 
 def _bloc_donnees(payload: Mapping[str, Any], chemin: str) -> Mapping[str, Any]:
     """Ouvre l'enveloppe GraphQL, en refusant de travailler sur une reponse en erreur."""

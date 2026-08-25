@@ -67,8 +67,8 @@ pays_etrangers = ["BE", "LU"]
 # sortie principale.
 #
 # Regles disponibles :
-#   genre_hors_cible, collection_avant_1990, sans_cle,
-#   sans_certificat_immatriculation, epave_ou_pieces, non_roulant,
+#   hors_categorie_vehicule, genre_hors_cible, collection_avant_1990,
+#   sans_cle, sans_certificat_immatriculation, epave_ou_pieces, non_roulant,
 #   moteur_hors_service, choc_ou_accident, gage_ou_opposition,
 #   kilometrage_inconnu
 regles_actives = []

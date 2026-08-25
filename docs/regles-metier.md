@@ -44,7 +44,11 @@ rend le verdict reproductible d'un run à l'autre.
 
 ## Les règles
 
-### 1. `genre_hors_cible`
+### 1. `hors_categorie_vehicule`
+
+**Lot sans attribut vehicule (mobilier, high-tech, bijoux…)**
+
+### 2. `genre_hors_cible`
 
 **Genre de vehicule hors cible (deux-roues, quadricycle, agricole, remorque)**
 
@@ -71,7 +75,7 @@ Annulée par :
 - `porte moto`
 - `remorque non comprise`
 
-### 2. `collection_avant_1990`
+### 3. `collection_avant_1990`
 
 **Vehicule de collection anterieur a 1990**
 
@@ -80,7 +84,7 @@ Déclenche sur :
 - `vehicule de collection`
 - `carte grise de collection`
 
-### 3. `sans_cle`
+### 4. `sans_cle`
 
 **Vehicule sans cle**
 
@@ -110,7 +114,7 @@ Annulée par :
 - `avec clef`
 - `presence de cle`
 
-### 4. `sans_certificat_immatriculation`
+### 5. `sans_certificat_immatriculation`
 
 **Absence de certificat d'immatriculation**
 
@@ -136,7 +140,7 @@ Annulée par :
 - `avec carte grise`
 - `carte grise fournie`
 
-### 5. `epave_ou_pieces`
+### 6. `epave_ou_pieces`
 
 **Epave ou vente pour pieces**
 
@@ -156,7 +160,7 @@ Annulée par :
 - `pieces jointes`
 - `pieces du dossier`
 
-### 6. `non_roulant`
+### 7. `non_roulant`
 
 **Vehicule non roulant**
 
@@ -177,7 +181,7 @@ Annulée par :
 - `demarre correctement`
 - `demarre et roule`
 
-### 7. `moteur_hors_service`
+### 8. `moteur_hors_service`
 
 **Moteur hors service**
 
@@ -197,7 +201,7 @@ Annulée par :
 - `moteur en bon etat`
 - `moteur revise`
 
-### 8. `choc_ou_accident`
+### 9. `choc_ou_accident`
 
 **Choc, accident ou degats de carrosserie**
 
@@ -228,7 +232,7 @@ Annulée par :
 - `sans degat`
 - `carrosserie en bon etat`
 
-### 9. `gage_ou_opposition`
+### 10. `gage_ou_opposition`
 
 **Gage ou opposition**
 
@@ -248,7 +252,7 @@ Annulée par :
 - `aucune opposition`
 - `sans opposition`
 
-### 10. `kilometrage_inconnu`
+### 11. `kilometrage_inconnu`
 
 **Kilometrage inconnu, non renseigne ou absent**
 

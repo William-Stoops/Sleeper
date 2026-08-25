@@ -23,6 +23,7 @@ def signal(
     vhu_declare: bool | None = None,
     immatriculable_a_nouveau: bool | None = None,
     non_conforme: bool | None = None,
+    a_des_attributs_vehicule: bool | None = None,
 ) -> SignalLot:
     """Construit un signal de lot minimal, tout le reste etant inconnu."""
     return SignalLot(
@@ -35,6 +36,7 @@ def signal(
         vhu_declare=vhu_declare,
         immatriculable_a_nouveau=immatriculable_a_nouveau,
         non_conforme=non_conforme,
+        a_des_attributs_vehicule=a_des_attributs_vehicule,
     )
 
 
@@ -229,3 +231,28 @@ class TestOrdreEtExtensibilite:
     def test_un_ajout_sur_une_regle_inconnue_est_une_erreur(self) -> None:
         with pytest.raises(KeyError, match="regle_fantome"):
             MoteurExclusions.avec_ajouts(REGLES_PAR_DEFAUT, {"regle_fantome": ("peu importe",)})
+
+
+class TestHorsCategorieVehicule:
+    def test_un_lot_sans_attribut_vehicule_est_ecarte_avec_le_bon_motif(
+        self, moteur: MoteurExclusions
+    ) -> None:
+        # Une vente « Véhicules » vend aussi du mobilier et de la high-tech.
+        canape = signal("Canapé d'angle en cuir", a_des_attributs_vehicule=False)
+        assert moteur.motif(canape) == "hors_categorie_vehicule"
+
+    def test_un_vehicule_passe_la_regle(self, moteur: MoteurExclusions) -> None:
+        auto = signal("DACIA DUSTER", kilometrage=110430, a_des_attributs_vehicule=True)
+        assert moteur.motif(auto) is None
+
+    def test_une_fiche_illisible_ne_permet_pas_de_conclure(self, moteur: MoteurExclusions) -> None:
+        # Fiche absente : on ne prétend pas savoir si c'est un véhicule.
+        # Le lot retombe sur les autres règles, ici le kilométrage.
+        inconnu = signal("Lot 42", a_des_attributs_vehicule=None)
+        assert moteur.motif(inconnu) == "kilometrage_inconnu"
+
+    def test_la_regle_passe_avant_le_kilometrage(self, moteur: MoteurExclusions) -> None:
+        # Sans elle, un canapé serait écarté pour « kilométrage inconnu » :
+        # vrai, mais trompeur dans le tableau des motifs.
+        canape = signal("Canapé d'angle", a_des_attributs_vehicule=False)
+        assert moteur.motif(canape) != "kilometrage_inconnu"

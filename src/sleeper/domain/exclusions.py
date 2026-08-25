@@ -46,6 +46,9 @@ class SignalLot:
     vhu_declare: bool | None
     immatriculable_a_nouveau: bool | None
     non_conforme: bool | None
+    #: `True` si la fiche porte au moins un attribut vehicule (genre, marque,
+    #: modele). `None` quand la fiche n'a pas pu etre lue : on ne conclut pas.
+    a_des_attributs_vehicule: bool | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -72,6 +75,18 @@ class Regle:
 
 def _sans_verdict(_: SignalLot) -> bool | None:
     return None
+
+
+def _hors_categorie_vehicule(signal: SignalLot) -> bool | None:
+    """Une vente « Vehicules » vend aussi du mobilier, de la high-tech, des bijoux.
+
+    Ces lots n'ont aucun attribut vehicule. Les ecarter ici leur donne un motif
+    exact, au lieu de les faire tomber sur « kilometrage inconnu », qui serait
+    vrai mais trompeur.
+    """
+    if signal.a_des_attributs_vehicule is None:
+        return None
+    return not signal.a_des_attributs_vehicule
 
 
 def _kilometrage_absent(signal: SignalLot) -> bool | None:
@@ -115,6 +130,7 @@ def _collection(signal: SignalLot) -> bool | None:
 
 
 _VERDICTS_STRUCTURES: Final = {
+    "hors_categorie_vehicule": _hors_categorie_vehicule,
     "kilometrage_inconnu": _kilometrage_absent,
     "sans_cle": _sans_cle,
     "sans_certificat_immatriculation": _sans_certificat,
@@ -129,6 +145,10 @@ _VERDICTS_STRUCTURES: Final = {
 #: et donc celui qui rend le verdict reproductible pour un lot cumulant
 #: plusieurs defauts.
 REGLES_PAR_DEFAUT: Final[tuple[Regle, ...]] = (
+    Regle(
+        code="hors_categorie_vehicule",
+        libelle="Lot sans attribut vehicule (mobilier, high-tech, bijoux…)",
+    ),
     Regle(
         code="genre_hors_cible",
         libelle="Genre de vehicule hors cible (deux-roues, quadricycle, agricole, remorque)",

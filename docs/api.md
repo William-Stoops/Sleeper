@@ -200,7 +200,32 @@ inchangée. Les CGU et CGV sont publiées en PDF sous
 session de navigateur ; **elles sont à relire avant tout passage en production
 soutenu**.
 
-## 6. Pièges relevés, à ne pas réintroduire
+## 6. Optimisation identifiée, non encore implémentée
+
+**Une vente « Véhicules » ne contient pas que des véhicules.** La vente 478
+annonce 609 lots répartis sur sept catégories : véhicules, matériels
+professionnels, bijoux, high-tech, mobilier, matières, sports et loisirs.
+
+Or `getAuctionLots` **ne renvoie aucune catégorie par lot**. Le seul
+discriminant disponible est la présence d'attributs véhicule dans la fiche
+détaillée, ce qui coûte une requête par lot. C'est ce que fait la règle
+`hors_categorie_vehicule` : elle donne au moins un motif exact, au lieu de
+laisser ces lots tomber sur « kilométrage inconnu ».
+
+Le gain réel serait de filtrer **côté API**. Le filtre est passé en *variable*,
+pas dans le texte de la requête : `ProductAttributeFilterInput` accepte très
+probablement une contrainte de catégorie, sans sortir du gabarit accepté par le
+pare-feu. Il faut la relever, pas la deviner :
+
+```bash
+uv run --extra discovery python tools/discover_api.py --out var/discovery
+```
+
+Le script visite désormais `/categorie/vehicules`, ce qui capture la requête
+que l'application émet pour une catégorie. Reporter ensuite la forme exacte du
+filtre dans `pipeline._lots_de_vente`.
+
+## 7. Pièges relevés, à ne pas réintroduire
 
 1. **`professional_only` change de type selon le niveau.** `String` `"0"`/`"1"`
    sur une vente, `Int` `0`/`1` sur un lot. Absorbé une fois pour toutes par
@@ -217,7 +242,7 @@ soutenu**.
 5. **`pageSize` n'est pas libre.** Au-delà de la valeur employée par
    l'application (8), la requête sort du gabarit accepté par le pare-feu.
 
-## 7. Rejouer la reconnaissance
+## 8. Rejouer la reconnaissance
 
 ```bash
 uv sync --extra discovery
@@ -246,7 +271,7 @@ remplacer la constante correspondante dans `operations.py`, régénérer
 `tools/verifier_fixtures.py`** avant de versionner : les captures fraîches
 contiennent des données personnelles.
 
-## 8. Versions du contrat de sortie
+## 9. Versions du contrat de sortie
 
 | Version | Date | Changement |
 |---|---|---|

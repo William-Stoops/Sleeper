@@ -478,7 +478,7 @@ Quand un run échoue en `SchemaAmontError`, c'est que le contrat amont a bougé 
 uv run --extra discovery python tools/discover_api.py --out var/discovery
 ```
 
-Procédure détaillée dans [`docs/api.md` §7](docs/api.md).
+Procédure détaillée dans [`docs/api.md` §8](docs/api.md).
 
 ---
 

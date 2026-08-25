@@ -115,7 +115,14 @@ def _conformite(page: Page, out_dir: Path) -> None:
 
 
 def _explorer(page: Page, out_dir: Path, vente_id: str) -> None:
-    """Liste des ventes, puis une vente, puis un lot."""
+    """Categorie vehicules, liste des ventes, puis une vente, puis un lot."""
+    # La page de categorie est la seule qui montre comment l'application filtre
+    # les lots par categorie — filtre que le run quotidien ne sait pas encore
+    # appliquer cote API (voir docs/api.md §6).
+    page.goto(f"{BASE}/categorie/vehicules", wait_until="networkidle", timeout=60_000)
+    page.wait_for_timeout(4_000)
+    save_text(out_dir, "categorie_vehicules.html", page.content())
+
     page.goto(f"{BASE}/ventes", wait_until="networkidle", timeout=60_000)
     page.wait_for_timeout(4_000)
     save_text(out_dir, "ventes.html", page.content())

@@ -1,0 +1,63 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Sleeper</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<h1>Sleeper</h1>
+<p class="sous-titre">
+  Outil de veille sur les ventes aux enchères de véhicules du Domaine.
+</p>
+
+<p>
+  Sleeper recense chaque jour les lots de véhicules mis en vente par la
+  Direction nationale d'interventions domaniales sur
+  <a href="https://encheres-domaine.gouv.fr">encheres-domaine.gouv.fr</a>,
+  applique un filtre géographique et des règles d'exclusion, et produit un
+  rapport classé.
+</p>
+
+<p>
+  C'est un outil en ligne de commande qui s'exécute sur la machine de son
+  utilisateur. Il n'y a ni site, ni compte, ni serveur : rien n'est hébergé,
+  rien n'est mutualisé entre utilisateurs.
+</p>
+
+<h2>Ce qu'il ne fait pas</h2>
+<ul>
+  <li>Il <strong>n'enchérit jamais</strong> et n'écrit rien sur le site des enchères.</li>
+  <li>Il <strong>n'estime aucun prix</strong> à votre place : le classement repose sur des tables que vous renseignez.</li>
+  <li>Il ne contourne <strong>aucune protection anti-robot</strong>, aucun CAPTCHA, aucune authentification.</li>
+  <li>Il n'appelle <strong>aucun modèle de langage</strong>.</li>
+</ul>
+
+<h2>Accès à Google Drive</h2>
+<p>
+  Le dépôt du rapport quotidien sur Google Drive est une fonction
+  <strong>facultative</strong>, désactivée par défaut. Lorsqu'elle est
+  activée, l'outil demande la seule autorisation
+  <code>drive.file</code> — la plus étroite qui permette d'écrire : il voit
+  les fichiers qu'il a lui-même créés, et rien d'autre de votre Drive.
+</p>
+<p>
+  Le détail de ce qui est consulté, conservé et transmis figure dans la
+  <a href="confidentialite.html">politique de confidentialité</a>.
+</p>
+
+<h2>Code source</h2>
+<p>
+  Le code est public et lisible dans son intégralité :
+  <a href="https://github.com/William-Stoops/Sleeper">github.com/William-Stoops/Sleeper</a>.
+</p>
+
+<footer>
+  <a href="confidentialite.html">Politique de confidentialité</a> ·
+  <a href="https://github.com/William-Stoops/Sleeper">Code source</a>
+</footer>
+
+</body>
+</html>

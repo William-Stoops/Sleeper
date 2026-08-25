@@ -83,8 +83,17 @@ class FileSink:
         target = self._directory / target_name
         link.unlink(missing_ok=True)
         try:
-            link.symlink_to(target_name)
+            # Path(), not the raw string: a relative target keeps its forward
+            # slashes on Windows, which stores the reparse point verbatim and
+            # can no longer resolve it.
+            link.symlink_to(Path(target_name))
+            if not link.exists():
+                raise OSError(f"lien créé mais non résoluble : {link}")
         except (OSError, NotImplementedError):
+            # Not only refusals: Windows accepts a symlink it cannot follow,
+            # and says nothing. Trusting the absence of an exception left a
+            # dangling `latest.json` that no one would have noticed.
+            link.unlink(missing_ok=True)
             link.write_bytes(target.read_bytes())
         return str(link)
 

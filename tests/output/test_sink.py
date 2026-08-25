@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import os
 from datetime import UTC, datetime
 from pathlib import Path
 
@@ -137,3 +138,28 @@ class TestDatedSubdirectory:
         racine.sub("2026-08-25").put("run.json", b"hier")
         racine.sub("2026-08-26").put("run.json", b"aujourd'hui")
         assert (tmp_path / "2026-08-25" / "run.json").read_bytes() == b"hier"
+
+
+class TestDanglingSymlink:
+    """Windows accepte un lien qu'il ne sait pas suivre, et se tait.
+
+    Le repli ne se déclenchait que sur exception : le lien existait, cassé,
+    et `latest.json` restait introuvable sans que rien ne le signale. Seule
+    la CI Windows pouvait le voir — d'où ce test, qui la reproduit partout.
+    """
+
+    def test_it_falls_back_to_a_copy(self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+        def lien_qui_ne_pointe_nulle_part(
+            self: Path, _cible: str | Path, _target_is_directory: bool = False
+        ) -> None:
+            # os.symlink et non Path.symlink_to : c'est justement la méthode
+            # que ce test remplace, l'appeler ici serait une récursion.
+            os.symlink("cible-inexistante", self)  # noqa: PTH211
+
+        monkeypatch.setattr(Path, "symlink_to", lien_qui_ne_pointe_nulle_part)
+        racine = FileSink(tmp_path)
+        racine.sub("2026-08-25").put("run.json", b'{"a": 1}')
+        lien = racine.point_at_latest("2026-08-25/run.json", "latest.json")
+
+        assert Path(lien).read_bytes() == b'{"a": 1}'
+        assert not Path(lien).is_symlink(), "le lien cassé devait être remplacé par une copie"

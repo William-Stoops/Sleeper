@@ -148,8 +148,12 @@ def rediger() -> str:
 
 
 def main() -> int:
-    """Ecrit la documentation sur la sortie standard."""
-    print(rediger(), end="")
+    """Ecrit la documentation sur la sortie standard.
+
+    Le retour a la ligne final est voulu : il aligne la sortie sur ce
+    qu'attendent les garde-fous de pre-commit.
+    """
+    print(rediger().rstrip("\n"))
     return 0
 
 

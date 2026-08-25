@@ -238,6 +238,9 @@ filtre dans `pipeline.Collector._sale_lots`.
 
 ## 7. Pièges relevés, à ne pas réintroduire
 
+Les cinq premiers viennent de la reconnaissance, les trois derniers du premier
+run réel — ils ne se voyaient sur aucune fixture.
+
 1. **`professional_only` change de type selon le niveau.** `String` `"0"`/`"1"`
    sur une vente, `Int` `0`/`1` sur un lot. Absorbé une fois pour toutes par
    `domain/codes.to_bool`.
@@ -252,6 +255,11 @@ filtre dans `pipeline.Collector._sale_lots`.
    lieu de retrait ne s'obtient que par `dropoff_location`.
 5. **`pageSize` n'est pas libre.** Au-delà de la valeur employée par
    l'application (8), la requête sort du gabarit accepté par le pare-feu.
+6. **La puissance DIN précède la puissance fiscale.** « 2.0l DCI 16v 120cv,
+   […] 07cv » : sans plafond de plausibilité, on retient 120 au lieu de 7.
+7. **Le VIN s'annonce « n° DE série »** aussi souvent que « n° série ».
+8. **`kind` porte des valeurs composées** (`VASP - DERIV_VP`) et une casse
+   inconstante (`vp`). Seul le premier jeton est le code J.1.
 
 ## 8. Rejouer la reconnaissance
 

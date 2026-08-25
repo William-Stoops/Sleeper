@@ -21,7 +21,8 @@ _NON_ALNUM = re.compile(r"[^a-z0-9]+")
 #: shorter ones, so 11 to 17 is accepted: strict validation is not our job,
 #: and losing the value would be worse.
 _VIN = re.compile(
-    r"(?:n\W{0,3}\s*s[ée]rie|vin|num[ée]ro\s+de\s+s[ée]rie)\s*:?\s*([A-HJ-NPR-Z0-9]{11,17})\b",
+    r"(?:n\W{0,3}\s*(?:de\s+)?s[ée]rie|vin|num[ée]ro\s+(?:de\s+)?s[ée]rie)"
+    r"\s*:?\s*([A-HJ-NPR-Z0-9]{11,17})\b",
     re.IGNORECASE,
 )
 _TAX_HORSEPOWER = re.compile(r"\b(\d{1,3})\s*(?:cv|c\.v\.|chevaux\s+fiscaux)\b", re.IGNORECASE)
@@ -60,11 +61,18 @@ _CONDITION = re.compile(
     r"((?:tr[eè]s\s+)?(?:bon|mauvais|excellent|moyen)\s+[ée]tat(?:\s+g[ée]n[ée]ral)?"
     r"|[ée]tat\s+d\W?usage"
     r"|r[ée]parations?\s+[àa]\s+pr[ée]voir"
-    r"|entretien\s+[àa]\s+pr[ée]voir)",
+    r"|entretien\s+[àa]\s+pr[ée]voir"
+    r"|vendu\s+en\s+l\W?[ée]tat"
+    r"|v[ée]hicule\s+vendu\s+en\s+l\W?[ée]tat)",
     re.IGNORECASE,
 )
 
 _MAX_MONTH: Final = 12
+
+#: Plafond de plausibilité de la puissance fiscale. Les descriptions annoncent
+#: souvent la puissance DIN AVANT la puissance fiscale (« 2.0l DCI 16v 120cv,
+#: […] 07cv ») : sans ce plafond, on retient la mauvaise.
+_MAX_TAX_HORSEPOWER: Final = 60
 
 
 def from_html(source: str | None) -> str:
@@ -109,9 +117,17 @@ def extract_vin(source: str | None) -> str | None:
 
 
 def extract_tax_horsepower(source: str | None) -> int | None:
-    """Pick up the fiscal horsepower ("06 cv")."""
-    found = _TAX_HORSEPOWER.search(source or "")
-    return int(found.group(1)) if found else None
+    """Pick up the fiscal horsepower ("06 cv").
+
+    Descriptions regularly quote the engine's DIN power BEFORE the fiscal one
+    ("2.0l DCI 16v 120cv, […] 07cv"). Only a plausible fiscal value is kept:
+    the French fiscal rating does not reach three digits.
+    """
+    for found in _TAX_HORSEPOWER.finditer(source or ""):
+        value = int(found.group(1))
+        if value <= _MAX_TAX_HORSEPOWER:
+            return value
+    return None
 
 
 def extract_mileage(source: str | None) -> int | None:

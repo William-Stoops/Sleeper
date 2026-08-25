@@ -144,3 +144,51 @@ class TestExtraction:
     )
     def test_returns_the_condition_mention_verbatim(self, raw: str, expected: str | None) -> None:
         assert text.extract_declared_condition(raw) == expected
+
+
+class TestRealDescriptionRegressions:
+    """Bugs found by the first live run, pinned with the exact wording."""
+
+    TRAFIC = (
+        "Utilitaire RENAULT TRAFIC III phase 2 2.0l DCI 16v 120cv , Gazole, imm.FQ-037-QX, "
+        "type N10RENCTA306444, n° de série VF1FL000765414484, 1ère mise en circulation "
+        "19/06/2020, 07cv, 03 places, 33887 km non garantis , 2 clés. Feu ARD cassé. "
+        "Véhicule vendu en l'état."
+    )
+
+    def test_reads_the_vin_written_as_n_de_serie(self) -> None:
+        """« n° DE série » — la forme la plus courante, et elle échouait."""
+        assert text.extract_vin(self.TRAFIC) == "VF1FL000765414484"
+
+    def test_prefers_the_fiscal_power_over_the_din_power(self) -> None:
+        """« 120cv » est la puissance DIN, annoncée AVANT « 07cv »."""
+        assert text.extract_tax_horsepower(self.TRAFIC) == 7
+
+    @pytest.mark.parametrize(
+        "raw",
+        [
+            "Véhicule vendu en l'état",
+            "vendu en l'etat",
+            # Apostrophe typographique, relevée telle quelle en production.
+            "Vendu en l\u2019état.",
+        ],
+    )
+    def test_recognises_sold_as_is(self, raw: str) -> None:
+        assert text.extract_declared_condition(raw) is not None
+
+    def test_a_three_digit_power_alone_is_not_a_fiscal_rating(self) -> None:
+        # Sans plafond de plausibilité, on retiendrait la puissance moteur.
+        assert text.extract_tax_horsepower("moteur 150 cv") is None
+
+    @pytest.mark.parametrize(
+        ("raw", "expected"),
+        [
+            ("n° série VF1FC1EAF39868928", "VF1FC1EAF39868928"),
+            ("n° de série VF1FL000765414484", "VF1FL000765414484"),
+            ("numéro de série VF1FL000765414484", "VF1FL000765414484"),
+            ("numéro série VF1FL000765414484", "VF1FL000765414484"),
+            ("VIN VF1FL000765414484", "VF1FL000765414484"),
+        ],
+    )
+    def test_vin_wordings(self, raw: str, expected: str) -> None:
+        assert text.extract_vin(raw) == expected
